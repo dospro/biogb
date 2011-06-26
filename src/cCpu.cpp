@@ -754,10 +754,6 @@ void cCpu::saveState(int number)
 	fwrite(&intStatus, 1, sizeof(int), sout);
 	fwrite(&timerCounter, 1, sizeof(int), sout);
 	fwrite(&cyclesCount, 1, sizeof(int), sout);
-	//fwrite(&allModes, 1, sizeof(int), sout);
-	//fwrite(&mode0, 1, sizeof(int), sout);
-	//fwrite(&mode2, 1, sizeof(int), sout);
-	//fwrite(&mode3, 1, sizeof(int), sout);
 	fwrite(&divideReg, 1, sizeof(int), sout);
 
 	fwrite(&isColor, 1, sizeof(bool), sout);
@@ -811,13 +807,8 @@ void cCpu::loadState(int number)
 	fread(&intStatus, 1, sizeof(int), in);
 	fread(&timerCounter, 1, sizeof(int), in);
 	fread(&cyclesCount, 1, sizeof(int), in);
-	//fread(&allModes, 1, sizeof(int), in);
-	//fread(&mode0, 1, sizeof(int), in);
-	//fread(&mode2, 1, sizeof(int), in);
-	//fread(&mode3, 1, sizeof(int), in);
 	fread(&divideReg, 1, sizeof(int), in);
 	
-	//fseek(in, 8, SEEK_CUR);
 
 	fread(&isColor, 1, sizeof(bool), in);
 	fread(&currentSpeed, 1, sizeof(int), in);
@@ -841,15 +832,6 @@ bool cCpu::initCpu(char *file)
 	nextMode=3;
 	lyCycles=456;
 	scanLine=0;
-	//allModes=456;
-	/*mode0=456-201;
-	mode2=456-77;
-	mode3=456-169;*/
-	
-	//mode0=204;
-	//mode1=4560;
-	//mode2=80;
-	//mode3=172;
 	
 	divideReg=256;
 	timerCounter=0;
@@ -1189,171 +1171,6 @@ void cCpu::doCycle(void)
 		mem->rtcCounter();
 	}
 }
-
-/*void cCpu::doCycle(void)
-{
-	
-	executeOpcode();
-	checkInterrupts();
-	
-
-	if(cyclesCount>mode0)//Mode 0 is over, starts Mode 2
-	{
-		mode0+=(456<<currentSpeed);
-		setMode(2);
-		if((mem->mem[0xFF40][0]&0x80)&&(mem->mem[0xFF41][0]&0x20))
-			setInterrupt(1);//Mode 2 OAM LCDC Interrupt
-	}
-	else if(cyclesCount>mode1)//Mode 1 is over, starts allModes(Not necessary)
-	{
-		mode1+=456;
-	}
-	else if(cyclesCount>mode2)//Mode 2 is over, starts Mode 3
-	{
-		mode2+=(456<<currentSpeed);
-		setMode(3);
-	}
-	else if(cyclesCount>mode3)//Mode 3 is over, starts Mode 0
-	{
-		mode3+=(456<<currentSpeed);
-		setMode(0);
-		display->hBlankDraw();
-		if(mem->mem[0xFF40][0]&0x80 && mem->mem[0xFF41][0]&8)
-			setInterrupt(1);//Mode 0 H-Blank LCDC Interrupt
-		if(isColor)
-			mem->HBlankHDMA();
-	}
-	else if(cyclesCount>allModes)//All 4 modes are over, start again, or vblank
-	{
-		incLY();
-		allModes+=(456<<currentSpeed);
-		if(mem->mem[0xFF44][0]<144)//Not 144 cycles yet, go to mode 2 then
-		{
-			setMode(2);
-			if((mem->mem[0xFF40][0]&0x80)&&(mem->mem[0xFF41][0]&0x20))
-				setInterrupt(1);//Mode 2 OAM LCDC Interrupt
-		}
-		else if(mem->mem[0xFF44][0]==144)//144 LY cycles, then Mode 1 (V-Blank)
-		{
-			setMode(1);
-			if(mem->mem[0xFF40][0]&0x80)//V-Blank interrupt(Draw screen)
-			{
-				setInterrupt(0);
-				if(mem->mem[0xFF41][0]&0x10)//Mode 1 V-Blank LCDC Interrupt
-					setInterrupt(1);
-			}
-			
-		}
-		else if(mem->mem[0xFF44][0]==145)//Time to draw screen
-		{
-			if(mem->mem[0xFF40][0]&0x80)
-				display->updateScreen();
-		}
-		
-		if(mem->mem[0xFF44][0]==mem->mem[0xFF45][0])//We have a LY==LYC interrupt
-		{
-			if((mem->mem[0xFF41][0]&0x40) && (mem->mem[0xFF40][0]&0x80))
-				setInterrupt(1);
-			setMode(4);//Set LYC flag(no mode)
-		}
-		else//If not then we must make sure the flags is off		
-			mem->mem[0xFF41][0]&=251;
-		
-	}
-	
-	if(cyclesCount>=divideReg)
-	{
-		divideReg+=(256<<currentSpeed);
-		mem->mem[0xFF04][0]++;
-	}
-	
-	if(rtcCount>=4194304)
-	{
-		rtcCount-=4194304;
-		mem->rtcCounter();
-	}
-	
-	if(cyclesCount>77024)
-	{
-		cyclesCount-=70224;
-		allModes-=70224;
-		mode0-=70224;
-		mode2-=70224;
-		mode3-=70224;
-		divideReg-=70224;
-
-		input->pollEvents();
-
-		if(input->isKeyPressed(GBK_ESCAPE))
-		{
-			saveSram();
-			sound->turnOff();
-#ifdef USE_SDL_NET
-			net.finish();
-#endif
-			isRunning=false;
-		}
-		if(input->isKeyPressed(GBK_s))
-		{
-			saveState(0);
-		}
-		if(input->isKeyPressed(GBK_l))
-		{
-			loadState(0);
-		}
-
-		if(input->isGbKeyPressed(GB_UP))	jpd|=4;	else jpd&=251;
-		if(input->isGbKeyPressed(GB_DOWN))	jpd|=8;	else jpd&=247;
-		if(input->isGbKeyPressed(GB_LEFT))	jpd|=2; else jpd&=253;
-		if(input->isGbKeyPressed(GB_RIGHT))	jpd|=1;	else jpd&=254;
-
-		if(input->isGbKeyPressed(GB_A))		jpb|=1;	else jpb&=254;
-		if(input->isGbKeyPressed(GB_B))		jpb|=2; else jpb&=253;
-		if(input->isGbKeyPressed(GB_START))	jpb|=8;	else jpb&=247;
-		if(input->isGbKeyPressed(GB_SELECT))jpb|=4;	else jpb&=251;
-
-#ifdef USE_SDL
-		if(time2<=SDL_GetTicks())
-		{
-			time2=SDL_GetTicks()+1000;
-			//printf("%d          \r", fps);
-			fps=0;
-		}
-		fps++;
-
-		if(input->isKeyPressed(GBK_KP_PLUS))
-			SpeedkeyChange=true;
-		else
-		{
-			if(SpeedkeyChange)
-			{
-				if(fpsSpeed<5)
-					fpsSpeed++;
-				SpeedkeyChange=false;
-			}
-		}
-		if(input->isKeyPressed(GBK_KP_MINUS))
-			SpeedkeyChange=true;
-		else
-		{
-			if(SpeedkeyChange)
-			{
-				if(fpsSpeed>1)
-					fpsSpeed--;
-				SpeedkeyChange=false;
-			}
-		}
-		if(!input->isKeyPressed(GBK_SPACE))
-		{
-			while(time1>SDL_GetTicks())
-			{
-				;
-			}
-			time1=SDL_GetTicks()+((17/fpsSpeed)>>currentSpeed);
-		}
-#endif
-	}
-}*/
 
 void cCpu::updateModes(void)
 {

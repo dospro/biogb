@@ -116,11 +116,6 @@ class cCpu {
 	u8 scanLine;
 	s32 lyCycles;
 	
-	/*s32 allModes;
-	s32 mode0;
-	s32 mode1;
-	s32 mode2;
-	s32 mode3;*/
 	s32 divideReg;
 	s32 rtcCount;
 
