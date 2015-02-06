@@ -90,7 +90,7 @@ public:
 	u8 mem[0x10000][0x200];
 	
 	void rtcCounter(void);
-	bool loadRom(char *file);
+	bool loadRom(const char *file);
 	u8 readByte(u16);
 	void writeByte(u16, u8);
 	void HBlankHDMA(void);
@@ -213,7 +213,7 @@ public:
 	//Interface
 	cCpu();
 	~cCpu();
-	bool initCpu(char *file);
+	bool initCpu(const char *fileName);
 	bool isCpuRunning(void){return isRunning;}
 	void doCycle(void);
 

@@ -27,11 +27,7 @@
 
 
 #include"cInput.h"
-#ifdef LINUX
-#include<SDL/SDL.h>
-#else
-#include<SDL.h>
-#endif
+
 
 bool cInput::initInputSystem(void)
 {
@@ -62,10 +58,14 @@ bool cInput::isButtonPressed(int b)
 
 bool cInput::isKeyPressed(int k)
 {
-    if (key[k])
-        return true;
-    else
-        return false;
+    if(event.type == SDL_KEYUP)
+    {
+        if (event.key.keysym.sym == k)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool cInput::isGbKeyPressed(int k)
@@ -76,9 +76,12 @@ bool cInput::isGbKeyPressed(int k)
         return false;
 }
 
-void cInput::pollEvents(void)
+bool cInput::pollEvents(void)
 {
-    SDL_PumpEvents();
+    if (SDL_PollEvent(&event) == 0)
+    {
+        return false;
+    }
     key = (unsigned char *) SDL_GetKeyState(NULL);
-
+    return true;
 }

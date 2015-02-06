@@ -26,28 +26,26 @@
  */
 
 
-#include<stdio.h>
+#include<iostream>
 #include"cCpu.h"
-
 
 int main(int argc, char *argv[])
 {
-	cCpu *gb;
-	printf("BioGB v4\n");
-	if(argc<2)
-	{
-		printf("Usage: biogb4 game.gb\n");
-		return 0;
-	}
-	gb=new cCpu;
-	if(!gb)
-		return 0;
-	if(gb->initCpu(argv[1]))
-	{
-		gb->loadSram();
-		while(gb->isCpuRunning())
-			gb->doCycle();
-	}
-	delete gb;
-	return 0;
+    cCpu *gb;
+    std::cout << "BioGB v4.4\n";
+    if (argc < 2) 
+    {
+        std::cout << "Usage: biogb4 game.gb\n";
+        return 0;
+    }
+    gb = new cCpu;
+    if (!gb)
+        return 0;
+    if (gb->initCpu(argv[1])) {
+        gb->loadSram();
+        while (gb->isCpuRunning())
+            gb->doCycle();
+    }
+    delete gb;
+    return 0;
 }

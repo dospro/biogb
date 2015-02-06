@@ -28,6 +28,11 @@
 #ifndef BIOGB_INPUT
 #define BIOGB_INPUT
 #include<stdio.h>
+#ifdef LINUX
+#include<SDL/SDL.h>
+#else
+#include<SDL.h>
+#endif
 
 #define GBK_ESCAPE SDLK_ESCAPE
 #define GBK_SPACE SDLK_SPACE
@@ -58,6 +63,7 @@
 class cInput {
 protected:
 
+    SDL_Event event;
     unsigned char *key; //keyboard
 
     int gbky[9]; //Gameboy keys
@@ -65,7 +71,7 @@ protected:
 public:
     void setKey(int gbKey, int pKey);
     bool initInputSystem(void);
-    void pollEvents(void);
+    bool pollEvents(void);
     bool isKeyPressed(int k);
     bool isGbKeyPressed(int k);
     bool isButtonPressed(int b);
