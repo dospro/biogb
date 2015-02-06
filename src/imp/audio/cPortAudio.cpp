@@ -30,34 +30,32 @@
 
 cPortAudio::cPortAudio()
 {
-	stream=NULL;
+    stream = NULL;
 }
 
 cPortAudio::~cPortAudio()
 {
-	if(Pa_IsStreamStopped(stream)!=1)
-		Pa_CloseStream(stream);
-	Pa_Terminate();
-	stream=NULL;
+    if (Pa_IsStreamStopped(stream) != 1)
+        Pa_CloseStream(stream);
+    Pa_Terminate();
+    stream = NULL;
 }
 
 bool cPortAudio::init(u32 freq, u32 size, u32 bSize)
 {
-	int i;
-	PaError err;
-	
-	err=Pa_Initialize();
-	if(err!=paNoError)
-	{
-		printf("PA: Error inicializando Port Audio\n");
-		return false;
-	}
+    int i;
+    PaError err;
 
-    err=Pa_OpenDefaultStream(&stream, 0, 1, paUInt8, freq, bSize, outputAudio, this);
-    if(err!=paNoError)
-    {
-    	printf("PA: Error creando Stream de audio\n");
-    	return false;
+    err = Pa_Initialize();
+    if (err != paNoError) {
+        printf("PA: Error inicializando Port Audio\n");
+        return false;
+    }
+
+    err = Pa_OpenDefaultStream(&stream, 0, 1, paUInt8, freq, bSize, outputAudio, this);
+    if (err != paNoError) {
+        printf("PA: Error creando Stream de audio\n");
+        return false;
     }
     //Call the parent init function
     return cSound::init(freq, size, bSize);
@@ -66,27 +64,26 @@ bool cPortAudio::init(u32 freq, u32 size, u32 bSize)
 
 void cPortAudio::turnOn(void)
 {
-	PaError err;
-	err=Pa_StartStream(stream);
-	if(err!=paNoError)
-	{
-		printf("PA: No se pudo comenzar la secuencia de audio\n");
-	}
-	
+    PaError err;
+    err = Pa_StartStream(stream);
+    if (err != paNoError) {
+        printf("PA: No se pudo comenzar la secuencia de audio\n");
+    }
+
 }
 
 void cPortAudio::turnOff(void)
 {
-	if(Pa_IsStreamActive(stream)==1)   	
-		Pa_StopStream(stream);
+    if (Pa_IsStreamActive(stream) == 1)
+        Pa_StopStream(stream);
 
 }
 
 int outputAudio(const void *in, void *out, unsigned long len, const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void *data)
 {
-	cPortAudio *tmp=(cPortAudio*)data;
-	tmp->fillBuffer();
-	memcpy(out, tmp->buffer, len);
+    cPortAudio *tmp = (cPortAudio*) data;
+    tmp->fillBuffer();
+    memcpy(out, tmp->buffer, len);
     return 0;
 }
 

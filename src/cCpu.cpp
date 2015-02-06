@@ -28,7 +28,7 @@
 
 #include"cCpu.h"
 #include"tables.h"
-#include"imp/audio/cSDLSound.h"
+#include"imp/audio/cPortAudio.h"
 #include"imp/video/cSDLDisplay.h"
 #include<time.h>
 
@@ -924,13 +924,13 @@ bool cCpu::initCpu(char *file)
 	printf("OK\n");
 
 	printf("Sound...");
-	sound=new cSDLSound;
+	sound=new cPortAudio;
 	if(sound==NULL)
 	{
 		printf("Error1\n");
 		return false;
 	}
-	if(!sound->init(44100, 8, 1024))
+	if(!sound->init(44100, 8, 512))
 	{
 		printf("Error\n");
 		return false;
@@ -1011,10 +1011,10 @@ bool cCpu::initCpu(char *file)
 	mem->writeByte(0xFF4D, 0x00);
 	mem->writeByte(0xFFFF, 0x00);
 	//log=fopen("log.txt", "w");
-#ifdef USE_SDL
+
 	time1=SDL_GetTicks()+16;
 	time2=SDL_GetTicks()+1000;
-#endif
+
 	isRunning=true;
 	fpsSpeed=1;
 	SpeedkeyChange=false;
@@ -1277,7 +1277,7 @@ void cCpu::fullUpdate(void)
 	if(input->isGbKeyPressed(GB_START))	jpb|=8;	else jpb&=247;
 	if(input->isGbKeyPressed(GB_SELECT))	jpb|=4;	else jpb&=251;
 
-#ifdef USE_SDL
+
 	if(time2<=SDL_GetTicks())
 	{
 		time2=SDL_GetTicks()+1000;
@@ -1316,7 +1316,7 @@ void cCpu::fullUpdate(void)
 		}
 		time1=SDL_GetTicks()+((17/fpsSpeed)>>currentSpeed);
 	}
-#endif
+
 }
 
 void cCpu::executeOpcode(void)

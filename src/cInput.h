@@ -29,7 +29,6 @@
 #define BIOGB_INPUT
 #include<stdio.h>
 
-#ifdef USE_SDL
 #define GBK_ESCAPE SDLK_ESCAPE
 #define GBK_SPACE SDLK_SPACE
 #define GBK_KP_MINUS SDLK_KP_MINUS
@@ -44,24 +43,8 @@
 #define GBK_RIGHT SDLK_RIGHT
 #define GBK_RETURN SDLK_RETURN
 #define GBK_RSHIFT SDLK_RSHIFT
-#endif
 
-#ifdef USE_ALLEGRO
-#define GBK_ESCAPE KEY_ESC
-#define GBK_SPACE KEY_SPACE
-#define GBK_KP_MINUS KEY_MINUS_PAD
-#define GBK_KP_PLUS KEY_PLUS_PAD
-#define GBK_s KEY_S
-#define GBK_l KEY_L
-#define GBK_x KEY_X
-#define GBK_z KEY_Z
-#define GBK_UP KEY_UP
-#define GBK_DOWN KEY_DOWN
-#define GBK_LEFT KEY_LEFT
-#define GBK_RIGHT KEY_RIGHT
-#define GBK_RETURN KEY_ENTER
-#define GBK_RSHIFT KEY_RSHIFT
-#endif
+
 
 #define GB_UP		0
 #define GB_DOWN		1
@@ -72,20 +55,20 @@
 #define GB_START	6
 #define GB_SELECT	7
 
-class cInput{
+class cInput {
 protected:
-#ifdef USE_SDL
-	unsigned char *key;//keyboard
-#endif
-	int gbky[9];//Gameboy keys
-	unsigned int button;//joypad/joystick
+
+    unsigned char *key; //keyboard
+
+    int gbky[9]; //Gameboy keys
+    unsigned int button; //joypad/joystick
 public:
-	void setKey(int gbKey, int pKey);
-	bool initInputSystem(void);
-	void pollEvents(void);
-	bool isKeyPressed(int k);
-	bool isGbKeyPressed(int k);
-	bool isButtonPressed(int b);
+    void setKey(int gbKey, int pKey);
+    bool initInputSystem(void);
+    void pollEvents(void);
+    bool isKeyPressed(int k);
+    bool isGbKeyPressed(int k);
+    bool isButtonPressed(int b);
 };
 
 #endif

@@ -1,23 +1,22 @@
 SRCDIR = src
 SOURCES = ${SRCDIR}/main.cpp \
-	${SRCDIR}/cGfx.cpp \
+	${SRCDIR}/cDisplay.cpp \
 	${SRCDIR}/cInput.cpp \
-	${SRCDIR}/cLibGfx.cpp \
+	${SRCDIR}/imp/video/cSDLDisplay.cpp \
 	${SRCDIR}/cNet.cpp \
 	${SRCDIR}/cSound.cpp \
-	${SRCDIR}/cCpu.cpp 
+	${SRCDIR}/cCpu.cpp \
+	${SRCDIR}/imp/audio/cPortAudio.cpp
 	
 OBJS    = ${SOURCES:.c=.o}
-HDRS	= cSound.h tables.h cCpu.h cGfx.h cInput.h cLibGfx.h cNet.h
 
-COPTIONS  =-DLINUX -DUSE_SDL -g `sdl-config --cflags`
-#COPTIONS  =-DLINUX -DUSE_ALLEGRO -lalleg
-LOPTIONS   =`sdl-config --libs`
+COPTIONS  =-DLINUX -g `sdl-config --cflags`
+LOPTIONS   =`sdl-config --libs` -lportaudio
 CC      = g++
 PACKAGE = biogb
 
 all : ${OBJS}
 	${CC} -o ${PACKAGE} ${OBJS} ${COPTIONS} ${LOPTIONS}
 
-.c.o:
-	${CC} ${COPTIONS} ${LOPTIONS} -c $<
+clean:
+	rm biogb

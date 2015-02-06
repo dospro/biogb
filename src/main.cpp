@@ -43,9 +43,8 @@ int main(int argc, char *argv[])
 	if(!gb)
 		return 0;
 	if(gb->initCpu(argv[1]))
-	//if(gb->initCpu("/pc/home/dospro/BioGB_v4_src/roms/zeldadx.gb"))
 	{
-		//gb->loadSram();
+		gb->loadSram();
 		while(gb->isCpuRunning())
 			gb->doCycle();
 	}
