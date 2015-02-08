@@ -128,7 +128,7 @@ bool cMemory::loadRom(const char *fileName)
     return true;
 }
 
-unsigned char cMemory::readByte(unsigned short address)
+u8 cMemory::readByte(u16 address)
 {
     if (address < 0x4000)
         return mem[address][0];
@@ -169,7 +169,7 @@ unsigned char cMemory::readByte(unsigned short address)
         return mem[address][0];
 }
 
-void cMemory::writeByte(unsigned short address, unsigned char val)
+void cMemory::writeByte(u16 address, u8 val)
 {
     if (address < 0x8000) {
         /*Memory Bank Controller 1*/
@@ -326,7 +326,7 @@ void cMemory::writeByte(unsigned short address, unsigned char val)
 #ifdef USE_SDL_NET
                 if (net.isActive()) {
                     net.send(ST.trans);
-                    ST.rec = (unsigned char) net.recieve();
+                    ST.rec = (u8) net.recieve();
                     mem[0xFF01][0] = ST.rec;
                     mem[address][0] = val & 0x7F;
                     mem[0xFF0F][0] |= 8;
@@ -555,7 +555,7 @@ void cCpu::flags(u8 val)
     cf = ((val >> 4)&1);
 }
 
-unsigned short cCpu::af(void)
+u16 cCpu::af(void)
 {
     return (a << 8) | flags();
 }
@@ -566,7 +566,7 @@ void cCpu::af(u16 val)
     flags(val & 0xFF);
 }
 
-unsigned short cCpu::bc(void)
+u16 cCpu::bc(void)
 {
     return ((b << 8) | c);
 }
@@ -577,7 +577,7 @@ void cCpu::bc(u16 val)
     c = val & 0xFF;
 }
 
-unsigned short cCpu::de(void)
+u16 cCpu::de(void)
 {
     return ((d << 8) | e);
 }
@@ -588,7 +588,7 @@ void cCpu::de(u16 val)
     e = val & 0xFF;
 }
 
-unsigned short cCpu::hl(void)
+u16 cCpu::hl(void)
 {
     return ((h << 8) | l);
 }
@@ -599,12 +599,12 @@ void cCpu::hl(u16 val)
     l = val & 0xFF;
 }
 
-unsigned char cCpu::readNextByte(void)
+u8 cCpu::readNextByte(void)
 {
     return mem->readByte(pc++);
 }
 
-unsigned short cCpu::readNextWord(void)
+u16 cCpu::readNextWord(void)
 {
     return (mem->readByte(pc++) | (mem->readByte(pc++) << 8));
 }
@@ -1572,7 +1572,6 @@ void cCpu::executeOpcode(void)
         break;
     case 0x54: d = h;
         break;
-        printf("Reading state ram\n");
     case 0x55: d = l;
         break;
     case 0x56: d = mem->readByte(hl());
@@ -1718,11 +1717,11 @@ void cCpu::executeOpcode(void)
 
     case 0xF1: popaf();
         break;
-    case 0xC1: pop(&b, &c);
+    case 0xC1: pop(b, c);
         break;
-    case 0xD1: pop(&d, &e);
+    case 0xD1: pop(d, e);
         break;
-    case 0xE1: pop(&h, &l);
+    case 0xE1: pop(h, l);
         break;
 
     case 0x87: add(a);
@@ -1877,36 +1876,36 @@ void cCpu::executeOpcode(void)
     case 0xFE: cp(readNextByte());
         break;
 
-    case 0x3C: inc(&a);
+    case 0x3C: inc(a);
         break;
-    case 0x04: inc(&b);
+    case 0x04: inc(b);
         break;
-    case 0x0C: inc(&c);
+    case 0x0C: inc(c);
         break;
-    case 0x14: inc(&d);
+    case 0x14: inc(d);
         break;
-    case 0x1C: inc(&e);
+    case 0x1C: inc(e);
         break;
-    case 0x24: inc(&h);
+    case 0x24: inc(h);
         break;
-    case 0x2C: inc(&l);
+    case 0x2C: inc(l);
         break;
     case 0x34: inchl();
         break;
 
-    case 0x3D: dec(&a);
+    case 0x3D: dec(a);
         break;
-    case 0x05: dec(&b);
+    case 0x05: dec(b);
         break;
-    case 0x0D: dec(&c);
+    case 0x0D: dec(c);
         break;
-    case 0x15: dec(&d);
+    case 0x15: dec(d);
         break;
-    case 0x1D: dec(&e);
+    case 0x1D: dec(e);
         break;
-    case 0x25: dec(&h);
+    case 0x25: dec(h);
         break;
-    case 0x2D: dec(&l);
+    case 0x2D: dec(l);
         break;
     case 0x35: dechl();
         break;
@@ -1922,20 +1921,20 @@ void cCpu::executeOpcode(void)
     case 0xE8: addsp(readNextByte());
         break;
 
-    case 0x03: inc(&b, &c);
+    case 0x03: inc(b, c);
         break;
-    case 0x13: inc(&d, &e);
+    case 0x13: inc(d, e);
         break;
-    case 0x23: inc(&h, &l);
+    case 0x23: inc(h, l);
         break;
     case 0x33: sp++;
         break;
 
-    case 0x0B: dec(&b, &c);
+    case 0x0B: dec(b, c);
         break;
-    case 0x1B: dec(&d, &e);
+    case 0x1B: dec(d, e);
         break;
-    case 0x2B: dec(&h, &l);
+    case 0x2B: dec(h, l);
         break;
     case 0x3B: sp--;
         break;
@@ -1959,10 +1958,16 @@ void cCpu::executeOpcode(void)
         break;
 
     case 0x76:
-        if (interruptsEnabled == false)
-            break;
-        else if ((mem->readByte(0xFFFF) & mem->readByte(0xFF0F)) == 0)//If there is no interrupt to execute
-            pc--;
+        if (interruptsEnabled)
+        {
+            if ((mem->readByte(0xFFFF) & mem->readByte(0xFF0F)) == 0)//If there is no interrupt to execute
+                pc--;
+        }
+        else
+        {
+            if ((mem->readByte(0xFFFF) & mem->readByte(0xFF0F)) != 0)
+                interruptsEnabled = true;
+        }     
         break;
 
     case 0x10:
@@ -1992,138 +1997,138 @@ void cCpu::executeOpcode(void)
     case 0xCB://CBOpcodes
         cbOpcode = mem->readByte(pc++);
         switch (cbOpcode) {
-        case 0x37: swap(&a);
+        case 0x37: swap(a);
             break;
-        case 0x30: swap(&b);
+        case 0x30: swap(b);
             break;
-        case 0x31: swap(&c);
+        case 0x31: swap(c);
             break;
-        case 0x32: swap(&d);
+        case 0x32: swap(d);
             break;
-        case 0x33: swap(&e);
+        case 0x33: swap(e);
             break;
-        case 0x34: swap(&h);
+        case 0x34: swap(h);
             break;
-        case 0x35: swap(&l);
+        case 0x35: swap(l);
             break;
         case 0x36: swaphl();
             break;
 
-        case 0x07: rlc(&a);
+        case 0x07: rlc(a);
             break;
-        case 0x00: rlc(&b);
+        case 0x00: rlc(b);
             break;
-        case 0x01: rlc(&c);
+        case 0x01: rlc(c);
             break;
-        case 0x02: rlc(&d);
+        case 0x02: rlc(d);
             break;
-        case 0x03: rlc(&e);
+        case 0x03: rlc(e);
             break;
-        case 0x04: rlc(&h);
+        case 0x04: rlc(h);
             break;
-        case 0x05: rlc(&l);
+        case 0x05: rlc(l);
             break;
         case 0x06: rlchl();
             break;
 
-        case 0x17: rl(&a);
+        case 0x17: rl(a);
             break;
-        case 0x10: rl(&b);
+        case 0x10: rl(b);
             break;
-        case 0x11: rl(&c);
+        case 0x11: rl(c);
             break;
-        case 0x12: rl(&d);
+        case 0x12: rl(d);
             break;
-        case 0x13: rl(&e);
+        case 0x13: rl(e);
             break;
-        case 0x14: rl(&h);
+        case 0x14: rl(h);
             break;
-        case 0x15: rl(&l);
+        case 0x15: rl(l);
             break;
         case 0x16: rlhl();
             break;
 
-        case 0x0F: rrc(&a);
+        case 0x0F: rrc(a);
             break;
-        case 0x08: rrc(&b);
+        case 0x08: rrc(b);
             break;
-        case 0x09: rrc(&c);
+        case 0x09: rrc(c);
             break;
-        case 0x0A: rrc(&d);
+        case 0x0A: rrc(d);
             break;
-        case 0x0B: rrc(&e);
+        case 0x0B: rrc(e);
             break;
-        case 0x0C: rrc(&h);
+        case 0x0C: rrc(h);
             break;
-        case 0x0D: rrc(&l);
+        case 0x0D: rrc(l);
             break;
         case 0x0E: rrchl();
             break;
 
-        case 0x1F: rr(&a);
+        case 0x1F: rr(a);
             break;
-        case 0x18: rr(&b);
+        case 0x18: rr(b);
             break;
-        case 0x19: rr(&c);
+        case 0x19: rr(c);
             break;
-        case 0x1A: rr(&d);
+        case 0x1A: rr(d);
             break;
-        case 0x1B: rr(&e);
+        case 0x1B: rr(e);
             break;
-        case 0x1C: rr(&h);
+        case 0x1C: rr(h);
             break;
-        case 0x1D: rr(&l);
+        case 0x1D: rr(l);
             break;
         case 0x1E: rrhl();
             break;
 
-        case 0x27: sla(&a);
+        case 0x27: sla(a);
             break;
-        case 0x20: sla(&b);
+        case 0x20: sla(b);
             break;
-        case 0x21: sla(&c);
+        case 0x21: sla(c);
             break;
-        case 0x22: sla(&d);
+        case 0x22: sla(d);
             break;
-        case 0x23: sla(&e);
+        case 0x23: sla(e);
             break;
-        case 0x24: sla(&h);
+        case 0x24: sla(h);
             break;
-        case 0x25: sla(&l);
+        case 0x25: sla(l);
             break;
         case 0x26: slahl();
             break;
 
-        case 0x2F: sra(&a);
+        case 0x2F: sra(a);
             break;
-        case 0x28: sra(&b);
+        case 0x28: sra(b);
             break;
-        case 0x29: sra(&c);
+        case 0x29: sra(c);
             break;
-        case 0x2A: sra(&d);
+        case 0x2A: sra(d);
             break;
-        case 0x2B: sra(&e);
+        case 0x2B: sra(e);
             break;
-        case 0x2C: sra(&h);
+        case 0x2C: sra(h);
             break;
-        case 0x2D: sra(&l);
+        case 0x2D: sra(l);
             break;
         case 0x2E: srahl();
             break;
 
-        case 0x3F: srl(&a);
+        case 0x3F: srl(a);
             break;
-        case 0x38: srl(&b);
+        case 0x38: srl(b);
             break;
-        case 0x39: srl(&c);
+        case 0x39: srl(c);
             break;
-        case 0x3A: srl(&d);
+        case 0x3A: srl(d);
             break;
-        case 0x3B: srl(&e);
+        case 0x3B: srl(e);
             break;
-        case 0x3C: srl(&h);
+        case 0x3C: srl(h);
             break;
-        case 0x3D: srl(&l);
+        case 0x3D: srl(l);
             break;
         case 0x3E: srlhl();
             break;
@@ -2148,36 +2153,36 @@ void cCpu::executeOpcode(void)
             case 0x46: bit(cbOpcode & 0x38, mem->readByte(hl()));
                 break;
 
-            case 0xC7: set(cbOpcode & 0x38, &a);
+            case 0xC7: set(cbOpcode & 0x38, a);
                 break;
-            case 0xC0: set(cbOpcode & 0x38, &b);
+            case 0xC0: set(cbOpcode & 0x38, b);
                 break;
-            case 0xC1: set(cbOpcode & 0x38, &c);
+            case 0xC1: set(cbOpcode & 0x38, c);
                 break;
-            case 0xC2: set(cbOpcode & 0x38, &d);
+            case 0xC2: set(cbOpcode & 0x38, d);
                 break;
-            case 0xC3: set(cbOpcode & 0x38, &e);
+            case 0xC3: set(cbOpcode & 0x38, e);
                 break;
-            case 0xC4: set(cbOpcode & 0x38, &h);
+            case 0xC4: set(cbOpcode & 0x38, h);
                 break;
-            case 0xC5: set(cbOpcode & 0x38, &l);
+            case 0xC5: set(cbOpcode & 0x38, l);
                 break;
             case 0xC6: sethl(cbOpcode & 0x38);
                 break;
 
-            case 0x87: res(cbOpcode & 0x38, &a);
+            case 0x87: res(cbOpcode & 0x38, a);
                 break;
-            case 0x80: res(cbOpcode & 0x38, &b);
+            case 0x80: res(cbOpcode & 0x38, b);
                 break;
-            case 0x81: res(cbOpcode & 0x38, &c);
+            case 0x81: res(cbOpcode & 0x38, c);
                 break;
-            case 0x82: res(cbOpcode & 0x38, &d);
+            case 0x82: res(cbOpcode & 0x38, d);
                 break;
-            case 0x83: res(cbOpcode & 0x38, &e);
+            case 0x83: res(cbOpcode & 0x38, e);
                 break;
-            case 0x84: res(cbOpcode & 0x38, &h);
+            case 0x84: res(cbOpcode & 0x38, h);
                 break;
-            case 0x85: res(cbOpcode & 0x38, &l);
+            case 0x85: res(cbOpcode & 0x38, l);
                 break;
             case 0x86: reshl(cbOpcode & 0x38);
                 break;
@@ -2290,17 +2295,9 @@ void cCpu::addhl(u16 val)
 
 void cCpu::addsp(s8 val)
 {
-    if (val > 0) {
-        cf = ((sp + val) > 0xFFFF);
-        hf = ((sp & 0xFF) + val) > 0xFF;
-        //hf=((sp>>8)+val)>0xFF;
-        sp += val;
-    }
-    else {
-        hf = ((sp + val)&0xF0) == (sp & 0xF0);
-        cf = ((sp + val)&0xFFFF) < sp;
-        sp += val;
-    }
+    cf = ((sp & 0xFF) + (u8)val) > 0xFF;
+    hf = ((sp & 0xF) + ((u8)val & 0xF)) > 0xF;
+    sp += val;
     zf = false;
     nf = false;
 }
@@ -2341,75 +2338,69 @@ void cCpu::cp(u8 val)
 
 void cCpu::daa(void)
 {
+    int temp = a;
     if (nf) {
-        if ((a & 0xF) >= (10 | ((int) hf)))
-            a -= 6;
-        if ((a & 0xF0) >= (160 | ((int) cf))) {
-            a -= 96;
-            cf = true;
-        }
-        else
-            cf = false;
+        if (hf) temp = (temp - 6) & 0xFF;
+        if (cf) temp -= 0x60;
     }
     else {
-        if ((a & 0xF) >= (10 | ((int) hf)))
-            a += 6;
-        if ((a & 0xF0) >= (160 | ((int) cf))) {
-            a += 96;
-            cf = true;
-        }
-        else
-            cf = false;
+        if (hf || (temp & 0xF) > 9) temp += 6;
+        if (cf || temp > 0x9F) temp += 0x60;
+
     }
+    
+    if ((temp & 0x100) == 0x100)
+        cf = true;
+    a = temp & 0xFF;
     zf = (a == 0);
     hf = false;
 }
 
-void cCpu::dec(u8 *reg)
+void cCpu::dec(u8 &reg)
 {
-    zf = (*reg == 1);
+    zf = (reg == 1);
     nf = true;
-    hf = ((*reg)&0xF) == 0;
-    (*reg) -= 1;
+    hf = (reg & 0xF) == 0;
+    reg -= 1;
 }
 
-void cCpu::dec(u8 *r1, u8 *r2)
+void cCpu::dec(u8 &r1, u8 &r2)
 {
-    u16 reg = ((*r1) << 8) | (*r2);
+    u16 reg = (r1 << 8) | r2;
     reg -= 1;
-    *r1 = reg >> 8;
-    *r2 = reg & 0xFF;
+    r1 = reg >> 8;
+    r2 = reg & 0xFF;
 }
 
 void cCpu::dechl(void)
 {
     WARNING(hl() < 0x4000, "dechl??");
     u8 temp = mem->readByte(hl());
-    dec(&temp);
+    dec(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::inc(u8 *reg)
+void cCpu::inc(u8 &reg)
 {
-    zf = ((*reg) == 0xFF);
+    zf = (reg == 0xFF);
     nf = false;
-    hf = (((*reg)&0xF) == 0xF);
-    (*reg) += 1;
+    hf = (reg & 0xF) == 0xF;
+    reg += 1;
 }
 
-void cCpu::inc(u8 *r1, u8 *r2)
+void cCpu::inc(u8 &r1, u8 &r2)
 {
-    u16 reg = ((*r1) << 8) | (*r2);
+    u16 reg = (r1 << 8) | r2;
     reg += 1;
-    *r1 = reg >> 8;
-    *r2 = reg & 0xFF;
+    r1 = reg >> 8;
+    r2 = reg & 0xFF;
 }
 
 void cCpu::inchl(void)
 {
     WARNING(hl() < 0x4000, "inchl??");
     u8 temp = mem->readByte(hl());
-    inc(&temp);
+    inc(temp);
     mem->writeByte(hl(), temp);
 }
 
@@ -2428,26 +2419,21 @@ void cCpu::jr(bool condition, s8 val)
 
 void cCpu::ldhl(s8 val)
 {
-    if (val > 0) {
-        cf = (sp + val) > 0xFFFF;
-        hf = (((sp & 0xFF) + val) > 0xFF);
-    }
-    else {
-        hf = ((sp + val)&0xF0) == (sp & 0xF0);
-        cf = ((sp + val)&0xFFFF) > sp;
-    }
+
+    cf = ((sp & 0xFF) + (u8)val > 0xFF);
+    hf = ((sp & 0xF) + ((u8)val & 0xF) > 0xF);
     zf = false;
     nf = false;
     hl(sp + val);
 }
 
-void cCpu::ldnnsp(unsigned short val)
+void cCpu::ldnnsp(u16 val)
 {
     mem->writeByte(val, sp & 0xFF);
     mem->writeByte(val + 1, sp >> 8);
 }
 
-void cCpu::z8or(unsigned char val)
+void cCpu::z8or(u8 val)
 {
     a |= val;
     zf = (a == 0);
@@ -2456,23 +2442,23 @@ void cCpu::z8or(unsigned char val)
     cf = false;
 }
 
-void cCpu::pop(unsigned char *r1, unsigned char *r2)
+void cCpu::pop(u8 &r1, u8 &r2)
 {
-    *r2 = mem->readByte(sp);
+    r2 = mem->readByte(sp);
     sp++;
-    *r1 = mem->readByte(sp);
+    r1 = mem->readByte(sp);
     sp++;
 
 }
 
 void cCpu::popaf(void)
 {
-    unsigned char temp;
-    pop(&a, &temp);
+    u8 temp;
+    pop(a, temp);
     flags(temp);
 }
 
-void cCpu::push(unsigned short regs)
+void cCpu::push(u16 regs)
 {
     sp--;
     mem->writeByte(sp, regs >> 8);
@@ -2480,33 +2466,33 @@ void cCpu::push(unsigned short regs)
     mem->writeByte(sp, regs & 0xFF);
 }
 
-void cCpu::res(unsigned char bit, unsigned char *reg)
+void cCpu::res(u8 bit, u8 &reg)
 {
-    *reg &= ~(1 << (bit >> 3));
+    reg &= ~(1 << (bit >> 3));
 }
 
-void cCpu::reshl(unsigned char bit)
+void cCpu::reshl(u8 bit)
 {
     WARNING(hl() < 0x4000, "reshl??");
-    unsigned char temp = mem->readByte(hl());
-    res(bit, &temp);
+    u8 temp = mem->readByte(hl());
+    res(bit, temp);
     mem->writeByte(hl(), temp);
 }
 
 void cCpu::ret(bool condition)
 {
-    unsigned char t1, t2;
+    u8 t1, t2;
     if (condition) {
-        pop(&t1, &t2);
+        pop(t1, t2);
         pc = (t1 << 8) | t2;
     }
 }
 
-void cCpu::rlc(unsigned char *reg)
+void cCpu::rlc(u8 &reg)
 {
-    cf = ((*reg) >> 7)&1;
-    *reg = ((*reg) << 1) | ((int) cf);
-    zf = ((*reg) == 0);
+    cf = (reg >> 7) & 1;
+    reg = (reg << 1) | cf;
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
@@ -2514,7 +2500,7 @@ void cCpu::rlc(unsigned char *reg)
 void cCpu::rlca(void)
 {
     cf = (a >> 7)&1;
-    a = (a << 1) | ((int) cf);
+    a = (a << 1) | cf;
     zf = false;
     nf = false;
     hf = false;
@@ -2523,25 +2509,25 @@ void cCpu::rlca(void)
 void cCpu::rlchl(void)
 {
     WARNING(hl() < 0x4000, "rlchl??");
-    unsigned char temp = mem->readByte(hl());
-    rlc(&temp);
+    u8 temp = mem->readByte(hl());
+    rlc(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::rl(unsigned char *reg)
+void cCpu::rl(u8 &reg)
 {
-    int temp = (int) cf;
-    cf = ((*reg) >> 7)&1;
-    *reg = ((*reg) << 1) | temp;
-    zf = (*reg == 0);
+    u8 temp = (u8) cf;
+    cf = (reg >> 7) & 1;
+    reg = (reg << 1) | temp;
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
 
 void cCpu::rla(void)
 {
-    int temp = a >> 7;
-    a = (a << 1) | (int) cf;
+    u8 temp = a >> 7;
+    a = (a << 1) | cf;
     zf = false;
     cf = temp & 1;
     nf = false;
@@ -2551,16 +2537,16 @@ void cCpu::rla(void)
 void cCpu::rlhl(void)
 {
     WARNING(hl() < 0x4000, "rlhl??");
-    unsigned char temp = mem->readByte(hl());
-    rl(&temp);
+    u8 temp = mem->readByte(hl());
+    rl(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::rrc(unsigned char *reg)
+void cCpu::rrc(u8 &reg)
 {
-    cf = (*reg)&1;
-    *reg = ((*reg >> 1) | (cf << 7));
-    zf = (*reg == 0);
+    cf = reg & 1;
+    reg = (reg >> 1) | (cf << 7);
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
@@ -2577,17 +2563,17 @@ void cCpu::rrca(void)
 void cCpu::rrchl(void)
 {
     WARNING(hl() < 0x4000, "rrchl??");
-    unsigned char temp = mem->readByte(hl());
-    rrc(&temp);
+    u8 temp = mem->readByte(hl());
+    rrc(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::rr(unsigned char *reg)
+void cCpu::rr(u8 &reg)
 {
-    bool temp = (*reg)&1; //Keep the first bit
-    *reg = ((*reg) >> 1) | (cf << 7); //Shift n right and put carry at the top
+    bool temp = reg & 1; //Keep the first bit
+    reg = (reg >> 1) | (cf << 7); //Shift n right and put carry at the top
     cf = temp; //Put the kept n bit into carry
-    zf = (*reg == 0);
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
@@ -2605,44 +2591,46 @@ void cCpu::rra(void)
 void cCpu::rrhl(void)
 {
     WARNING(hl() < 0x4000, "rrhl??");
-    unsigned char temp = mem->readByte(hl());
-    rr(&temp);
+    u8 temp = mem->readByte(hl());
+    rr(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::rst(unsigned char val)
+void cCpu::rst(u8 val)
 {
     call(true, val);
 }
 
-void cCpu::sbc(unsigned char val)
+void cCpu::sbc(u8 val)
 {
-    unsigned char temp = val + (int) cf;
-    zf = (a == temp);
+    u16 temp =  a - val - cf;
     nf = true;
-    hf = (temp & 0xF)>(a & 0xF);
+    //hf = (temp & 0xF) > (a & 0xF);
     cf = (temp > a);
-    a -= temp;
+    hf = ((a ^ val ^ (temp & 0xFF)) & 0x10?true:false);
+        
+    a = temp & 0xFF;
+    zf = (a == 0);
 }
 
-void cCpu::set(unsigned char bit, unsigned char *reg)
+void cCpu::set(u8 bit, u8 &reg)
 {
-    *reg |= (1 << (bit >> 3));
+    reg |= (1 << (bit >> 3));
 }
 
-void cCpu::sethl(unsigned char bit)
+void cCpu::sethl(u8 bit)
 {
     WARNING(hl() < 0x4000, "sethl??");
-    unsigned char temp = mem->readByte(hl());
-    set(bit, &temp);
+    u8 temp = mem->readByte(hl());
+    set(bit, temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::sla(unsigned char *reg)
+void cCpu::sla(u8 &reg)
 {
-    cf = ((*reg) >> 7)&1;
-    (*reg) <<= 1;
-    zf = ((*reg) == 0);
+    cf = (reg >> 7) & 1;
+    reg <<= 1;
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
@@ -2650,16 +2638,16 @@ void cCpu::sla(unsigned char *reg)
 void cCpu::slahl(void)
 {
     WARNING(hl() < 0x4000, "slahl??");
-    unsigned char temp = mem->readByte(hl());
-    sla(&temp);
+    u8 temp = mem->readByte(hl());
+    sla(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::sra(unsigned char *reg)
+void cCpu::sra(u8 &reg)
 {
-    cf = (*reg)&1;
-    *reg = ((*reg) >> 1) | ((*reg)&0x80);
-    zf = (*reg == 0);
+    cf = reg & 1;
+    reg = (reg >> 1) | (reg & 0x80);
+    zf = (reg == 0);
     hf = false;
     nf = false;
 }
@@ -2667,16 +2655,16 @@ void cCpu::sra(unsigned char *reg)
 void cCpu::srahl(void)
 {
     WARNING(hl() < 0x4000, "srahl??");
-    unsigned char temp = mem->readByte(hl());
-    sra(&temp);
+    u8 temp = mem->readByte(hl());
+    sra(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::srl(unsigned char *reg)
+void cCpu::srl(u8 &reg)
 {
-    cf = (*reg)&1;
-    (*reg) >>= 1;
-    zf = (*reg == 0);
+    cf = reg & 1;
+    reg >>= 1;
+    zf = (reg == 0);
     nf = false;
     hf = false;
 }
@@ -2684,24 +2672,24 @@ void cCpu::srl(unsigned char *reg)
 void cCpu::srlhl(void)
 {
     WARNING(hl() < 0x4000, "srlhl??");
-    unsigned char temp = mem->readByte(hl());
-    srl(&temp);
+    u8 temp = mem->readByte(hl());
+    srl(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::sub(unsigned char val)
+void cCpu::sub(u8 val)
 {
     zf = (a == val);
     nf = true;
-    hf = (val & 0xF)>(a & 0xF);
+    hf = (val & 0xF) > (a & 0xF);
     cf = (val > a);
     a -= val;
 }
 
-void cCpu::swap(unsigned char *reg)
+void cCpu::swap(u8 &reg)
 {
-    *reg = (((*reg)&0xF) << 4) | ((*reg) >> 4);
-    zf = ((*reg) == 0);
+    reg = ((reg & 0xF) << 4) | (reg >> 4);
+    zf = (reg == 0);
     nf = false;
     hf = false;
     cf = false;
@@ -2710,12 +2698,12 @@ void cCpu::swap(unsigned char *reg)
 void cCpu::swaphl(void)
 {
     WARNING(hl() < 0x4000, "swaphl??");
-    unsigned char temp = mem->readByte(hl());
-    swap(&temp);
+    u8 temp = mem->readByte(hl());
+    swap(temp);
     mem->writeByte(hl(), temp);
 }
 
-void cCpu::z8xor(unsigned char val)
+void cCpu::z8xor(u8 val)
 {
     a ^= val;
     zf = (a == 0);
