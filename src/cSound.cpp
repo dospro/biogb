@@ -123,24 +123,24 @@ bool cSound::init(u32 freq, u32 size, u32 bSize)
     return true;
 }
 
-unsigned char cSound::getCurrentSample(float freq, float *c1, u8 *pattern, s32 size, s32 *c2)
+u8 cSound::getCurrentSample(float freq, float &c1, u8 *pattern, s32 size, s32 &c2)
 {
     float rsize = generalFreq / freq / size;
 
-    if ((*c1) <= rsize) {
-        ++(*c1);
-        return pattern[*c2];
+    if (c1 <= rsize) {
+        ++c1;
+        return pattern[c2];
     }
     else {
-        ++(*c2);
-        if ((*c2) >= size)
-            (*c2) = 0;
-        (*c1) -= rsize - 1;
-        return pattern[(*c2)];
+        ++c2;
+        if (c2 >= size)
+            c2 = 0;
+        c1 -= rsize - 1;
+        return pattern[c2];
     }
 }
 
-unsigned char cSound::getCurrentNoise(float freq, float *c1, u8 *pattern, s32 size, s32 *c2)
+u8 cSound::getCurrentNoise(float freq, float *c1, u8 *pattern, s32 size, s32 *c2)
 {
     float rsize = 4194304 / freq / size;
 
@@ -157,111 +157,150 @@ unsigned char cSound::getCurrentNoise(float freq, float *c1, u8 *pattern, s32 si
     }
 }
 
-void cSound::getSoundMessage(unsigned short address, unsigned char value)
+u8 cSound::getSoundMessage(u16 address, u8 value)
 {
     switch (address) {
-    case 0xFF10:
-        ch[0].sweepTime = ((value >> 4)&7) << 15;
+    case 0xFF10: //NR 10
+        ch[0].sweepTime = (value & 0x70) << 11;
         ch[0].sweepCounter = ch[0].sweepTime;
         ch[0].sDecInc = (value >> 3)&1;
         ch[0].sweepShift = value & 7;
         break;
 
-    case 0xFF11:
+    case 0xFF11: //NR 11
         ch[0].wavePattern = value >> 6;
-        ch[0].keptLength = ch[0].soundLength = (64 - (value & 63)) << 14;
+        ch[0].keptLength = ch[0].soundLength = (64-(value & 63)) << 14;
         break;
 
-    case 0xFF12:
+    case 0xFF12: //NR 12
         ch[0].envInitVol = value >> 4;
         ch[0].envUpdown = (value >> 3)&1;
         ch[0].envSweep = (value & 7) << 16;
         ch[0].envCounter = ch[0].envSweep;
+        return value;
         break;
 
-    case 0xFF13:
-        ch[0].freq = (ch[0].freq & 0x700) | value;
+    case 0xFF13: //NR 13
+        //if (ch[0].sweepTime > 0)
+            ch[0].freq = (ch[0].freq & 0x700) | value;
+        return 0xFF;
         break;
 
-    case 0xFF14:
-        ch[0].onOff = (value >> 7) == 1 ? true : ch[0].onOff;
-        mem->mem[0xFF26][0] = (mem->mem[0xFF26][0]&0xFE) | ((int) ch[0].onOff);
-        ch[0].freq = (ch[0].freq & 0xFF) | ((value & 7) << 8);
+    case 0xFF14: //NR
+        //if (ch[0].sweepTime > 0)
+            ch[0].freq = (ch[0].freq & 0xFF) | ((value & 7) << 8);
         ch[0].CountCons = (value >> 6)&1;
+        if(value >> 7 == 1) // Trigger
+        {
+            ch[0].onOff = true;
+            mem->mem[0xFF26][0] |= 1;
+            ch[0].soundLength = ch[0].soundLength == 0?64<<14:ch[0].soundLength;
+            ch[0].envInitVol = mem->mem[0xFF12][0] >> 4;
+            ch[0].envSweep = ch[0].envCounter;
+            ch[0].sweepTime = ch[0].sweepCounter;
+        }
+        return value | 0xBF;
         break;
 
-    case 0xFF16:
+    case 0xFF16: //NR 21
         ch[1].wavePattern = value >> 6;
         ch[1].keptLength = ch[1].soundLength = (64 - (value & 63)) << 14;
         break;
 
-    case 0xFF17:
+    case 0xFF17: //NR 22
         ch[1].envInitVol = value >> 4;
         ch[1].envUpdown = (value >> 3)&1;
         ch[1].envSweep = (value & 7) << 16;
         ch[1].envCounter = ch[1].envSweep;
+        return value;
         break;
 
-    case 0xFF18:
+    case 0xFF18: //NR 23
         ch[1].freq = (ch[1].freq & 0x700) | value;
+        return 0xFF;
         break;
 
-    case 0xFF19:
-        ch[1].onOff = ((value >> 7)&1) == 1 ? true : ch[1].onOff;
-        mem->mem[0xFF26][0] = (mem->mem[0xFF26][0]&0xFD) | ((int) ch[1].onOff << 1);
+    case 0xFF19: //NR 24
         ch[1].freq = (ch[1].freq & 0xFF) | ((value & 7) << 8);
         ch[1].CountCons = (value >> 6)&1;
+        if(value >> 7 == 1) // Trigger
+        {
+            ch[1].onOff = true;
+            mem->mem[0xFF26][0] |= 2;
+            ch[1].soundLength = ch[1].soundLength == 0?64<<14:ch[1].soundLength;
+            ch[1].envInitVol = mem->mem[0xFF17][0] >> 4;
+            ch[1].envSweep = ch[1].envCounter;
+        }
+        return value | 0xBF;
         break;
 
-    case 0xFF1A:
-        ch[2].onOff = (value >> 7) == 1;
-        mem->mem[0xFF26][0] = (mem->mem[0xFF26][0]&0xFB) | ((int) ch[2].onOff << 2);
+    case 0xFF1A: //NR 30
+        if(value >> 7 == 0)
+        {
+            ch[2].onOff = 0; 
+        }
+        return value | 0x7F;
         break;
 
-    case 0xFF1B:
-        ch[2].keptLength = ch[2].soundLength = (256 - value) << 21; //14 OR 21????
+    case 0xFF1B: //NR 31
+        ch[2].keptLength = ch[2].soundLength = (256 - value) << 14; //14 OR 21????
+        return 0xFF;
         break;
 
-    case 0xFF1C:
+    case 0xFF1C: //NR 32
         ch[2].envInitVol = (value >> 5)&3;
+        return value | 0x9F;
         break;
 
-    case 0xFF1D:
-        ch[2].freq = (ch[2].freq & 0xFF00) | value;
+    case 0xFF1D: //NR 33
+        ch[2].freq = (ch[2].freq & 0x700) | value;
+        return 0xFF;
         break;
 
-    case 0xFF1E:
+    case 0xFF1E: //NR 34
         ch[2].freq = (ch[2].freq & 0xFF) | ((value & 7) << 8);
         ch[2].CountCons = (value >> 6)&1;
-        ch[2].onOff = (value >> 7) == 1 ? true : ch[2].onOff;
-        mem->mem[0xFF26][0] = (mem->mem[0xFF26][0]&0xFB) | ((int) ch[2].onOff << 2);
-        mem->mem[0xFF1A][0] = (mem->mem[0xFF1A][0]&0x7F) | ((int) ch[2].onOff << 7);
+        if(value >> 7 == 1) // Trigger
+        {
+            ch[2].onOff = true;
+            mem->mem[0xFF26][0] |= 4;
+            ch[2].soundLength = ch[2].soundLength == 0?256<<14:ch[2].soundLength;
+        }
+        return value | 0xBF;
         break;
 
-    case 0xFF20:
+    case 0xFF20: //NR 41
         ch[3].keptLength = ch[3].soundLength = (64 - (value & 63)) << 14;
+        return 0xFF;
         break;
 
-    case 0xFF21:
+    case 0xFF21: //NR 42
         ch[3].envInitVol = value >> 4;
         ch[3].envUpdown = (value >> 3)&1;
         ch[3].envSweep = (value & 7) << 16;
         ch[3].envCounter = ch[3].envSweep;
         break;
 
-    case 0xFF22:
+    case 0xFF22: //NR 43
         ch[3].sweepShift = 2 << (value >> 4);
         ch[3].sDecInc = (value >> 3)&1;
         ch[3].sweepCounter = divRatioFreq[(value & 7)];
         break;
 
-    case 0xFF23:
-        ch[3].onOff = (value >> 7) == 1 ? true : ch[3].onOff;
-        mem->mem[0xFF26][0] = (mem->mem[0xFF26][0]&0xF7) | ((int) ch[3].onOff << 3);
+    case 0xFF23: //NR 44
         ch[3].CountCons = (value >> 6)&1;
+        if(value >> 7 == 1) // Trigger
+        {
+            ch[3].onOff = true;
+            mem->mem[0xFF26][0] |= 8;
+            ch[3].soundLength = ch[3].soundLength == 0?64<<14:ch[3].keptLength;
+            ch[3].envInitVol = mem->mem[0xFF21][0] >> 4;
+            ch[3].envSweep = ch[3].envCounter;
+        }
+        return value | 0xBF;
         break;
 
-    case 0xFF24:
+    case 0xFF24: //NR 50
         s1Volumen = value & 7;
         s1 = (value >> 3)&1;
         s2Volumen = (value >> 4)&7;
@@ -279,11 +318,12 @@ void cSound::getSoundMessage(unsigned short address, unsigned char value)
         ch[3].s2 = (value >> 7)&1;
         break;
 
-    case 0xFF26:
+    case 0xFF26: //NR 52
         soundActive = (value >> 7)&1;
-        mem->mem[0xFF26][0] = ((u8) soundActive << 7) | ((u8) ch[0].onOff << 3) | ((u8) ch[1].onOff << 2) | ((u8) ch[2].onOff) | ((u8) ch[3].onOff);
+        return (mem->mem[0xFF26][0] & 0x7F) | (soundActive << 7) | 0x70 ;
         break;
     }
+    return value;
 }
 
 void cSound::fillBuffer(void)
@@ -296,7 +336,7 @@ void cSound::fillBuffer(void)
 
     ch[0].finalFreq = 131072 / (2048 - ch[0].freq);
     ch[1].finalFreq = 131072 / (2048 - ch[1].freq);
-    ch[2].finalFreq = 65536 / (2048 - ch[2].freq);
+    ch[2].finalFreq =  65536 / (2048 - ch[2].freq);
     ch[3].finalFreq = ch[3].sweepCounter / ch[3].sweepShift;
 
     if (ch[2].onOff) {
@@ -315,11 +355,11 @@ void cSound::fillBuffer(void)
         sample4 = 0;
         if (soundActive) {
             if (ch[0].onOff)
-                sample1 = (ch[0].envInitVol * getCurrentSample(ch[0].finalFreq, &ch[0].counter1, wavePatternDuty[ch[0].wavePattern], 8, &ch[0].counter2) / 15);
+                sample1 = (ch[0].envInitVol * getCurrentSample(ch[0].finalFreq, ch[0].counter1, wavePatternDuty[ch[0].wavePattern], 8, ch[0].counter2) / 15);
             if (ch[1].onOff)
-                sample2 = (ch[1].envInitVol * getCurrentSample(ch[1].finalFreq, &ch[1].counter1, wavePatternDuty[ch[1].wavePattern], 8, &ch[1].counter2) / 15);
+                sample2 = (ch[1].envInitVol * getCurrentSample(ch[1].finalFreq, ch[1].counter1, wavePatternDuty[ch[1].wavePattern], 8, ch[1].counter2) / 15);
             if (ch[2].onOff)
-                sample3 = getCurrentSample(ch[2].finalFreq, &ch[2].counter1, wavePatternRam, 0x20, &ch[2].counter2) >> (ch[2].envInitVol == 0 ? 8 : (ch[2].envInitVol - 1));
+                sample3 = getCurrentSample(ch[2].finalFreq, ch[2].counter1, wavePatternRam, 0x20, ch[2].counter2) >> (ch[2].envInitVol == 0 ? 8 : (ch[2].envInitVol - 1));
             if (ch[3].onOff)
                 sample4 = (ch[3].envInitVol * getCurrentNoise(ch[3].finalFreq, &ch[3].counter1, noise, ch[3].sDecInc ? 128 : 32768, &ch[3].counter2) / 15);
         }
@@ -337,12 +377,12 @@ void cSound::fillBuffer(void)
 
 void cSound::updateCycles(s32 cycles)
 {
-    if (ch[0].CountCons && ch[0].onOff) {
+    if (ch[0].CountCons && ch[0].soundLength != 0) {
         ch[0].soundLength -= cycles;
-        if (ch[0].soundLength <= 0) {
-            ch[0].soundLength = ch[0].keptLength;
-            ch[0].onOff = false;
-            mem->mem[0xFF26][0] &= 0xFE;
+        if (ch[0].soundLength <= 0) {        
+                ch[0].onOff = false;
+                mem->mem[0xFF26][0] &= 0xFE;
+                ch[0].soundLength = 0;
         }
     }
     if (ch[0].envSweep != 0 && ch[0].onOff) {
@@ -361,30 +401,43 @@ void cSound::updateCycles(s32 cycles)
             ch[0].envSweep = ch[0].envCounter;
         }
     }
-    if (ch[0].sweepTime != 0 && ch[0].onOff) {
+    if (ch[0].sweepTime != 0 /*&& ch[0].sweepShift != 0*/ && ch[0].onOff) {
         ch[0].sweepTime -= cycles;
         if (ch[0].sweepTime <= 0) {
             if (ch[0].sDecInc) {
-                ch[0].freq -= ch[0].freq / (1 << ch[0].sweepShift);
+                ch[0].freq -= ch[0].freq >> ch[0].sweepShift;
                 if (ch[0].freq <= 0)
+                {
                     ch[0].freq = 0;
+                }
+                else
+                {
+                    ch[0].sweepTime = ch[0].sweepCounter;
+                }
             }
             else {
-                ch[0].freq += ch[0].freq / (1 << ch[0].sweepShift);
+                ch[0].freq += ch[0].freq >> ch[0].sweepShift;
                 if (ch[0].freq >= 2048)
+                {
                     ch[0].freq = 2047;
+                    ch[0].onOff = false;
+                    mem->mem[0xFF26][0] &= 0xFE;
+                }
+                else
+                {
+                    ch[0].sweepTime = ch[0].sweepCounter;
+                }
             }
-            ch[0].sweepTime = ch[0].sweepCounter;
         }
     }
 
 
-    if (ch[1].CountCons && ch[1].onOff) {
+    if (ch[1].CountCons) {
         ch[1].soundLength -= cycles;
         if (ch[1].soundLength <= 0) {
-            ch[1].soundLength = ch[1].keptLength;
             ch[1].onOff = false;
             mem->mem[0xFF26][0] &= 0xFD;
+            ch[1].soundLength = 0;
         }
     }
     if (ch[1].envSweep != 0 && ch[1].onOff) {
@@ -403,22 +456,21 @@ void cSound::updateCycles(s32 cycles)
             ch[1].envSweep = ch[1].envCounter;
         }
     }
-    if (ch[2].CountCons && ch[2].onOff) {
+    if (ch[2].CountCons) {
         ch[2].soundLength -= cycles;
         if (ch[2].soundLength <= 0) {
-            ch[2].soundLength = ch[2].keptLength;
             ch[2].onOff = false;
             mem->mem[0xFF26][0] &= 0xFB;
-            mem->mem[0xFF1A][0] &= 0x7F;
+            ch[2].soundLength = 0;
         }
     }
 
-    if (ch[3].CountCons && ch[3].onOff) {
+    if (ch[3].CountCons) {
         ch[3].soundLength -= cycles;
         if (ch[3].soundLength <= 0) {
-            //ch[3].soundLength=ch[3].keptLength;
             ch[3].onOff = false;
             mem->mem[0xFF26][0] &= 0xF7;
+            ch[3].soundLength = 0;
         }
     }
     if (ch[3].envSweep != 0 && ch[3].onOff) {

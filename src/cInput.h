@@ -28,11 +28,8 @@
 #ifndef BIOGB_INPUT
 #define BIOGB_INPUT
 #include<stdio.h>
-#ifdef LINUX
-#include<SDL/SDL.h>
-#else
 #include<SDL.h>
-#endif
+
 
 #define GBK_ESCAPE SDLK_ESCAPE
 #define GBK_SPACE SDLK_SPACE

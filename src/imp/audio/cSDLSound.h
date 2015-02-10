@@ -29,7 +29,7 @@
 #ifndef BIOGB_PORTAUDIO
 #define BIOGB_PORTAUDIO
 
-#include<SDL/SDL.h>
+#include<SDL.h>
 #include<string.h>
 #include"../../cSound.h"
 

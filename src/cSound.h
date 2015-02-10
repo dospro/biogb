@@ -53,7 +53,7 @@ struct soundChannel {
     s32 envSweep;
 
     s32 freq;
-    float finalFreq;
+    double finalFreq;
     bool CountCons;
 
     float counter1;
@@ -87,8 +87,8 @@ public:
     void getMemoryPointer(cMemory *memp) {
         mem = memp;
     };
-    void getSoundMessage(u16 address, u8 value);
-    u8 getCurrentSample(float freq, float *c1, u8 *pattern, s32 size, s32 *c2);
+    u8 getSoundMessage(u16 address, u8 value);
+    u8 getCurrentSample(float freq, float &c1, u8 *pattern, s32 size, s32 &c2);
     u8 getCurrentNoise(float freq, float *c1, u8 *pattern, s32 size, s32 *c2);
     void fillBuffer(void);
     void updateCycles(s32 cycles);

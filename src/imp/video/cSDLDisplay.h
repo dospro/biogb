@@ -29,7 +29,7 @@
 #define BIOGB_LIB_GFX
 
 #include<stdlib.h>
-#include<SDL/SDL.h>
+#include<SDL.h>
 #include"../../cDisplay.h"
 
 
