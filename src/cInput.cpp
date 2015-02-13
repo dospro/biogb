@@ -58,13 +58,8 @@ bool cInput::isButtonPressed(int b)
 
 bool cInput::isKeyPressed(int k)
 {
-    if(event.type == SDL_KEYUP)
-    {
-        if (event.key.keysym.sym == k)
-        {
-            return true;
-        }
-    }
+    if(key[k])
+        return true;
     return false;
 }
 
@@ -78,10 +73,11 @@ bool cInput::isGbKeyPressed(int k)
 
 bool cInput::pollEvents(void)
 {
-    if (SDL_PollEvent(&event) == 0)
+    /*if (SDL_PollEvent(&event) == 0)
     {
         return false;
-    }
+    }*/
+    SDL_PumpEvents();
     key = (unsigned char *) SDL_GetKeyState(NULL);
     return true;
 }

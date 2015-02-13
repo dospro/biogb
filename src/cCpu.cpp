@@ -472,6 +472,7 @@ void cMemory::HDMATransfer(u16 source, u16 dest, u32 length)
 
 void cMemory::HBlankHDMA(void)
 {
+    
     int i;
     if (hdma.active) {
         for (i = 0; i < 0x10; i++) {
@@ -814,6 +815,7 @@ bool cCpu::initCpu(const char *file)
 
     divideReg = 256;
     timerCounter = 0;
+
     af(0x11B0);
     bc(0x0013);
     de(0x00D8);
@@ -989,10 +991,8 @@ bool cCpu::initCpu(const char *file)
     fpsSpeed = 1;
     SpeedkeyChange = false;
     std::cout << "Turning sound on" << std::endl;
-    ;
     sound->turnOn();
     std::cout << "Everything Done!!" << std::endl;
-    ;
     return true;
 }
 
@@ -1129,7 +1129,7 @@ void cCpu::doCycle(void)
     updateModes();
 
     if (divideReg <= 0) {
-        divideReg += (256 << currentSpeed);
+        divideReg += 256;
         mem->mem[0xFF04][0]++;
     }
 
@@ -1141,11 +1141,17 @@ void cCpu::doCycle(void)
 
 void cCpu::updateModes(void)
 {
+    //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
+    //This means those take double clock cycles to finish(because those are
+    // slower than the other parts).
     if (lyCycles <= 0) {
         lyCycles += (456 << currentSpeed);
         scanLine = ++mem->mem[0xFF44][0]; //Increment LY
         if (scanLine > 153)
+        {
             scanLine = 0;
+            mem->mem[0xFF44][0] = 0;
+        }
 
         if (scanLine == mem->mem[0xFF45][0])//We have a LY==LYC interrupt
         {
@@ -1183,11 +1189,6 @@ void cCpu::updateModes(void)
             setInterrupt(0);
             if (mem->mem[0xFF41][0]&0x10)
                 setInterrupt(1); //Mode 1 V-Blank LCDC Interrupt
-
-            while (time1 > SDL_GetTicks()) {
-                ;
-            }
-            time1 = SDL_GetTicks()+((17 / fpsSpeed) >> currentSpeed);
             break;
 
         case 2://Do Mode 2 actions
@@ -1213,63 +1214,63 @@ void cCpu::updateModes(void)
 }
 
 void cCpu::fullUpdate(void)
-{
-    if (input->pollEvents()) {
-        if (input->isKeyPressed(GBK_ESCAPE)) {
-            saveSram();
-            sound->turnOff();
+{    
+    input->pollEvents();
+    if (input->isKeyPressed(GBK_ESCAPE)) {
+        saveSram();
+        sound->turnOff();
 #ifdef USE_SDL_NET
             net.finish();
 #endif
-            isRunning = false;
+        isRunning = false;
+    }
+    if (input->isKeyPressed(GBK_s)) {
+        saveState(0);
+    }
+    if (input->isKeyPressed(GBK_l)) {
+        loadState(0);
+    }
+
+    if (input->isGbKeyPressed(GB_UP)) jpd |= 4;
+    else jpd &= 251;
+    if (input->isGbKeyPressed(GB_DOWN)) jpd |= 8;
+    else jpd &= 247;
+    if (input->isGbKeyPressed(GB_LEFT)) jpd |= 2;
+    else jpd &= 253;
+    if (input->isGbKeyPressed(GB_RIGHT)) jpd |= 1;
+    else jpd &= 254;
+
+    if (input->isGbKeyPressed(GB_A)) jpb |= 1;
+    else jpb &= 254;
+    if (input->isGbKeyPressed(GB_B)) jpb |= 2;
+    else jpb &= 253;
+    if (input->isGbKeyPressed(GB_START)) jpb |= 8;
+    else jpb &= 247;
+    if (input->isGbKeyPressed(GB_SELECT)) jpb |= 4;
+    else jpb &= 251;
+
+
+    /*if (time2 <= SDL_GetTicks()) {
+        time2 = SDL_GetTicks() + 1000;
+        printf("%d          \t", fps);
+        fps = 0;
+    }
+    fps++;*/
+
+    if (input->isKeyPressed(GBK_KP_PLUS))
+        if (fpsSpeed < 5)
+            fpsSpeed++;
+
+    if (input->isKeyPressed(GBK_KP_MINUS))
+        if (fpsSpeed > 1)
+            fpsSpeed--;
+
+    if (!input->isKeyPressed(GBK_SPACE)) {
+        if (time1 > SDL_GetTicks())
+        {
+            SDL_Delay(time1 - SDL_GetTicks());
         }
-        if (input->isKeyPressed(GBK_s)) {
-            saveState(0);
-        }
-        if (input->isKeyPressed(GBK_l)) {
-            loadState(0);
-        }
-
-        if (input->isGbKeyPressed(GB_UP)) jpd |= 4;
-        else jpd &= 251;
-        if (input->isGbKeyPressed(GB_DOWN)) jpd |= 8;
-        else jpd &= 247;
-        if (input->isGbKeyPressed(GB_LEFT)) jpd |= 2;
-        else jpd &= 253;
-        if (input->isGbKeyPressed(GB_RIGHT)) jpd |= 1;
-        else jpd &= 254;
-
-        if (input->isGbKeyPressed(GB_A)) jpb |= 1;
-        else jpb &= 254;
-        if (input->isGbKeyPressed(GB_B)) jpb |= 2;
-        else jpb &= 253;
-        if (input->isGbKeyPressed(GB_START)) jpb |= 8;
-        else jpb &= 247;
-        if (input->isGbKeyPressed(GB_SELECT)) jpb |= 4;
-        else jpb &= 251;
-
-
-        /*if (time2 <= SDL_GetTicks()) {
-            time2 = SDL_GetTicks() + 1000;
-            //printf("%d          \r", fps);
-            fps = 0;
-        }
-        fps++;*/
-
-        if (input->isKeyPressed(GBK_KP_PLUS))
-            if (fpsSpeed < 5)
-                fpsSpeed++;
-
-        if (input->isKeyPressed(GBK_KP_MINUS))
-            if (fpsSpeed > 1)
-                fpsSpeed--;
-
-        if (!input->isKeyPressed(GBK_SPACE)) {
-            while (time1 > SDL_GetTicks()) {
-                ;
-            }
-            time1 = SDL_GetTicks()+((17 / fpsSpeed) >> currentSpeed);
-        }
+        time1 = SDL_GetTicks()+((17 / fpsSpeed));
     }
 }
 
@@ -1280,7 +1281,7 @@ void cCpu::executeOpcode(void)
     u8 opcode = mem->readByte(pc++);
     cycles = opCycles[opcode];
     updateTimer(cycles);
-    sound->updateCycles(cycles>>2);
+    sound->updateCycles(cycles >> currentSpeed);//In double speed this is slower.
     cyclesCount -= cycles;
     divideReg -= cycles;
     lyCycles -= cycles;
@@ -1783,6 +1784,7 @@ void cCpu::executeOpcode(void)
         if (speedChange && isColor) {
             if (currentSpeed == 0)
                 currentSpeed = 1;
+                      
             else
                 currentSpeed = 0;
             speedChange = false;

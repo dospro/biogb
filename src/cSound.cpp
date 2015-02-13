@@ -181,23 +181,33 @@ u8 cSound::getSoundMessage(u16 address, u8 value)
         break;
 
     case 0xFF13: //NR 13
-        //if (ch[0].sweepTime > 0)
-            ch[0].freq = (ch[0].freq & 0x700) | value;
+        ch[0].freq = (ch[0].freq & 0x700) | value;
         return 0xFF;
         break;
 
-    case 0xFF14: //NR
-        //if (ch[0].sweepTime > 0)
-            ch[0].freq = (ch[0].freq & 0xFF) | ((value & 7) << 8);
+    case 0xFF14: //NR 14
+        ch[0].freq = (ch[0].freq & 0xFF) | ((value & 7) << 8);
         ch[0].CountCons = (value >> 6)&1;
         if(value >> 7 == 1) // Trigger
         {
             ch[0].onOff = true;
             mem->mem[0xFF26][0] |= 1;
-            ch[0].soundLength = ch[0].soundLength == 0?64<<14:ch[0].soundLength;
+            ch[0].realFreq = ch[0].freq;
+            ch[0].soundLength = ch[0].soundLength == 0?64<<14:ch[0].keptLength;
             ch[0].envInitVol = mem->mem[0xFF12][0] >> 4;
             ch[0].envSweep = ch[0].envCounter;
             ch[0].sweepTime = ch[0].sweepCounter;
+            if(ch[0].sweepShift != 0)
+            {
+                ch[0].realFreq = ch[0].realFreq + 
+                        (ch[0].realFreq >> ch[0].sweepShift);
+                if(ch[0].realFreq > 0x7FF)
+                {
+                    ch[0].realFreq = 0x7FF;
+                    ch[0].onOff = false;
+                    mem->mem[0xFF26][0] &= 0xFE;
+                }
+            }
         }
         return value | 0xBF;
         break;
@@ -237,7 +247,8 @@ u8 cSound::getSoundMessage(u16 address, u8 value)
     case 0xFF1A: //NR 30
         if(value >> 7 == 0)
         {
-            ch[2].onOff = 0; 
+            ch[2].onOff = 0;
+            mem->mem[0xFF26][0] &= 0xFB;
         }
         return value | 0x7F;
         break;
@@ -334,7 +345,7 @@ void cSound::fillBuffer(void)
     s16 finalSample;
 
 
-    ch[0].finalFreq = 131072 / (2048 - ch[0].freq);
+    ch[0].finalFreq = 131072 / (2048 - ch[0].realFreq);
     ch[1].finalFreq = 131072 / (2048 - ch[1].freq);
     ch[2].finalFreq =  65536 / (2048 - ch[2].freq);
     ch[3].finalFreq = ch[3].sweepCounter / ch[3].sweepShift;
@@ -405,28 +416,22 @@ void cSound::updateCycles(s32 cycles)
         ch[0].sweepTime -= cycles;
         if (ch[0].sweepTime <= 0) {
             if (ch[0].sDecInc) {
-                ch[0].freq -= ch[0].freq >> ch[0].sweepShift;
-                if (ch[0].freq <= 0)
-                {
-                    ch[0].freq = 0;
-                }
+                ch[0].realFreq -= ch[0].realFreq >> ch[0].sweepShift;
+                if (ch[0].realFreq <= 0)
+                    ch[0].realFreq = 0;
                 else
-                {
                     ch[0].sweepTime = ch[0].sweepCounter;
-                }
             }
             else {
-                ch[0].freq += ch[0].freq >> ch[0].sweepShift;
-                if (ch[0].freq >= 2048)
+                ch[0].realFreq += ch[0].realFreq >> ch[0].sweepShift;
+                if (ch[0].realFreq > 0x7FF)
                 {
-                    ch[0].freq = 2047;
+                    ch[0].realFreq = 0x7FF;
                     ch[0].onOff = false;
                     mem->mem[0xFF26][0] &= 0xFE;
                 }
                 else
-                {
                     ch[0].sweepTime = ch[0].sweepCounter;
-                }
             }
         }
     }

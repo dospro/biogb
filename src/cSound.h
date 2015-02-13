@@ -53,6 +53,7 @@ struct soundChannel {
     s32 envSweep;
 
     s32 freq;
+    u16 realFreq;
     double finalFreq;
     bool CountCons;
 
