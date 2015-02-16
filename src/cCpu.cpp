@@ -1155,7 +1155,7 @@ void cCpu::updateModes(void)
 
         if (scanLine == mem->mem[0xFF45][0])//We have a LY==LYC interrupt
         {
-            if ((mem->mem[0xFF41][0]&0x40))
+            if ((mem->mem[0xFF41][0]&0x40) && mem->mem[0xFF40][0] & 0x80)
                 setInterrupt(1);
             setMode(4); //Set LYC flag(no mode)
         }
@@ -1170,7 +1170,7 @@ void cCpu::updateModes(void)
 
             setMode(0);
             display->hBlankDraw();
-            if (mem->mem[0xFF41][0]&8)
+            if (mem->mem[0xFF41][0]&8 && mem->mem[0xFF40][0] & 0x80)
                 setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
             else//If not then we must make sure the flags is off
                 mem->mem[0xFF41][0] &= 251;
@@ -1184,10 +1184,11 @@ void cCpu::updateModes(void)
         case 1://Do Mode 1 actions
             cyclesCount += (4560 << currentSpeed);
             nextMode = 4; //Full update
-            display->updateScreen();
+            //display->updateScreen();
             setMode(1);
-            setInterrupt(0);
-            if (mem->mem[0xFF41][0]&0x10)
+            if(mem->mem[0xFF40][0] & 0x80)
+                setInterrupt(0);
+            if (mem->mem[0xFF41][0]&0x10 && mem->mem[0xFF40][0] & 0x80)
                 setInterrupt(1); //Mode 1 V-Blank LCDC Interrupt
             break;
 
@@ -1195,7 +1196,7 @@ void cCpu::updateModes(void)
             cyclesCount += (80 << currentSpeed);
             nextMode = 3;
             setMode(2);
-            if (mem->mem[0xFF41][0]&0x20)
+            if (mem->mem[0xFF41][0]&0x20 && mem->mem[0xFF40][0] >> 7 == 1)
                 setInterrupt(1); //Mode 2 OAM LCDC Interrupt
             break;
 
@@ -1206,11 +1207,11 @@ void cCpu::updateModes(void)
             break;
         case 4://Full update after mode 1
             nextMode = 2;
+            display->updateScreen();
             fullUpdate();
             break;
         }
     }
-
 }
 
 void cCpu::fullUpdate(void)
