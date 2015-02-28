@@ -1172,8 +1172,6 @@ void cCpu::updateModes(void)
             display->hBlankDraw();
             if (mem->mem[0xFF41][0]&8 && mem->mem[0xFF40][0] & 0x80)
                 setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
-            else//If not then we must make sure the flags is off
-                mem->mem[0xFF41][0] &= 251;
             if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
                 mem->HBlankHDMA();
 
