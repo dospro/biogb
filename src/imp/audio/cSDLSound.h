@@ -2,10 +2,10 @@
  *     Proyect: BioGB
  *    Filename: cPortAudio.h
  *     Version: v4.0
- * Description: Gameboy Color Emulator
+ * Description: Game Boy Color Emulator
  *     License: GPLv2
  *
- *      Author: Copyright (C) Rub� Daniel Guti�rez Cruz <dospro@gmail.com>
+ *      Author: Copyright (C) Rubén Daniel Gutiérrez Cruz <dospro@gmail.com>
  *        Date: 07-1-2007
  *
  *
@@ -35,18 +35,17 @@
 
 void outputAudio(void *data, u8 *stream, s32 len);
 
-class cSDLSound: public cSound {
-private:
-	SDL_AudioSpec *desire, *device;
-
-	friend void outputAudio(void *data, u8 *stream, s32 len);
+class cSDLSound : public cSound
+{
 public:
-	cSDLSound();
-	virtual ~cSDLSound();
-	
-	virtual bool init(u32 freq, u32 size, u32 bSize);
-	virtual void turnOn(void);
-	virtual void turnOff(void);
+    cSDLSound();
+    virtual ~cSDLSound();
+    virtual bool init(u32 freq, u32 size, u32 bSize);
+    virtual void turnOn(void);
+    virtual void turnOff(void);
+private:
+    SDL_AudioSpec *desire, *device;
+    friend void outputAudio(void *data, u8 *stream, s32 len);
 };
 
 #endif

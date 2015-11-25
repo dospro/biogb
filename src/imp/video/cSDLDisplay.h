@@ -5,7 +5,7 @@
  * Description: Gameboy Color Emulator
  *     License: GPLv2
  *
- *      Author: Copyright (C) Rub� Daniel Guti�rez Cruz <dospro@gmail.com>
+ *      Author: Copyright (C) Rubén Daniel Gutiérez Cruz <dospro@gmail.com>
  *        Date: 07-1-2007
  *
  *
@@ -24,24 +24,28 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  */
- 
-#ifndef BIOGB_LIB_G
-#define BIOGB_LIB_GFX
+
+#ifndef BIOGB_DISPLAY
+#define BIOGB_DISPLAY
 
 #include<stdlib.h>
 #include<SDL.h>
 #include"../../cDisplay.h"
 
 
-class cSDLDisplay: public cDisplay {
-	SDL_Surface *screen, *back;
-
-	void putPixel(int x, int y, u32 color);
+class cSDLDisplay : public cDisplay
+{
 public:
-	cSDLDisplay();
-	~cSDLDisplay();
-	virtual bool init(void);
-	virtual void updateScreen(void);	
+    cSDLDisplay();
+    ~cSDLDisplay();
+    virtual bool init(void);
+    virtual void updateScreen(void);
+
+private:
+    SDL_Surface *screen, *back;
+
+    void putPixel(int x, int y, u32 color);
+
 };
 
 #endif
