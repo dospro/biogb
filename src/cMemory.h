@@ -43,14 +43,6 @@ struct SerialTransfer{
 
 class cMemory
 {
-    HDMA hdma;
-    u8 mm;
-    bool ramEnable;
-    u8 hi, lo;
-    u16 dest, source;
-
-    void DMATransfer(u8 address);
-    void HDMATransfer(u16 source, u16 dest, u32 length);
 public:
     gbHeader info;
     RTC_Regs rtc, rtc2;
@@ -63,6 +55,29 @@ public:
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA(void);
+
+private:
+    HDMA hdma;
+    u8 mm;
+    bool ramEnable;
+    u8 hi, lo;
+    u16 dest, source;
+
+    void DMATransfer(u8 address);
+    void HDMATransfer(u16 source, u16 dest, u32 length);
+    u8 readRom(u16 address) const;
+    u8 readRTCRegisters(u16 address) const;
+    bool isMBC1(gbHeader a_header) const;
+    bool isMBC2(gbHeader a_header) const;
+    bool isMBC3(gbHeader a_header) const;
+    bool isMBC5(gbHeader a_header) const;
+    void sendMBC1Command(u16 a_address, u8 a_value);
+    void sendMBC2Command(u16 a_address, u8 a_value);
+    void sendMBC3Command(u16 a_address, u8 a_value);
+    void sendMBC5Command(u16 a_address, u8 a_value);
+    void writeRTCRegister(u8 a_value);
+    void writeIO(u16 a_address, u8 a_value);
+
 };
 
 

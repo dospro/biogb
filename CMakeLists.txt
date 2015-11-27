@@ -9,6 +9,9 @@ set(AUDIO_IMPLEMENTATION src/imp/audio/cPortAudio.h src/imp/audio/cPortAudio.cpp
 set(SOURCE_FILES
         src/main.cpp
         src/tables.h
+        src/macros.h
+        src/cMemory.h
+        src/cMemory.cpp
         src/cCpu.h
         src/cCpu.cpp
         src/cDisplay.h
@@ -18,6 +21,6 @@ set(SOURCE_FILES
         src/cSound.h
         src/cSound.cpp
         ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION} src/cMemory.cpp src/cMemory.h)
+        ${AUDIO_IMPLEMENTATION}  )
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL_LIBRARY})
