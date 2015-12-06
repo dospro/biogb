@@ -31,45 +31,44 @@
 #define XRES 160*3
 #define YRES 144*3
 
-cSDLDisplay::cSDLDisplay()
+cSDLDisplay::cSDLDisplay(bool a_isColor) :
+        screen{nullptr},
+        back{nullptr},
+        cDisplay(a_isColor)
 {
-    screen = NULL;
-    back = NULL;
+    if (SDL_WasInit(SDL_INIT_VIDEO) == 0)
+    {
+        if (SDL_Init(SDL_INIT_VIDEO) != 0)
+        {
+            printf("SDL: Couldn't init SDL Video: %s\n", SDL_GetError());
+            return;
+        }
+    }
+
+    screen = SDL_SetVideoMode(XRES, YRES, 32, SDL_SWSURFACE);
+    if (screen == NULL)
+    {
+        puts("SDL: Error creating screen");
+        return;
+    }
+
+    back = SDL_CreateRGBSurface(SDL_SWSURFACE, XRES, YRES, 32, 0xFF0000, 0xFF00, 0xFF, 0);
+    if (back == NULL)
+    {
+        puts("SDL: Error creating backbuffer");
+        return;
+    }
 }
 
 cSDLDisplay::~cSDLDisplay()
 {
-    if (back != NULL) {
+    if (back != NULL)
+    {
         SDL_FreeSurface(back);
         back = NULL;
     }
     if (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO)
         SDL_Quit();
-}
-
-bool cSDLDisplay::init(void)
-{
-
-    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
-        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-            printf("SDL: Couldn't init SDL Video: %s\n", SDL_GetError());
-            return false;
-        }
-    }
-
-    screen = SDL_SetVideoMode(XRES, YRES, 32, SDL_SWSURFACE);
-    if (screen == NULL) {
-        puts("SDL: Error creating screen");
-        return false;
-    }
-
-    back = SDL_CreateRGBSurface(SDL_SWSURFACE, XRES, YRES, 32, 0xFF0000, 0xFF00, 0xFF, 0);
-    if (back == NULL) {
-        puts("SDL: Error creating backbuffer");
-        return false;
-    }
-
-    return cDisplay::init();
 }
 
 void cSDLDisplay::putPixel(int x, int y, u32 color)
@@ -85,8 +84,10 @@ void cSDLDisplay::updateScreen(void)
     int pixel;
     SDL_LockSurface(back);
 
-    for (x = 0; x < 160; ++x) {
-        for (y = 0; y < 144; ++y) {
+    for (x = 0; x < 160; ++x)
+    {
+        for (y = 0; y < 144; ++y)
+        {
             pixel = videoBuffer[x][y];
 
             putPixel(x * 3, y * 3, pixel);

@@ -26,6 +26,7 @@
  */
 
 
+#include <iostream>
 #include"cDisplay.h"
 #include"cCpu.h"
 
@@ -33,379 +34,377 @@
 #define COLOR_INFLUENCE_FACTOR 8
 #define COLOR_INCREMENT_FACTOR 20
 
-u32 BWColors[2][2];
-u32 BGPTable[2][2];
-u32 WPTable[2][2];
-u32 OBP0Table[2][2];
-u32 OBP1Table[2][2];
 
-extern bool isColor;
-
-u32 BGColors[64];
-u32 OBJColors[64];
-
-cDisplay::cDisplay()
+cDisplay::cDisplay(bool a_isColor) :
+        BGPTable{{0xFFFFFF, 0xC0C0C0},
+                 {0x808080, 0x000000}},
+        WPTable{{0xFFFFFF, 0xC0C0C0},
+                {0x808080, 0x000000}},
+        OBP0Table{{0xFFFFFF, 0xC0C0C0},
+                  {0x808080, 0x000000}},
+        OBP1Table{{0xFFFFFF, 0xC0C0C0},
+                  {0x808080, 0x000000}},
+        BWColors{{0xFFFFFF, 0xC0C0C0},
+                 {0x808080, 0x000000}},
+        mem{nullptr},
+        mLCDCPriority{false},
+        mIsColor{a_isColor}
 {
-	mem=NULL;
+    int red, green, blue;
+    for (int color = 0; color < 0x10000; ++color)
+    {
+        red = ((color & 0x1F) << 8) >> 5;
+        green = (((color >> 5) & 0x1F) << 8) >> 5;
+        blue = (((color >> 10) & 0x1F) << 8) >> 5;
+
+        red = static_cast<int>((red / COLOR_REDUCTION_FACTOR
+                                + green / COLOR_INFLUENCE_FACTOR
+                                + blue / COLOR_INFLUENCE_FACTOR)
+                               + COLOR_INCREMENT_FACTOR);
+        green = static_cast<int>(((green / COLOR_REDUCTION_FACTOR)
+                                  + (red / COLOR_INFLUENCE_FACTOR)
+                                  + (blue / COLOR_INFLUENCE_FACTOR))
+                                 + COLOR_INCREMENT_FACTOR);
+        blue = static_cast<int>(((blue / COLOR_REDUCTION_FACTOR)
+                                 + (red / COLOR_INFLUENCE_FACTOR)
+                                 + (green / COLOR_INFLUENCE_FACTOR))
+                                + COLOR_INCREMENT_FACTOR);
+        gbcColors[color] = static_cast<unsigned int>((red << 16) | (green << 8) | blue);
+    }
+
 }
+
 cDisplay::~cDisplay()
 {
 }
-bool cDisplay::init(void)
+
+u8 cDisplay::readFromDisplay(u16 a_address)
 {
-	u8 R, G, B;
-	u32 i;
-	BGPTable[0][0]=0xFFFFFF;
-	BGPTable[0][1]=0xC0C0C0;
-	BGPTable[1][0]=0x808080;
-	BGPTable[1][1]=0x000000;
-
-	WPTable[0][0]=0xFFFFFF;
-	WPTable[0][1]=0xC0C0C0;
-	WPTable[1][0]=0x808080;
-	WPTable[1][1]=0x000000;
-
-	OBP0Table[0][0]=0xFFFFFF;
-	OBP0Table[0][1]=0xC0C0C0;
-	OBP0Table[1][0]=0x808080;
-	OBP0Table[1][1]=0x000000;
-
-	OBP1Table[0][0]=0xFFFFFF;
-	OBP1Table[0][1]=0xC0C0C0;
-	OBP1Table[1][0]=0x808080;
-	OBP1Table[1][1]=0x000000;
-
-	BWColors[0][0]=0xFFFFFF;
-	BWColors[0][1]=0xC0C0C0;
-	BWColors[1][0]=0x808080;
-	BWColors[1][1]=0x000000;
-	memset(dirs, 0, sizeof(dirs));
-	lcdcPrt=false;
-
-	/*for(i=0; i<0x10000; ++i)
-		gbcColors[i]=((((i&0x1F)<<8)>>5)<<16) | (((((i>>5)&0x1F)<<8)>>5)<<8) | ((((i>>10)&0x1F)<<8)>>5);*/
-		
-	for(i=0; i<0x10000; ++i)
-	{
-		R=((i&0x1F)<<8)>>5;
-		G=(((i>>5)&0x1F)<<8)>>5;
-		B=(((i>>10)&0x1F)<<8)>>5;
-		
-		R=((R/COLOR_REDUCTION_FACTOR)+(G/COLOR_INFLUENCE_FACTOR)+(B/COLOR_INFLUENCE_FACTOR))+COLOR_INCREMENT_FACTOR;
-		G=((G/COLOR_REDUCTION_FACTOR)+(R/COLOR_INFLUENCE_FACTOR)+(B/COLOR_INFLUENCE_FACTOR))+COLOR_INCREMENT_FACTOR;
-		B=((B/COLOR_REDUCTION_FACTOR)+(R/COLOR_INFLUENCE_FACTOR)+(G/COLOR_INFLUENCE_FACTOR))+COLOR_INCREMENT_FACTOR;
-		gbcColors[i]=(R<<16)|(G<<8)|B;
-	}
-
-	return true;
+    // TODO: Implement
+    if (a_address >= 0xFE00 && a_address < 0xFEA0)
+    {
+        return mOAM[a_address - 0xFE00];
+    }
+    return 0;
 }
 
-/*void cDisplay::getDisplayMessage(u16 address, u8 value)
+void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
 {
-	switch(address)
-	{
-		case 0xFF47://BGP
-			BGPTable[1][1]=BWColors[(value>>7)][(value>>6)&1];
-			BGPTable[1][0]=BWColors[(value>>5)&1][(value>>4)&1];
-			BGPTable[0][1]=BWColors[(value>>3)&1][(value>>2)&1];
-			BGPTable[0][0]=BWColors[(value>>1)&1][(value&1)];
-			break;
-		case 0xFF48://OBP0
-			OBP0Table[1][1]=BWColors[(value>>7)][(value>>6)&1];
-			OBP0Table[1][0]=BWColors[(value>>5)&1][(value>>4)&1];
-			OBP0Table[0][1]=BWColors[(value>>3)&1][(value>>2)&1];
-			OBP0Table[0][0]=BWColors[(value>>1)&1][(value&1)];
-			break;
-		case 0xFF49://OBP1
-			OBP1Table[1][1]=BWColors[(value>>7)][(value>>6)&1];
-			OBP1Table[1][0]=BWColors[(value>>5)&1][(value>>4)&1];
-			OBP1Table[0][1]=BWColors[(value>>3)&1][(value>>2)&1];
-			OBP1Table[0][0]=BWColors[(value>>1)&1][(value&1)];
-			break;
-		case 0xFF69:
-			BGColors[mem->mem[0xFF68][0]&0x3F]=value;
-			if(mem->mem[0xFF68][0]&0x80)//Autoincrement
-				mem->mem[0xFF68][0]++;
-			break;
-		case 0xFF6B:
-			OBJColors[mem->mem[0xFF6A][0]&0x3F]=value;
-			if(mem->mem[0xFF6A][0]&0x80)
-				mem->mem[0xFF6A][0]++;
-			break;
-		default:
-			break;
-	}
-}*/
+    if (a_address >= 0xFE00 && a_address < 0xFEA0)
+    {
+        mOAM[a_address - 0xFE00] = a_value;
+    }
+    switch (a_address)
+    {
+        case 0xFF47://BGP
+            BGPTable[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
+            BGPTable[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
+            BGPTable[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
+            BGPTable[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
+            break;
+        case 0xFF48://OBP0
+            OBP0Table[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
+            OBP0Table[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
+            OBP0Table[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
+            OBP0Table[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
+            break;
+        case 0xFF49://OBP1
+            OBP1Table[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
+            OBP1Table[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
+            OBP1Table[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
+            OBP1Table[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
+            break;
+        case 0xFF68: // BGPI
+            mBGPI = a_value;
+            break;
+        case 0xFF69: // BGPD
+            BGColors[mBGPI & 0x3F] = a_value;
+            if (mBGPI & 0x80)
+                mBGPI = (mBGPI + 1) & 0xFF;
+            break;
+        case OBPI:
+            mOBPI = a_value;
+            break;
+        case OBPD:
+            // 8 color palettes x 4 colors each palette x 2 bytes each color = 64 bytes(0x3F bytes)
+            OBJColors[mOBPI & 0x3F] = a_value;
+            if (mOBPI & 0x80)
+                mOBPI = (mOBPI + 1) & 0xFF;
+            break;
+    }
+}
 
 void cDisplay::hBlankDraw(void)
 {//Draws a single line
-	unsigned char val;
-	
-	val=mem->mem[0xFF40][0];
-	lcdc.lcdcActive=(val>>7)&1;
-	lcdc.wndMap=(((val>>6)&1)==1)?0x9C00:0x9800;
-	lcdc.wndActive=(val>>5)&1;
-	lcdc.bgWndData=(((val>>4)&1)==1)?0x8000:0x8800;
-	lcdc.bgMap=(((val>>3)&1)==1)?0x9C00:0x9800;
-	lcdc.spSize=(((val>>2)&1)==1)?16:8;
-	lcdc.spActive=(val>>1)&1;
-	lcdc.bgWndActive=val&1;
-	ly=mem->mem[0xFF44][0];
+    unsigned char val;
+
+    val = mem->mem[0xFF40][0];
+    lcdc.lcdcActive = (val >> 7) & 1;
+    lcdc.wndMap = (((val >> 6) & 1) == 1) ? 0x9C00 : 0x9800;
+    lcdc.wndActive = (val >> 5) & 1;
+    lcdc.bgWndData = (((val >> 4) & 1) == 1) ? 0x8000 : 0x8800;
+    lcdc.bgMap = (((val >> 3) & 1) == 1) ? 0x9C00 : 0x9800;
+    lcdc.spActive = (val >> 1) & 1;
+    lcdc.bgWndActive = val & 1;
+    ly = mem->mem[0xFF44][0];
 
 
-	if(lcdc.lcdcActive)//If the lcd is on
-	{
-		if(isColor)
-		{
-			lcdcPrt=lcdc.bgWndActive;
-			drawBackGround();
-			if(lcdc.wndActive)
-				drawWindow();
-			if(lcdc.spActive)
-				drawSprites();
-		}
-		else
-		{
-			lcdcPrt=false;
-			if(lcdc.bgWndActive)
-			{
-				drawBackGround();
-				if(lcdc.wndActive)
-					drawWindow();
-			}
-			if(lcdc.spActive)
-				drawSprites();
-		}
-	}
-}
-void cDisplay::drawBackGround(void)
-{
-	s32 x, i, j;
-	u8 y;
-	u8 tId; 
-	s32 dir;
-	u8 tData1, tData2;
-	u8 bank=0, pal=0, hFlip=0, vFlip=0;
-	s32 tileCounter=mem->mem[0xFF43][0]>>3;
-
-	x=-(mem->mem[0xFF43][0]&7);
-	y=(ly+mem->mem[0xFF42][0])&0xFF;
-
-	//Go through all the line tile by tile
-	for(i=x; i<160; i+=8)
-	{
-		if(tileCounter>=32)
-			tileCounter-=32;
-		//We get the tile Id
-		dir=lcdc.bgMap+tileCounter+((y>>3)<<5);
-		if(isColor)
-		{
-			hFlip=(mem->mem[dir][1]>>5)&1;
-			vFlip=(mem->mem[dir][1]>>6)&1;
-			
-			/*dirs[tileCounter][y>>3]=*/bgPrt=(mem->mem[dir][1]>>7)&1;
-			
-			bank=(mem->mem[dir][1]>>3)&1;
-			pal=(mem->mem[dir][1]&7)<<3;
-		
-			BGPTable[0][0]=gbcColors[((BGColors[pal+1])<<8)|(BGColors[pal])];
-			BGPTable[0][1]=gbcColors[((BGColors[pal+3])<<8)|(BGColors[pal+2])];
-			BGPTable[1][0]=gbcColors[((BGColors[pal+5])<<8)|(BGColors[pal+4])];
-			BGPTable[1][1]=gbcColors[((BGColors[pal+7])<<8)|(BGColors[pal+6])];
-		}
-		if(lcdc.bgWndData==0x8000)
-			tId=mem->mem[dir][0];
-		else
-			tId=(mem->mem[dir][0]^0x80);
-		if(vFlip==1)
-		{
-			tData1=mem->mem[lcdc.bgWndData+(tId<<4)+((7-(y&7))<<1)+1][bank];
-			tData2=mem->mem[lcdc.bgWndData+(tId<<4)+((7-(y&7))<<1)  ][bank];
-		}
-		else
-		{
-			tData1=mem->mem[lcdc.bgWndData+(tId<<4)+((y&7)<<1)+1][bank];
-			tData2=mem->mem[lcdc.bgWndData+(tId<<4)+((y&7)<<1)  ][bank];
-		}
-		if(hFlip==1)
-		{
-			for(j=0; j<8; j++)
-			{
-				if(i+j<160 && i+j>=0 && ly<144 && ly>=0)
-					videoBuffer[i+j][ly]=BGPTable[tData1&1][tData2&1];
-
-				tData1>>=1;
-				tData2>>=1;
-			}
-		}
-		else
-		{
-			for(j=7; j>=0; j--)
-			{
-				if(i+j<160 && i+j>=0 && ly<144 && ly>=0)
-					videoBuffer[i+j][ly]=BGPTable[tData1&1][tData2&1];
-
-				tData1>>=1;
-				tData2>>=1;
-			}
-		}
-		++tileCounter;
-	}
+    if (lcdc.lcdcActive)//If the lcd is on
+    {
+        if (mIsColor)
+        {
+            mLCDCPriority = lcdc.bgWndActive;
+            drawBackGround();
+            if (lcdc.wndActive)
+                drawWindow();
+            if (lcdc.spActive)
+                drawSprites();
+        }
+        else
+        {
+            mLCDCPriority = false;
+            if (lcdc.bgWndActive)
+            {
+                drawBackGround();
+                if (lcdc.wndActive)
+                    drawWindow();
+            }
+            if (lcdc.spActive)
+                drawSprites();
+        }
+    }
 }
 
-void cDisplay::drawWindow(void)
+void cDisplay::drawBackGround()
 {
-	int tileCounter, tId, dir;
-	unsigned char tData1, tData2;
-	int bank=0, pal=0;
-	int wx, wy, x, y;
-	int i, j;
+    s32 x, i, j;
+    u8 y;
+    u8 tId;
+    s32 dir;
+    u8 tData1, tData2;
+    u8 bank = 0, pal = 0, hFlip = 0, vFlip = 0;
+    s32 tileCounter = mem->mem[0xFF43][0] >> 3;
 
-	wx=mem->mem[0xFF4B][0]-7;
-	wy=mem->mem[0xFF4A][0];
+    x = -(mem->mem[0xFF43][0] & 7);
+    y = (ly + mem->mem[0xFF42][0]) & 0xFF;
 
-	x=(wx&7);
-	y=(ly-wy)&0xFF;
-	tileCounter=-(wx>>3);
-	if(ly<144 && ly>=wy && wx<=166 && wy>=0 && wy<=143)
-	{
-		for(i=x; i<160; i+=8)
-		{
-			if(tileCounter>=32)
-				tileCounter-=32;
-			dir=lcdc.wndMap+tileCounter+((y>>3)<<5);
-			tId=mem->mem[dir][0];
-			if(isColor)
-			{
-				bank=(mem->mem[dir][1]>>3)&1;
-				pal=(mem->mem[dir][1]&7)<<3;
-			}
-			if(lcdc.bgWndData==0x8800)
-				tId^=0x80;
-			tData1=mem->mem[lcdc.bgWndData+(tId<<4)+((y&7)<<1)+1][bank];
-			tData2=mem->mem[lcdc.bgWndData+(tId<<4)+((y&7)<<1)  ][bank];
+    //Go through all the line tile by tile
+    for (i = x; i < 160; i += 8)
+    {
+        if (tileCounter >= 32)
+            tileCounter -= 32;
+        //We get the tile Id
+        dir = lcdc.bgMap + tileCounter + ((y >> 3) << 5);
+        if (mIsColor)
+        {
+            hFlip = (mem->mem[dir][1] >> 5) & 1;
+            vFlip = (mem->mem[dir][1] >> 6) & 1;
 
-			if(isColor)
-			{
-				WPTable[0][0]=gbcColors[((BGColors[pal+1])<<8)|(BGColors[pal])];
-				WPTable[0][1]=gbcColors[((BGColors[pal+3])<<8)|(BGColors[pal+2])];
-				WPTable[1][0]=gbcColors[((BGColors[pal+5])<<8)|(BGColors[pal+4])];
-				WPTable[1][1]=gbcColors[((BGColors[pal+7])<<8)|(BGColors[pal+6])];
-			}
+            /*dirs[tileCounter][y>>3]=*/mBackgorundPriority = (mem->mem[dir][1] >> 7) & 1;
 
-			for(j=7; j>=0; j--)
-			{
-				if(i+j<160 && i+j>=0 && i+j>=wx)
-						videoBuffer[i+j][ly]=WPTable[tData1&1][tData2&1];
-				tData1>>=1;
-				tData2>>=1;
-			}
-			++tileCounter;
-		}
-	}
+            bank = (mem->mem[dir][1] >> 3) & 1;
+            pal = (mem->mem[dir][1] & 7) << 3;
+
+            BGPTable[0][0] = gbcColors[((BGColors[pal + 1]) << 8) | (BGColors[pal])];
+            BGPTable[0][1] = gbcColors[((BGColors[pal + 3]) << 8) | (BGColors[pal + 2])];
+            BGPTable[1][0] = gbcColors[((BGColors[pal + 5]) << 8) | (BGColors[pal + 4])];
+            BGPTable[1][1] = gbcColors[((BGColors[pal + 7]) << 8) | (BGColors[pal + 6])];
+        }
+        if (lcdc.bgWndData == 0x8000)
+            tId = mem->mem[dir][0];
+        else
+            tId = (mem->mem[dir][0] ^ 0x80);
+        if (vFlip == 1)
+        {
+            tData1 = mem->mem[lcdc.bgWndData + (tId << 4) + ((7 - (y & 7)) << 1) + 1][bank];
+            tData2 = mem->mem[lcdc.bgWndData + (tId << 4) + ((7 - (y & 7)) << 1)][bank];
+        }
+        else
+        {
+            tData1 = mem->mem[lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) + 1][bank];
+            tData2 = mem->mem[lcdc.bgWndData + (tId << 4) + ((y & 7) << 1)][bank];
+        }
+        if (hFlip == 1)
+        {
+            for (j = 0; j < 8; j++)
+            {
+                if (i + j < 160 && i + j >= 0 && ly < 144 && ly >= 0)
+                    videoBuffer[i + j][ly] = BGPTable[tData1 & 1][tData2 & 1];
+
+                tData1 >>= 1;
+                tData2 >>= 1;
+            }
+        }
+        else
+        {
+            for (j = 7; j >= 0; j--)
+            {
+                if (i + j < 160 && i + j >= 0 && ly < 144 && ly >= 0)
+                    videoBuffer[i + j][ly] = BGPTable[tData1 & 1][tData2 & 1];
+
+                tData1 >>= 1;
+                tData2 >>= 1;
+            }
+        }
+        ++tileCounter;
+    }
 }
 
-void cDisplay::drawSprites(void)
+void cDisplay::drawWindow()
 {
-	int y;
-	//int tempx, tempy;
-	unsigned char tData1, tData2;
-	int i, p;
-	for(i=0; i<40; ++i)
-	{
-		sprite.y=mem->mem[0xFE00+(i<<2)][0]-16;
-		sprite.x=mem->mem[0xFE00+(i<<2)+1][0]-8;
-		sprite.patNum=lcdc.spSize==16?mem->mem[0xFE00+(i<<2)+2][0]&0xFE:mem->mem[0xFE00+(i<<2)+2][0];
-		oamPrt=sprite.priority=(mem->mem[0xFE00+(i<<2)+3][0]>>7)&1;
-		sprite.yFlip=(mem->mem[0xFE00+(i<<2)+3][0]>>6)&1;
-		sprite.xFlip=(mem->mem[0xFE00+(i<<2)+3][0]>>5)&1;
-		sprite.palette=(mem->mem[0xFE00+(i<<2)+3][0]>>4)&1;
-		sprite.bank=0;
-		sprite.cgbPalete=0;
-		prtSym=4;	
+    int tileCounter, tId, dir;
+    unsigned char tData1, tData2;
+    int bank = 0, pal = 0;
+    int wx, wy, x, y;
+    int i, j;
 
-		if(isColor)
-		{
-			sprite.bank=(mem->mem[0xFE00+(i<<2)+3][0]>>3)&1;
-			sprite.cgbPalete=(mem->mem[0xFE00+(i<<2)+3][0]&7)<<3;
-			OBP0Table[0][0]=gbcColors[((OBJColors[sprite.cgbPalete+1])<<8)|(OBJColors[sprite.cgbPalete])];
-			OBP0Table[0][1]=gbcColors[((OBJColors[sprite.cgbPalete+3])<<8)|(OBJColors[sprite.cgbPalete+2])];
-			OBP0Table[1][0]=gbcColors[((OBJColors[sprite.cgbPalete+5])<<8)|(OBJColors[sprite.cgbPalete+4])];
-			OBP0Table[1][1]=gbcColors[((OBJColors[sprite.cgbPalete+7])<<8)|(OBJColors[sprite.cgbPalete+6])];
-			sprite.palette=false;
-			if(lcdcPrt)
-			{
-				if(!bgPrt)
-				{
-					if(oamPrt)
-						prtSym=5;//OAM behind colors 123
-					else
-						prtSym=4;//OAM above bg
-				}
-				else
-					prtSym=3;//BG above OAM
-			}
-			else
-				prtSym=0;//BG above everything
-		}
+    wx = mem->mem[0xFF4B][0] - 7;
+    wy = mem->mem[0xFF4A][0];
 
-		if(ly>=sprite.y && ly<sprite.y+lcdc.spSize)
-		{
-			if(sprite.yFlip)
-				y=(lcdc.spSize-1)-(ly-sprite.y);
-			else
-				y=ly-sprite.y;
+    x = (wx & 7);
+    y = (ly - wy) & 0xFF;
+    tileCounter = -(wx >> 3);
+    if (ly < 144 && ly >= wy && wx <= 166 && wy >= 0 && wy <= 143)
+    {
+        for (i = x; i < 160; i += 8)
+        {
+            if (tileCounter >= 32)
+                tileCounter -= 32;
+            dir = lcdc.wndMap + tileCounter + ((y >> 3) << 5);
+            tId = mem->mem[dir][0];
+            if (mIsColor)
+            {
+                bank = (mem->mem[dir][1] >> 3) & 1;
+                pal = (mem->mem[dir][1] & 7) << 3;
+            }
+            if (lcdc.bgWndData == 0x8800)
+                tId ^= 0x80;
+            tData1 = mem->mem[lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) + 1][bank];
+            tData2 = mem->mem[lcdc.bgWndData + (tId << 4) + ((y & 7) << 1)][bank];
 
-			tData1=mem->mem[0x8000+(sprite.patNum<<4)+((y&(lcdc.spSize-1))<<1)+1][sprite.bank];
-			tData2=mem->mem[0x8000+(sprite.patNum<<4)+((y&(lcdc.spSize-1))<<1)  ][sprite.bank];
+            if (mIsColor)
+            {
+                WPTable[0][0] = gbcColors[((BGColors[pal + 1]) << 8) | (BGColors[pal])];
+                WPTable[0][1] = gbcColors[((BGColors[pal + 3]) << 8) | (BGColors[pal + 2])];
+                WPTable[1][0] = gbcColors[((BGColors[pal + 5]) << 8) | (BGColors[pal + 4])];
+                WPTable[1][1] = gbcColors[((BGColors[pal + 7]) << 8) | (BGColors[pal + 6])];
+            }
 
-			
-			if(sprite.xFlip)
-			{
-				for(p=0; p<8; ++p)
-				{
-					switch(prtSym)
-					{
-						case 0:
-							break;
-						case 3:
-							break;								
-						case 4:
-							if(sprite.x+p<160 && sprite.x+p>=0 && ly>=0 && ly<144 && ((tData1&1)|(tData2&1))!=0)
-								videoBuffer[sprite.x+p][ly]=sprite.palette?OBP1Table[tData1&1][tData2&1]:OBP0Table[tData1&1][tData2&1];
-							break;
-						case 5:
-							if(sprite.x+p<160 && sprite.x+p>=0 && ly>=0 && ly<144 && ((tData1&1)|(tData2&1))!=0 && (videoBuffer[sprite.x+p][ly]==BGPTable[0][0] && videoBuffer[sprite.x+p][ly]==WPTable[0][0]))
-								videoBuffer[sprite.x+p][ly]=sprite.palette?OBP1Table[tData1&1][tData2&1]:OBP0Table[tData1&1][tData2&1];
-							break;
-					}
-					tData1>>=1;
-					tData2>>=1;
-				}
-			}
-			else
-			{
-				for(p=7; p>=0; --p)
-				{
-					switch(prtSym)
-					{
-						case 0:
-							break;
-						case 3:
-							break;
-						case 4:
-							if(sprite.x+p<160 && sprite.x+p>=0 && ly>=0 && ly<144 && ((tData1&1)+(tData2&1))!=0)
-								videoBuffer[sprite.x+p][ly]=sprite.palette?OBP1Table[tData1&1][tData2&1]:OBP0Table[tData1&1][tData2&1];
-							break;
-						case 5:
-							if(sprite.x+p<160 && sprite.x+p>=0 && ly>=0 && ly<144 && ((tData1&1)+(tData2&1))!=0 && (videoBuffer[sprite.x+p][ly]==BGPTable[0][0] && videoBuffer[sprite.x+p][ly]==WPTable[0][0]))
-								videoBuffer[sprite.x+p][ly]=sprite.palette?OBP1Table[tData1&1][tData2&1]:OBP0Table[tData1&1][tData2&1];
-							break;
-					}
-					tData1>>=1;
-					tData2>>=1;
-				}
-			}
-		}
-	}
+            for (j = 7; j >= 0; j--)
+            {
+                if (i + j < 160 && i + j >= 0 && i + j >= wx)
+                    videoBuffer[i + j][ly] = WPTable[tData1 & 1][tData2 & 1];
+                tData1 >>= 1;
+                tData2 >>= 1;
+            }
+            ++tileCounter;
+        }
+    }
+}
+
+/**
+ * OAM is divided into 40 4-byte blocks each of which corresponds to a sprite.
+ */
+void cDisplay::drawSprites()
+{
+    int spriteSize{((mem->mem[0xFF40][0] >> 2) & 1) == 1 ? 16 : 8};
+    for (int i = 0; i < 40; ++i)
+    {
+        int spriteFlags{mOAM[i * 4 + 3]};
+        mOAMPriority = (spriteFlags & 0x80) != 0;
+        int spritePaletteNumber{(spriteFlags >> 4) & 1};
+        int spriteBank{0};
+
+        mFinalPriority = 4;
+
+        if (mIsColor)
+        {
+            spritePaletteNumber = {(spriteFlags & 7) * 8};
+            spriteBank = (spriteFlags >> 3) & 1;
+            setSpriteColorTable(spritePaletteNumber);
+            spritePaletteNumber = 0;
+            mFinalPriority = getPriority();
+        }
+
+        int spriteY{mOAM[i * 4] - 16};
+        if (ly >= spriteY && ly < spriteY + spriteSize)
+        {
+            bool yFlip{(spriteFlags & 0x40) != 0};
+            int yPosition{yFlip ? (spriteSize - 1) - (ly - spriteY) : ly - spriteY};
+            int spritePatternNumber{mOAM[(i * 4) + 2]};
+            if (spriteSize == 16)
+                spritePatternNumber &= 0xFE;
+            int patternOffset = spritePatternNumber * 16 + ((yPosition & (spriteSize - 1)) * 2);
+            u8 firstByte{mem->mem[0x8000 + patternOffset + 1][spriteBank]};
+            u8 secondByte{mem->mem[0x8000 + patternOffset][spriteBank]};
+            int spriteX{mOAM[(i * 4) + 1] - 8};
+            bool xFlip{(spriteFlags & 0x20) != 0};
+            drawSpriteLine(xFlip, spriteX, spritePaletteNumber, firstByte, secondByte);
+        }
+    }
+}
+
+void cDisplay::setSpriteColorTable(int spritePaletteNumber)
+{
+    OBP0Table[0][0] = gbcColors[((OBJColors[spritePaletteNumber + 1]) << 8) | (OBJColors[spritePaletteNumber])];
+    OBP0Table[0][1] = gbcColors[((OBJColors[spritePaletteNumber + 3]) << 8) | (OBJColors[spritePaletteNumber + 2])];
+    OBP0Table[1][0] = gbcColors[((OBJColors[spritePaletteNumber + 5]) << 8) | (OBJColors[spritePaletteNumber + 4])];
+    OBP0Table[1][1] = gbcColors[((OBJColors[spritePaletteNumber + 7]) << 8) | (OBJColors[spritePaletteNumber + 6])];
+}
+
+int cDisplay::getPriority()
+{
+    if (mLCDCPriority)
+    {
+        if (!mBackgorundPriority)
+        {
+            if (mOAMPriority)
+                return 5;//OAM behind colors 123
+            else
+                return 4;//OAM above bg
+        }
+        else
+            return 3;//BG above OAM
+    }
+    else
+        return 0;//BG above everything
+}
+
+void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte)
+{
+    for (int i = 0; i < 8; ++i)
+    {
+        int p{};
+        if (flipX)
+            p = i;
+        else
+            p = 7 - i;
+
+        switch (mFinalPriority)
+        {
+            case 0:
+            case 3:
+                break;
+            case 4:
+                if (isSpritePixelVisible(spriteX, firstByte, secondByte, p))
+                    videoBuffer[spriteX + p][ly] = spritePaletteNumber == 1 ? OBP1Table[firstByte & 1][secondByte & 1]
+                                                                            : OBP0Table[firstByte & 1][secondByte & 1];
+                break;
+            case 5:
+                if (isSpritePixelVisible(spriteX, firstByte, secondByte, p))
+                    videoBuffer[spriteX + p][ly] = spritePaletteNumber == 1 ? OBP1Table[firstByte & 1][secondByte & 1]
+                                                                            : OBP0Table[firstByte & 1][secondByte & 1];
+                break;
+            default:
+                //TODO: Raise Exception
+                break;
+        }
+        firstByte >>= 1;
+        secondByte >>= 1;
+    }
+}
+
+bool cDisplay::isSpritePixelVisible(int spriteX, u8 firstByte, u8 secondByte, int p) const
+{
+    return spriteX + p < 160 && spriteX + p >= 0 && ly >= 0 && ly < 144 && ((firstByte & 1) | (secondByte & 1)) != 0;
 }

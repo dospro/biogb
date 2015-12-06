@@ -32,57 +32,68 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include <array>
+#include <vector>
 #include"macros.h"
+
+#define BGPI 0xFF68
+#define BGPD 0xFF69
+#define OBPI 0xFF6A
+#define OBPD 0xFF6B
 
 class cMemory;
 
-struct LCDC {
-	bool lcdcActive;
-	int wndMap;
-	bool wndActive;
-	int bgWndData;
-	int bgMap;
-	int spSize;
-	bool spActive;
-	bool bgWndActive;
+struct LCDC
+{
+    bool lcdcActive;
+    int wndMap;
+    bool wndActive;
+    int bgWndData;
+    int bgMap;
+    bool spActive;
+    bool bgWndActive;
 };
-struct OAMBlock {
-	int x, y;
-	int patNum;
-	bool priority, xFlip, yFlip, palette, bank;
-	int cgbPalete;
-};
-class cDisplay {
-protected:
-	cMemory *mem;
-	u32 videoBuffer[160][144];
-	u32 gbcColors[0x10000];
-	/*u32 BWColors[2][2];
-	u32 BGPTable[2][2];
-	u32 WPTable[2][2];
-	u32 OBP0Table[2][2];
-	u32 OBP1Table[2][2];
-	u32 BGColors[64];
-    u32 OBJColors[64];*/
-	LCDC lcdc;
-	OAMBlock sprite;
-	s32 ly;
-	u32 prtSym;
 
-	bool dirs[0xFF][0xFF];
-	bool lcdcPrt, bgPrt, oamPrt;
-
-
-	void drawBackGround(void);
-	void drawWindow(void);
-	void drawSprites(void);
+class cDisplay
+{
 public:
-	cDisplay();
-	~cDisplay();
-	virtual bool init(void);
-	virtual void updateScreen(void)=0;
-	//void getDisplayMessage(u16 address, u8 value);
-	void getMemoryPointer(cMemory *tmem){mem=tmem;};
-	void hBlankDraw(void);
+    cDisplay(bool a_isColor);
+    virtual ~cDisplay();
+    virtual void updateScreen(void) = 0;
+    u8 readFromDisplay(u16 a_address);
+    void writeToDisplay(u16 a_address, u8 a_value);
+
+    void getMemoryPointer(cMemory *tmem)
+    { mem = tmem; };
+    void hBlankDraw(void);
+
+protected:
+    cMemory *mem;
+    std::array<u8, 0x9F> mOAM;
+    std::vector<std::array<u8, 0x2000>> mVRAM;
+    u32 videoBuffer[160][144];
+    u32 gbcColors[0x10000];
+    u32 BWColors[2][2];
+    u32 BGPTable[2][2];
+    u32 WPTable[2][2];
+    u32 OBP0Table[2][2];
+    u32 OBP1Table[2][2];
+    u32 BGColors[64];
+    u32 OBJColors[64];
+    LCDC lcdc;
+    s32 ly;
+    int mFinalPriority;
+    int mBGPI;
+    int mOBPI;
+    bool mIsColor;
+    bool mLCDCPriority, mBackgorundPriority, mOAMPriority;
+    void drawBackGround();
+    void drawWindow();
+    void drawSprites();
+    int getPriority();
+    void drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte);
+    bool isSpritePixelVisible(int spriteX, u8 firstByte, u8 secondByte, int p) const;
+    void setSpriteColorTable(int spritePaletteNumber);
 };
+
 #endif

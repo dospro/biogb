@@ -3,7 +3,7 @@
 
 using u8 = unsigned char;
 using u16 = unsigned short;
-using s8 = signed short;
+using s8 = signed char;
 using s16 = short;
 using  u32 = unsigned int;
 using s32 = int;

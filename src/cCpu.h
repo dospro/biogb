@@ -45,7 +45,7 @@ class cCpu {
 	//Private Data
 	cMemory *mem;
 	cInput *input;
-	cDisplay *display;
+	//cDisplay *display;
 
 	FILE *log;
 	u8 a, b, c, d ,e ,h, l;

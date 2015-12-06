@@ -32,7 +32,6 @@
 #include"cCpu.h"
 
 #include"imp/audio/cPortAudio.h"
-#include"imp/video/cSDLDisplay.h"
 
 
 cSound *sound;
@@ -44,25 +43,12 @@ u8 jpb, jpd; //Joy pad buttons and directions
 bool isColor;
 u32 currentSpeed;
 bool speedChange;
-extern u32 BWColors[2][2];
-extern u32 BGColors[64];
-extern u32 OBJColors[64];
-extern u32 BGPTable[2][2]; //cGfx.cpp
-extern u32 WPTable[2][2]; //cGfx.cpp
-extern u32 OBP0Table[2][2]; //cGfx.cpp
-extern u32 OBP1Table[2][2]; //cGfx.cpp
-
-
-
-
-
 
 
 /*###########################################*/
 cCpu::cCpu()
 {
     mem = NULL;
-    display = NULL;
     sound = NULL;
     input = NULL;
     log = NULL;
@@ -74,8 +60,6 @@ cCpu::~cCpu()
         delete mem;
     if (sound != NULL)
         delete sound;
-    if (display != NULL)
-        delete display;
     if (input != NULL)
         delete input;
 }
@@ -285,11 +269,11 @@ void cCpu::saveState(int number)
     stateFile.write((char *) &currentSpeed, sizeof(int));
     stateFile.write((char *) &speedChange, sizeof(bool));
 
-    stateFile.write((char *) BGColors, sizeof(BGColors));
+    /*stateFile.write((char *) BGColors, sizeof(BGColors));
     stateFile.write((char *) OBJColors, sizeof(OBJColors));
     stateFile.write((char *) BGPTable, sizeof(BGPTable));
     stateFile.write((char *) OBP0Table, sizeof(OBP0Table));
-    stateFile.write((char *) OBP1Table, sizeof(OBP1Table));
+    stateFile.write((char *) OBP1Table, sizeof(OBP1Table));*/
 
 
     stateFile.write((char *) mem->mem[0x8000], 0xFFFF00);
@@ -339,11 +323,11 @@ void cCpu::loadState(int number)
     stateFile.read((char *) &currentSpeed, sizeof(int));
     stateFile.read((char *) &speedChange, sizeof(bool));
 
-    stateFile.read((char *) BGColors, sizeof(BGColors));
+    /*stateFile.read((char *) BGColors, sizeof(BGColors));
     stateFile.read((char *) OBJColors, sizeof(OBJColors));
     stateFile.read((char *) BGPTable, sizeof(BGPTable));
     stateFile.read((char *) OBP0Table, sizeof(OBP0Table));
-    stateFile.read((char *) OBP1Table, sizeof(OBP1Table));
+    stateFile.read((char *) OBP1Table, sizeof(OBP1Table));*/
 
     stateFile.read((char *) mem->mem[0x8000], 0xFFFF00);
     stateFile.close();
@@ -625,20 +609,6 @@ bool cCpu::initCpu(const char *file)
     for (i = 0; i < 256; i++)
         opCycles[i] <<= 1;
 
-    std::cout << "Display.";
-    display = new cSDLDisplay;
-    if (display == NULL)
-    {
-        std::cout << "Error" << std::endl;
-        return false;
-    }
-    if (!display->init())
-    {
-        std::cout << "Error" << std::endl;
-        return false;
-    }
-    std::cout << "OK" << std::endl;
-
     std::cout << "Sound...";
     sound = new cPortAudio;
     if (sound == NULL)
@@ -690,7 +660,7 @@ bool cCpu::initCpu(const char *file)
 #endif
 
     initRTCTimer();
-    display->getMemoryPointer(mem);
+
     sound->getMemoryPointer(mem);
 
     mem->writeByte(0xFF05, 0x00);
@@ -923,7 +893,7 @@ void cCpu::updateModes(void)
                 nextMode = 2;
 
                 setMode(0);
-                display->hBlankDraw();
+                mem->hBlankDraw();
                 if (mem->mem[0xFF41][0] & 8 && mem->mem[0xFF40][0] & 0x80)
                     setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
@@ -959,7 +929,7 @@ void cCpu::updateModes(void)
                 break;
             case 4://Full update after mode 1
                 nextMode = 2;
-                display->updateScreen();
+                mem->updateScreen();
                 fullUpdate();
                 break;
         }

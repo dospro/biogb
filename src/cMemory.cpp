@@ -8,20 +8,27 @@
 #include "cMemory.h"
 #include "tables.h"
 #include "cSound.h"
+#include "imp/video/cSDLDisplay.h"
 
 extern cSound *sound;
 extern u8 jpb, jpd; //Joy pad buttons and directions
 extern bool isColor;
-extern u32 BWColors[2][2];
-extern u32 BGColors[64];
-extern u32 OBJColors[64];
-extern u32 BGPTable[2][2]; //cGfx.cpp
-extern u32 WPTable[2][2]; //cGfx.cpp
-extern u32 OBP0Table[2][2]; //cGfx.cpp
-extern u32 OBP1Table[2][2]; //cGfx.cpp
-
 extern bool speedChange;
 extern u32 currentSpeed;
+
+cMemory::cMemory()
+{
+    mDisplay = nullptr;
+}
+
+cMemory::~cMemory()
+{
+    if (mDisplay != nullptr)
+    {
+        delete (mDisplay);
+        mDisplay = nullptr;
+    }
+}
 
 bool cMemory::loadRom(const char *fileName)
 {
@@ -74,10 +81,10 @@ bool cMemory::loadRom(const char *fileName)
 
     for (i = 0; i < banks; i++)
     {
-        u8 tempBank[0x4000];
-        file.read((char *) tempBank, 0x4000);
+        mRom.push_back(std::array<u8, 0x4000> {});
+        file.read(reinterpret_cast<char *>(&mRom[i][0]), 0x4000);
         for (j = 0; j < 0x4000; j++)
-            mem[j][i] = tempBank[j];
+            mem[j][i] = mRom[i][j];
     }
 
     file.close();
@@ -99,31 +106,44 @@ bool cMemory::loadRom(const char *fileName)
     std::memset(&rtc, 0, sizeof(RTC_Regs));
     std::memset(&rtc2, 0, sizeof(RTC_Regs));
     std::memset(&ST, 0, sizeof(SerialTransfer));
+    //TODO: Refactorizar esto
+    std::cout << "Display.";
+    try
+    {
+        mDisplay = new cSDLDisplay(isColor);
+        // TODO: Change exception type
+    } catch (std::exception e)
+    {
+        std::cout << "Error" << std::endl;
+        return false;
+    }
+    std::cout << "OK" << std::endl;
+    mDisplay->getMemoryPointer(this);
     return true;
 }
 
 u8 cMemory::readByte(u16 address)
 {
-    if (address < 0x8000)
-        return readRom(address);
+    if (address < 0x4000)
+        return mRom[0][address];
+    else if (address < 0x8000)
+        return mRom[romBank][address - 0x4000];
     else if (address < 0xA000)
         return mem[address][vRamBank];
     else if (address < 0xC000)
-    {
         return readRTCRegisters(address);
-    }
     else if (address >= 0xD000 && address < 0xE000)
         return mem[address][wRamBank];
     else
         return mem[address][0];
 }
 
-u8 cMemory::readRom(u16 address) const
+u8 cMemory::readRom(u16 a_address) const noexcept
 {
-    if (address < 0x4000)
-        return mem[address][0];
+    if (a_address < 0x4000)
+        return mRom[0][a_address];
     else
-        return mem[address - 0x4000][romBank];
+        return mRom[romBank][a_address - 0x4000];
 }
 
 u8 cMemory::readRTCRegisters(u16 address) const
@@ -132,24 +152,12 @@ u8 cMemory::readRTCRegisters(u16 address) const
     {
         switch (rtc.rtcRegSelect)
         {
-            case 0x8:
-                return rtc.sec;
-                break;
-            case 0x9:
-                return rtc2.min;
-                break;
-            case 0xA:
-                return rtc2.hr;
-                break;
-            case 0xB:
-                return rtc2.dl;
-                break;
-            case 0xC:
-                return rtc2.dh;
-                break;
-            default:
-                return mem[address][ramBank];
-                LOG(rtc.rtcRegSelect);
+            case 0x8: return rtc.sec;
+            case 0x9: return rtc2.min;
+            case 0xA: return rtc2.hr;
+            case 0xB: return rtc2.dl;
+            case 0xC: return rtc2.dh;
+            default: return mem[address][ramBank];
         }
     }
     else
@@ -158,52 +166,57 @@ u8 cMemory::readRTCRegisters(u16 address) const
     }
 }
 
-void cMemory::writeByte(u16 address, u8 val)
+void cMemory::writeByte(u16 a_address, u8 a_value)
 {
-    if (address < 0x8000)
+    if (a_address < 0x8000)
     {
         if (isMBC1(info))
         {
-            sendMBC1Command(address, val);
+            sendMBC1Command(a_address, a_value);
         }
         else if (isMBC2(info))
         {
-            sendMBC2Command(address, val);
+            sendMBC2Command(a_address, a_value);
         }
         else if (isMBC3(info))
         {
-            sendMBC3Command(address, val);
+            sendMBC3Command(a_address, a_value);
         }
         else if (isMBC5(info))
         {
-            sendMBC5Command(address, val);
+            sendMBC5Command(a_address, a_value);
         }
     }
-    else if (address < 0xFF00)
+    else if (a_address < 0xFF00)
     {
-        if (address < 0xA000)
-            mem[address][vRamBank] = val;
-        else if (address < 0xC000)
+        if (a_address < 0xA000)
+            mem[a_address][vRamBank] = a_value;
+        else if (a_address < 0xC000)
         {
             if (rtc.areRtcRegsSelected)
             {
-                writeRTCRegister(val);
+                writeRTCRegister(a_value);
             }
             else
-                mem[address][ramBank] = val;
+                mem[a_address][ramBank] = a_value;
         }
-        else if (address >= 0xD000 && address < 0xE000)
-            mem[address][wRamBank] = val;
+        else if (a_address >= 0xD000 && a_address < 0xE000)
+            mem[a_address][wRamBank] = a_value;
+        else if (a_address < 0xFE00)
+            mem[a_address][0] = a_value;
+        else if (a_address < 0xFEA0)
+        {
+            mDisplay->writeToDisplay(a_address, a_value);
+            mem[a_address][0] = a_value;
+        }
         else
-            mem[address][0] = val;
+            mem[a_address][0] = a_value;
     }
     else
     {
-        writeIO(address, val);
+        writeIO(a_address, a_value);
     }
 }
-
-
 
 bool cMemory::isMBC1(gbHeader a_header) const
 {
@@ -223,8 +236,9 @@ bool cMemory::isMBC3(gbHeader a_header) const
 
 bool cMemory::isMBC5(gbHeader a_header) const
 {
-    return a_header.mbc == 0x19 || a_header.mbc == 0x1A || a_header.mbc == 0x1B || a_header.mbc == 0x1C || a_header.mbc == 0x1D ||
-            a_header.mbc == 0x1E;
+    return a_header.mbc == 0x19 || a_header.mbc == 0x1A || a_header.mbc == 0x1B || a_header.mbc == 0x1C ||
+           a_header.mbc == 0x1D ||
+           a_header.mbc == 0x1E;
 }
 
 void cMemory::sendMBC1Command(u16 a_address, u8 a_value)
@@ -441,24 +455,9 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             mem[a_address][0] = a_value;
             break;
         case 0xFF47://BGP
-            BGPTable[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
-            BGPTable[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
-            BGPTable[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
-            BGPTable[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
-            mem[a_address][0] = a_value;
-            break;
         case 0xFF48://OBP0
-            OBP0Table[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
-            OBP0Table[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
-            OBP0Table[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
-            OBP0Table[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
-            mem[a_address][0] = a_value;
-            break;
         case 0xFF49://OBP1
-            OBP1Table[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
-            OBP1Table[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
-            OBP1Table[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
-            OBP1Table[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
+            mDisplay->writeToDisplay(a_address, a_value);
             mem[a_address][0] = a_value;
             break;
         case 0xFF4D:
@@ -491,15 +490,24 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
                 hdma.active = true;
             mem[a_address][0] = a_value & 0x7F;
             break;
+            /* TODO: Display ya maneja todo internamente, para quitar mem, falta modificar readByte para leer desde display */
+        case 0xFF68:
+            mem[a_address][0] = a_value;
+            mDisplay->writeToDisplay(a_address, a_value);
+            break;
         case 0xFF69:
             mem[a_address][0] = a_value;
-            BGColors[mem[0xFF68][0] & 0x3F] = a_value;
+            mDisplay->writeToDisplay(a_address, a_value);
             if (mem[0xFF68][0] & 0x80)//Autoincrement
                 mem[0xFF68][0]++;
             break;
+        case 0xFF6A:
+            mem[a_address][0] = a_value;
+            mDisplay->writeToDisplay(a_address, a_value);
+            break;
         case 0xFF6B:
             mem[a_address][0] = a_value;
-            OBJColors[mem[0xFF6A][0] & 0x3F] = a_value;
+            mDisplay->writeToDisplay(a_address, a_value);
             if (mem[0xFF6A][0] & 0x80)
                 mem[0xFF6A][0]++;
             break;
@@ -521,6 +529,7 @@ void cMemory::DMATransfer(u8 address)
     for (i = 0xFE00; i < 0xFEA0; i++)
     {
         mem[i][0] = readByte(temp);
+        mDisplay->writeToDisplay(i, mem[i][0]);
         temp++;
     }
 }
@@ -592,4 +601,14 @@ void cMemory::rtcCounter(void)
             }
         }
     }
+}
+
+void cMemory::hBlankDraw()
+{
+    mDisplay->hBlankDraw();
+}
+
+void cMemory::updateScreen()
+{
+    mDisplay->updateScreen();
 }

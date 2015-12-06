@@ -5,7 +5,10 @@
 #ifndef BIOGB_CMEMORY_H
 #define BIOGB_CMEMORY_H
 
+#include <vector>
+#include <array>
 #include "macros.h"
+#include "cDisplay.h"
 
 struct gbHeader{
     char name[16];
@@ -50,13 +53,22 @@ public:
     u16 romBank, ramBank, wRamBank, vRamBank;
     u8 mem[0x10000][0x200];
 
+    cMemory();
+    ~cMemory();
+
     void rtcCounter(void);
     bool loadRom(const char *file);
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA(void);
 
+    //TODO: Esto no va aqui. Paso intermedio para refactorizar.
+    void hBlankDraw(void);
+    void updateScreen(void);
+
 private:
+    std::vector<std::array<u8, 0x4000>> mRom;
+    cDisplay *mDisplay;
     HDMA hdma;
     u8 mm;
     bool ramEnable;
@@ -65,7 +77,7 @@ private:
 
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
-    u8 readRom(u16 address) const;
+    u8 readRom(u16 a_address) const noexcept;
     u8 readRTCRegisters(u16 address) const;
     bool isMBC1(gbHeader a_header) const;
     bool isMBC2(gbHeader a_header) const;

@@ -36,9 +36,8 @@
 class cSDLDisplay : public cDisplay
 {
 public:
-    cSDLDisplay();
+    cSDLDisplay(bool a_isColor);
     ~cSDLDisplay();
-    virtual bool init(void);
     virtual void updateScreen(void);
 
 private:
