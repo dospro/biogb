@@ -41,6 +41,7 @@
 #define OBPI 0xFF6A
 #define OBPD 0xFF6B
 
+
 class cMemory;
 
 struct LCDC
@@ -62,22 +63,29 @@ public:
     virtual void updateScreen(void) = 0;
     u8 readFromDisplay(u16 a_address);
     void writeToDisplay(u16 a_address, u8 a_value);
+    void setVRAMBank(int a_bank);
 
     void getMemoryPointer(cMemory *tmem)
     { mem = tmem; };
     void hBlankDraw(void);
 
 protected:
+    const int TOTAL_OAM_BLOCKS = 40;
+    const int SPRITE_ABOVE_BG = 0;
+    const int BG_ABOVE_SPRITE = 1;
+    const int FULL_BG_ABOVE_SPRITE = 2;
     cMemory *mem;
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
+    std::array<u32, 8> mSpriteColorTable;
+    int mVRAMBank;
     u32 videoBuffer[160][144];
     u32 gbcColors[0x10000];
     u32 BWColors[2][2];
     u32 BGPTable[2][2];
     u32 WPTable[2][2];
-    u32 OBP0Table[2][2];
-    u32 OBP1Table[2][2];
+    //u32 OBP0Table[2][2];
+    //u32 OBP1Table[2][2];
     u32 BGColors[64];
     u32 OBJColors[64];
     LCDC lcdc;
@@ -86,14 +94,15 @@ protected:
     int mBGPI;
     int mOBPI;
     bool mIsColor;
-    bool mLCDCPriority, mBackgorundPriority, mOAMPriority;
+    bool mMasterPriority, mBackgorundPriority, mOAMPriority;
     void drawBackGround();
+    void drawEmptyBG();
     void drawWindow();
     void drawSprites();
     int getPriority();
     void drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte);
-    bool isSpritePixelVisible(int spriteX, u8 firstByte, u8 secondByte, int p) const;
-    void setSpriteColorTable(int spritePaletteNumber);
+    bool isSpritePixelVisible(int a_xPosition, int colorIndex, int a_offset) const;
+    void setSpriteColorTable(int a_paletteNumber);
 };
 
 #endif

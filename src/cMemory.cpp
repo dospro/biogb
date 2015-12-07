@@ -129,7 +129,7 @@ u8 cMemory::readByte(u16 address)
     else if (address < 0x8000)
         return mRom[romBank][address - 0x4000];
     else if (address < 0xA000)
-        return mem[address][vRamBank];
+        return mDisplay->readFromDisplay(address);
     else if (address < 0xC000)
         return readRTCRegisters(address);
     else if (address >= 0xD000 && address < 0xE000)
@@ -190,7 +190,7 @@ void cMemory::writeByte(u16 a_address, u8 a_value)
     else if (a_address < 0xFF00)
     {
         if (a_address < 0xA000)
-            mem[a_address][vRamBank] = a_value;
+            mDisplay->writeToDisplay(a_address, a_value);
         else if (a_address < 0xC000)
         {
             if (rtc.areRtcRegsSelected)
@@ -457,21 +457,13 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
         case 0xFF47://BGP
         case 0xFF48://OBP0
         case 0xFF49://OBP1
+        case 0xFF4F:// VRAM bank
             mDisplay->writeToDisplay(a_address, a_value);
             mem[a_address][0] = a_value;
             break;
         case 0xFF4D:
             speedChange = a_value & 1;
             mem[a_address][0] = ((int) speedChange) | (currentSpeed << 7);
-            break;
-        case 0xFF4F:
-            if (isColor)
-            {
-                vRamBank = a_value & 1;
-                mem[a_address][0] = vRamBank & 1;
-            }
-            else
-                mem[a_address][0] = a_value;
             break;
         case 0xFF55://HDMA Transfer
             hdma.mode = (a_value >> 7) & 1;
@@ -544,7 +536,7 @@ void cMemory::HDMATransfer(u16 source, u16 dest, u32 length)
     mem[0xFF55][0] = 0xFF;
 }
 
-void cMemory::HBlankHDMA(void)
+void cMemory::HBlankHDMA()
 {
 
     int i;

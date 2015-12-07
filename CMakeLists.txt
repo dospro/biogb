@@ -21,6 +21,6 @@ set(SOURCE_FILES
         src/cSound.h
         src/cSound.cpp
         ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION}  )
+        ${AUDIO_IMPLEMENTATION})
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL_LIBRARY})

@@ -60,11 +60,11 @@ public:
     bool loadRom(const char *file);
     u8 readByte(u16);
     void writeByte(u16, u8);
-    void HBlankHDMA(void);
+    void HBlankHDMA();
 
     //TODO: Esto no va aqui. Paso intermedio para refactorizar.
-    void hBlankDraw(void);
-    void updateScreen(void);
+    void hBlankDraw();
+    void updateScreen();
 
 private:
     std::vector<std::array<u8, 0x4000>> mRom;
