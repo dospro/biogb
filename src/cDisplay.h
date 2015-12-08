@@ -49,8 +49,8 @@ struct LCDC
     bool lcdcActive;
     int wndMap;
     bool wndActive;
-    int bgWndData;
-    int bgMap;
+    int tileDataAddress;
+    int BGMapAddress;
     bool spActive;
     bool bgWndActive;
 };
@@ -74,6 +74,10 @@ protected:
     const int SPRITE_ABOVE_BG = 0;
     const int BG_ABOVE_SPRITE = 1;
     const int FULL_BG_ABOVE_SPRITE = 2;
+    const int TILE_PATTERN_TABLE_0 = 0; //0x8000 - 0x8000;
+    const int TILE_PATTERN_TABLE_1 = 0x0800; //0x8800 - 0x8000;
+    const int TILE_MAP_TABLE_0 = 0x1800; // 0x9800 - 0x8000
+    const int TILE_MAP_TABLE_1 = 0x1C00; // 0x9C00 - 0x8000
     cMemory *mem;
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
@@ -103,6 +107,9 @@ protected:
     void drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte);
     bool isSpritePixelVisible(int a_xPosition, int colorIndex, int a_offset) const;
     void setSpriteColorTable(int a_paletteNumber);
+    void setBGColorTable(int tileNumber);
+    bool isTileVisible(int a_xPosition) const;
+    void drawTileLine(int firstByte, int secondByte, int xPosition, bool hFlip);
 };
 
 #endif

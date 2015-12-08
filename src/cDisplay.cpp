@@ -160,14 +160,16 @@ void cDisplay::hBlankDraw(void)
 
     val = mem->mem[0xFF40][0];
     lcdc.lcdcActive = (val >> 7) & 1;
-    lcdc.wndMap = (((val >> 6) & 1) == 1) ? 0x9C00 : 0x9800;
+    lcdc.wndMap = (((val >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
     lcdc.wndActive = (val >> 5) & 1;
-    lcdc.bgWndData = (((val >> 4) & 1) == 1) ? 0x8000 : 0x8800;
-    lcdc.bgMap = (((val >> 3) & 1) == 1) ? 0x9C00 : 0x9800;
+    lcdc.tileDataAddress = (((val >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
+    lcdc.BGMapAddress = (((val >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
     lcdc.spActive = (val >> 1) & 1;
     lcdc.bgWndActive = val & 1;
     ly = mem->mem[0xFF44][0];
 
+    if (ly > 144)
+        return;
 
     if (lcdc.lcdcActive)//If the lcd is on
     {
@@ -209,80 +211,73 @@ void cDisplay::drawEmptyBG()
 
 void cDisplay::drawBackGround()
 {
-    s32 x, i, j;
-    u8 y;
-    u8 tId;
-    s32 dir;
-    u8 tData1, tData2;
-    u8 bank = 0, pal = 0, hFlip = 0, vFlip = 0;
-    s32 tileCounter = mem->mem[0xFF43][0] >> 3;
+    int xScroll{-(mem->mem[0xFF43][0] & 7)};
+    int yScroll{(ly + mem->mem[0xFF42][0]) & 0xFF};
+    int currentTileInLine = mem->mem[0xFF43][0] / 8;
 
-    x = -(mem->mem[0xFF43][0] & 7);
-    y = (ly + mem->mem[0xFF42][0]) & 0xFF;
-
-    //Go through all the line tile by tile
-    for (i = x; i < 160; i += 8)
+    for (int i = xScroll; i < 160; i += 8)
     {
-        if (tileCounter >= 32)
-            tileCounter -= 32;
-        //We get the tile Id
-        dir = lcdc.bgMap + tileCounter + ((y >> 3) << 5);
+        if (currentTileInLine >= 32)
+            currentTileInLine -= 32;
 
-        //TODO mBackgorundPriority no se inicializa siempre.
+        int tileNumber = lcdc.BGMapAddress + ((yScroll / 8) * 32 + currentTileInLine);
+
         mBackgorundPriority = false;
+        bool hFlip{0};
+        bool vFlip{0};
+        int bank{0};
         if (mIsColor)
         {
-            hFlip = (mVRAM[1][dir - 0x8000] >> 5) & 1;
-            vFlip = (mVRAM[1][dir - 0x8000] >> 6) & 1;
+            hFlip = ((mVRAM[1][tileNumber] >> 5) & 1) != 0;
+            vFlip = ((mVRAM[1][tileNumber] >> 6) & 1) != 0;
 
-            /*dirs[tileCounter][y>>3]=*/mBackgorundPriority = (mVRAM[1][dir - 0x8000] >> 7) & 1;
+            mBackgorundPriority = (mVRAM[1][tileNumber] >> 7) != 0;
 
-            bank = (mVRAM[1][dir - 0x8000] >> 3) & 1;
-            pal = (mVRAM[1][dir - 0x8000] & 7) << 3;
+            bank = (mVRAM[1][tileNumber] >> 3) & 1;
+            setBGColorTable(tileNumber);
+        }
 
-            BGPTable[0][0] = gbcColors[((BGColors[pal + 1]) << 8) | (BGColors[pal])];
-            BGPTable[0][1] = gbcColors[((BGColors[pal + 3]) << 8) | (BGColors[pal + 2])];
-            BGPTable[1][0] = gbcColors[((BGColors[pal + 5]) << 8) | (BGColors[pal + 4])];
-            BGPTable[1][1] = gbcColors[((BGColors[pal + 7]) << 8) | (BGColors[pal + 6])];
-        }
-        if (lcdc.bgWndData == 0x8000)
-            tId = mVRAM[0][dir - 0x8000];
-        else
-            tId = (mVRAM[0][dir - 0x8000] ^ 0x80);
-        if (vFlip == 1)
-        {
-            tData1 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((7 - (y & 7)) << 1) - 0x8000 + 1];
-            tData2 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((7 - (y & 7)) << 1) - 0x8000];
-        }
-        else
-        {
-            tData1 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) - 0x8000 + 1];
-            tData2 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) - 0x8000];
-        }
-        if (hFlip == 1)
-        {
-            for (j = 0; j < 8; j++)
-            {
-                if (i + j < 160 && i + j >= 0 && ly < 144 && ly >= 0)
-                    videoBuffer[i + j][ly] = BGPTable[tData1 & 1][tData2 & 1];
 
-                tData1 >>= 1;
-                tData2 >>= 1;
-            }
-        }
-        else
-        {
-            for (j = 7; j >= 0; j--)
-            {
-                if (i + j < 160 && i + j >= 0 && ly < 144 && ly >= 0)
-                    videoBuffer[i + j][ly] = BGPTable[tData1 & 1][tData2 & 1];
+        int tileOffset{mVRAM[0][tileNumber]};
+        if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1) //TODO: Corregir el signo
+            tileOffset ^= 0x80;
 
-                tData1 >>= 1;
-                tData2 >>= 1;
-            }
-        }
-        ++tileCounter;
+        int offset{lcdc.tileDataAddress + (tileOffset * 16)};
+        offset += (vFlip ? (7 - (yScroll & 7)) * 2 : (yScroll & 7) * 2);
+        int firstByte{mVRAM[bank][offset + 1]};
+        int secondByte{mVRAM[bank][offset]};
+        drawTileLine(firstByte, secondByte, i, hFlip);
+        ++currentTileInLine;
     }
+}
+
+void cDisplay::drawTileLine(int firstByte, int secondByte, int xPosition, bool hFlip)
+{
+    for (int j = 0; j < 8; j++)
+    {
+        int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
+
+        if (isTileVisible(xOffset))
+            videoBuffer[xOffset][ly] = BGPTable[firstByte & 1][secondByte & 1];
+
+        firstByte >>= 1;
+        secondByte >>= 1;
+    }
+}
+
+bool cDisplay::isTileVisible(int a_xPosition) const
+{
+    return a_xPosition < 160 && a_xPosition >= 0;
+}
+
+void cDisplay::setBGColorTable(int tileNumber)
+{
+    int palette = (mVRAM[1][tileNumber] & 7) * 8;
+
+    BGPTable[0][0] = gbcColors[((BGColors[palette + 1]) << 8) | (BGColors[palette])];
+    BGPTable[0][1] = gbcColors[((BGColors[palette + 3]) << 8) | (BGColors[palette + 2])];
+    BGPTable[1][0] = gbcColors[((BGColors[palette + 5]) << 8) | (BGColors[palette + 4])];
+    BGPTable[1][1] = gbcColors[((BGColors[palette + 7]) << 8) | (BGColors[palette + 6])];
 }
 
 void cDisplay::drawWindow()
@@ -307,16 +302,16 @@ void cDisplay::drawWindow()
                 tileCounter -= 32;
             dir = lcdc.wndMap + tileCounter + ((y >> 3) << 5);
 
-            tId = mVRAM[0][dir - 0x8000];
+            tId = mVRAM[0][dir];
             if (mIsColor)
             {
-                bank = (mVRAM[1][dir - 0x8000] >> 3) & 1;
-                pal = (mVRAM[1][dir - 0x8000] & 7) << 3;
+                bank = (mVRAM[1][dir] >> 3) & 1;
+                pal = (mVRAM[1][dir] & 7) << 3;
             }
-            if (lcdc.bgWndData == 0x8800)
+            if (lcdc.tileDataAddress == 0x8800 - 0x8000)
                 tId ^= 0x80;
-            tData1 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) - 0x8000 + 1];
-            tData2 = mVRAM[bank][lcdc.bgWndData + (tId << 4) + ((y & 7) << 1) - 0x8000];
+            tData1 = mVRAM[bank][lcdc.tileDataAddress + (tId << 4) + ((y & 7) << 1) + 1];
+            tData2 = mVRAM[bank][lcdc.tileDataAddress + (tId << 4) + ((y & 7) << 1)];
 
             if (mIsColor)
             {
