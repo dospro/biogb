@@ -899,7 +899,7 @@ void cCpu::updateModes(void)
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
                     mem->HBlankHDMA();
 
-                if (scanLine == 144)//If next scanline is 144 then go to V-Blank period
+                if (scanLine == 143)//If next scanline is 144 then go to V-Blank period
                     nextMode = 1;
                 break;
 

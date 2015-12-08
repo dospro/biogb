@@ -168,9 +168,6 @@ void cDisplay::hBlankDraw(void)
     lcdc.bgWndActive = val & 1;
     ly = mem->mem[0xFF44][0];
 
-    if (ly > 144)
-        return;
-
     if (lcdc.lcdcActive)//If the lcd is on
     {
         if (mIsColor)
@@ -294,7 +291,7 @@ void cDisplay::drawWindow()
     x = (wx & 7);
     y = (ly - wy) & 0xFF;
     tileCounter = -(wx >> 3);
-    if (ly < 144 && ly >= wy && wx <= 166 && wy >= 0 && wy <= 143)
+    if (ly >= wy && wx <= 166 && wy >= 0 && wy <= 143)
     {
         for (i = x; i < 160; i += 8)
         {
@@ -443,7 +440,5 @@ bool cDisplay::isSpritePixelVisible(int a_xPosition, int a_colorIndex, int a_off
 {
     return ((a_xPosition + a_offset) < 160
             && ((a_xPosition + a_offset) >= 0)
-            && ly >= 0
-            && ly < 144
             && a_colorIndex != 0);
 }

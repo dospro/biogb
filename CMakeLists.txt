@@ -3,7 +3,7 @@ project(biogb)
 find_package(SDL REQUIRED)
 include_directories(${SDL_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lportaudio")
-
+add_definitions(-DLINUX)
 set(GRAPHICS_IMPLEMENTATION src/imp/video/cSDLDisplay.h src/imp/video/cSDLDisplay.cpp)
 set(AUDIO_IMPLEMENTATION src/imp/audio/cPortAudio.h src/imp/audio/cPortAudio.cpp)
 set(SOURCE_FILES
