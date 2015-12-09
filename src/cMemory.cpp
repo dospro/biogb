@@ -7,10 +7,10 @@
 #include <cstring>
 #include "cMemory.h"
 #include "tables.h"
-#include "cSound.h"
 #include "imp/video/cSDLDisplay.h"
+#include "imp/audio/cPortAudio.h"
 
-extern cSound *sound;
+
 extern u8 jpb, jpd; //Joy pad buttons and directions
 extern bool isColor;
 extern bool speedChange;
@@ -119,6 +119,25 @@ bool cMemory::loadRom(const char *fileName)
     }
     std::cout << "OK" << std::endl;
     mDisplay->getMemoryPointer(this);
+
+    std::cout << "Sound...";
+    mSound = new cPortAudio;
+    if (!mSound)
+    {
+        std::cout << "No memory for Dound object" << std::endl;
+        return false;
+    }
+    if (!mSound->init(44100, 8, 512))
+    {
+        std::cout << "Sound was not inited." << std::endl;
+        return false;
+    }
+    std::cout << "OK" << std::endl;
+    mSound->getMemoryPointer(this);
+    std::cout << "Turning sound on" << std::endl;
+    mSound->turnOn();
+
+
     return true;
 }
 
@@ -442,7 +461,7 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
         case 0xFF24://NR50
         case 0xFF25://NR51
         case 0xFF26://NR52
-            mem[a_address][0] = sound->getSoundMessage(a_address, a_value);
+            mem[a_address][0] = mSound->getSoundMessage(a_address, a_value);
             break;
         case 0xFF41:
             mem[a_address][0] = (mem[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
@@ -562,35 +581,39 @@ void cMemory::HBlankHDMA()
 
 void cMemory::rtcCounter(void)
 {
-    if (((rtc2.dh >> 6) & 1) == 0)
+    if (((rtc2.dh >> 6) & 1) != 0)
     {
-        rtc2.sec++;
-        if (rtc2.sec >= 60)
+        return;
+    }
+    rtc2.sec++;
+    if (rtc2.sec < 60)
+    {
+        return;
+    }
+    rtc2.sec = 0;
+    rtc2.min++;
+    if (rtc2.min < 60)
+    {
+        return;
+    }
+    rtc2.min = 0;
+    rtc2.hr++;
+    if (rtc2.hr < 24)
+    {
+        return;
+    }
+    rtc2.hr = 0;
+    if (rtc2.dl < 0xFF)
+        rtc2.dl++;
+    else
+    {
+        if ((rtc2.dh & 1) == 0)
+            rtc2.dh |= 1;
+        else
         {
-            rtc2.sec = 0;
-            rtc2.min++;
-            if (rtc2.min >= 60)
-            {
-                rtc2.min = 0;
-                rtc2.hr++;
-                if (rtc2.hr >= 24)
-                {
-                    rtc2.hr = 0;
-                    if (rtc2.dl < 0xFF)
-                        rtc2.dl++;
-                    else
-                    {
-                        if ((rtc2.dh & 1) == 0)
-                            rtc2.dh |= 1;
-                        else
-                        {
-                            rtc2.dh |= 0x80;
-                            rtc2.dh &= 0xFE;
-                            rtc.dl = 0;
-                        }
-                    }
-                }
-            }
+            rtc2.dh |= 0x80;
+            rtc2.dh &= 0xFE;
+            rtc.dl = 0;
         }
     }
 }

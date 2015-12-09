@@ -43,7 +43,7 @@
 
 class cCpu {
 	//Private Data
-	cMemory *mem;
+	cMemory *memory;
 	cInput *input;
 	//cDisplay *display;
 
@@ -147,7 +147,7 @@ class cCpu {
 
 	void setMode(int mode);
 	void setInterrupt(int interrupt);
-	void executeOpcode(void);
+	void executeOpcode(int a_opcode);
 	void checkInterrupts(void);
 	void updateModes(void);
 	void updateTimer(int cycles);
@@ -166,6 +166,8 @@ public:
 	void loadSram(void);
 	void saveState(int number);
 	void loadState(int number);
+	int fetchOpcode();
+	void updateCycles(int a_opcode);
 };
 
 #endif

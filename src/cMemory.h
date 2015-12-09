@@ -9,6 +9,7 @@
 #include <array>
 #include "macros.h"
 #include "cDisplay.h"
+#include "cSound.h"
 
 struct gbHeader{
     char name[16];
@@ -47,6 +48,8 @@ struct SerialTransfer{
 class cMemory
 {
 public:
+    cDisplay *mDisplay;
+    cSound *mSound;
     gbHeader info;
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
@@ -68,7 +71,7 @@ public:
 
 private:
     std::vector<std::array<u8, 0x4000>> mRom;
-    cDisplay *mDisplay;
+
     HDMA hdma;
     u8 mm;
     bool ramEnable;

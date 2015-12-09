@@ -45,7 +45,8 @@ cDisplay::cDisplay(bool a_isColor) :
         mem{nullptr},
         mMasterPriority{false},
         mIsColor{a_isColor},
-        mVRAMBank{0}
+        mVRAMBank{0},
+        mTilePrioritiesTable{}
 {
     mSpriteColorTable = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000, 0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
     for (int color = 0; color < 0x10000; ++color)
@@ -145,6 +146,9 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
                 if (mOBPI & 0x80)
                     mOBPI = (mOBPI + 1) & 0xFF;
                 break;
+            default:
+                //TODO: Raise exception/
+                break;
         }
     }
 }
@@ -156,16 +160,23 @@ void cDisplay::setVRAMBank(int a_bank)
 
 void cDisplay::hBlankDraw(void)
 {//Draws a single line
+
+    /*
+     * TODO: All this must be rewritten. Why? Well, this design won't let display the graphics with the correct
+     * priority. There is duplicated becaivor: Each time a tile or sprite is draw it actually uses the same snippet
+     * of code.
+     * TODO: In CGB mode each BG/Window tile has its own bg-to-oam priority flag. This is really hard to emulate now.
+     */
     unsigned char val;
 
     val = mem->mem[0xFF40][0];
-    lcdc.lcdcActive = (val >> 7) & 1;
+    lcdc.lcdcActive = ((val >> 7) & 1) != 0;
     lcdc.wndMap = (((val >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-    lcdc.wndActive = (val >> 5) & 1;
+    lcdc.wndActive = ((val >> 5) & 1) != 0;
     lcdc.tileDataAddress = (((val >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
     lcdc.BGMapAddress = (((val >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-    lcdc.spActive = (val >> 1) & 1;
-    lcdc.bgWndActive = val & 1;
+    lcdc.spActive = ((val >> 1) & 1) != 0;
+    lcdc.bgWndActive = (val & 1) != 0;
     ly = mem->mem[0xFF44][0];
 
     if (lcdc.lcdcActive)//If the lcd is on
@@ -219,7 +230,7 @@ void cDisplay::drawBackGround()
 
         int tileNumber = lcdc.BGMapAddress + ((yScroll / 8) * 32 + currentTileInLine);
 
-        mBackgorundPriority = false;
+        //mTilePrioritiesTable[counter]
         bool hFlip{0};
         bool vFlip{0};
         int bank{0};
@@ -228,7 +239,7 @@ void cDisplay::drawBackGround()
             hFlip = ((mVRAM[1][tileNumber] >> 5) & 1) != 0;
             vFlip = ((mVRAM[1][tileNumber] >> 6) & 1) != 0;
 
-            mBackgorundPriority = (mVRAM[1][tileNumber] >> 7) != 0;
+            mTilePrioritiesTable[(i - xScroll) / 8] = (mVRAM[1][tileNumber] >> 7) != 0;
 
             bank = (mVRAM[1][tileNumber] >> 3) & 1;
             setBGColorTable(tileNumber);
@@ -236,7 +247,7 @@ void cDisplay::drawBackGround()
 
 
         int tileOffset{mVRAM[0][tileNumber]};
-        if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1) //TODO: Corregir el signo
+        if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1)
             tileOffset ^= 0x80;
 
         int offset{lcdc.tileDataAddress + (tileOffset * 16)};
@@ -279,53 +290,53 @@ void cDisplay::setBGColorTable(int tileNumber)
 
 void cDisplay::drawWindow()
 {
-    int tileCounter, tId, dir;
-    unsigned char tData1, tData2;
-    int bank = 0, pal = 0;
-    int wx, wy, x, y;
-    int i, j;
+    int wx{mem->mem[0xFF4B][0] - 7};
+    int wy{mem->mem[0xFF4A][0]};
+    int y{(ly - wy) & 0xFF};
 
-    wx = mem->mem[0xFF4B][0] - 7;
-    wy = mem->mem[0xFF4A][0];
-
-    x = (wx & 7);
-    y = (ly - wy) & 0xFF;
-    tileCounter = -(wx >> 3);
-    if (ly >= wy && wx <= 166 && wy >= 0 && wy <= 143)
+    if (ly >= wy && wx < 160 && wy >= 0 && wy < 144)
     {
-        for (i = x; i < 160; i += 8)
+        int tileInLine = {-(wx / 8)};
+        for (int i = wx & 7; i < 160; i += 8)
         {
-            if (tileCounter >= 32)
-                tileCounter -= 32;
-            dir = lcdc.wndMap + tileCounter + ((y >> 3) << 5);
-
-            tId = mVRAM[0][dir];
+            if (tileInLine >= 32)
+                tileInLine -= 32;
+            int tileNumber{lcdc.wndMap + tileInLine + ((y / 8) * 32)};
+            int tileOffset{mVRAM[0][tileNumber]};
+            int bank{0};
+            bool horizontalFlip{};
+            bool verticalFlip{};
             if (mIsColor)
             {
-                bank = (mVRAM[1][dir] >> 3) & 1;
-                pal = (mVRAM[1][dir] & 7) << 3;
-            }
-            if (lcdc.tileDataAddress == 0x8800 - 0x8000)
-                tId ^= 0x80;
-            tData1 = mVRAM[bank][lcdc.tileDataAddress + (tId << 4) + ((y & 7) << 1) + 1];
-            tData2 = mVRAM[bank][lcdc.tileDataAddress + (tId << 4) + ((y & 7) << 1)];
+                int tileAttribute = mVRAM[1][tileNumber];
+                horizontalFlip = {((tileAttribute >> 5) & 1) != 0};
+                verticalFlip = {((tileAttribute >> 6) & 1) != 0};
+                bank = (tileAttribute >> 3) & 1;
 
-            if (mIsColor)
-            {
-                WPTable[0][0] = gbcColors[((BGColors[pal + 1]) << 8) | (BGColors[pal])];
-                WPTable[0][1] = gbcColors[((BGColors[pal + 3]) << 8) | (BGColors[pal + 2])];
-                WPTable[1][0] = gbcColors[((BGColors[pal + 5]) << 8) | (BGColors[pal + 4])];
-                WPTable[1][1] = gbcColors[((BGColors[pal + 7]) << 8) | (BGColors[pal + 6])];
-            }
+                mTilePrioritiesTable[i / 8] = (tileAttribute >> 7) != 0;
 
-            for (j = 7; j >= 0; j--)
-            {
-                if (i + j < 160 && i + j >= 0 && i + j >= wx)
-                    videoBuffer[i + j][ly] = WPTable[tData1 & 1][tData2 & 1];
-                tData1 >>= 1;
-                tData2 >>= 1;
+                int palette = (tileAttribute & 7) * 8;
+                WPTable[0][0] = gbcColors[((BGColors[palette + 1]) << 8) | (BGColors[palette])];
+                WPTable[0][1] = gbcColors[((BGColors[palette + 3]) << 8) | (BGColors[palette + 2])];
+                WPTable[1][0] = gbcColors[((BGColors[palette + 5]) << 8) | (BGColors[palette + 4])];
+                WPTable[1][1] = gbcColors[((BGColors[palette + 7]) << 8) | (BGColors[palette + 6])];
             }
-            ++tileCounter;
+            if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1)
+                tileOffset ^= 0x80;
+            int finalOffset{lcdc.tileDataAddress + (tileOffset * 16)};
+            finalOffset += verticalFlip ? (7 - (y & 7)) * 2 : (y & 7) * 2;
+            int firstByte = mVRAM[bank][finalOffset + 1];
+            int secondByte = mVRAM[bank][finalOffset];
+
+            for (int j = 7; j >= 0; j--)
+            {
+                int p{horizontalFlip ? i + (7 - j) : i + j};
+                if (p < 160 && p >= 0 && p >= wx)
+                    videoBuffer[p][ly] = WPTable[firstByte & 1][secondByte & 1];
+                firstByte >>= 1;
+                secondByte >>= 1;
+            }
+            ++tileInLine;
         }
     }
 }
@@ -396,11 +407,8 @@ int cDisplay::getPriority()
     if (!mMasterPriority)
         return SPRITE_ABOVE_BG; // Sprites van hasta arriba.
 
-    if (mBackgorundPriority)
-        return FULL_BG_ABOVE_SPRITE; // BG hasta arriba
-
     if (!mOAMPriority)
-        return SPRITE_ABOVE_BG; // Sprite arriba de BG
+        return OAM_SPRITE_ABOVE_BG; // Sprite arriba de BG
     else
         return BG_ABOVE_SPRITE;// BG(123) arriba de sprite
 }
@@ -419,6 +427,11 @@ void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, 
         if (mFinalPriority == SPRITE_ABOVE_BG)
         {
             if (isSpritePixelVisible(spriteX, colorIndex, p))
+                videoBuffer[spriteX + p][ly] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+        }
+        else if (mFinalPriority == OAM_SPRITE_ABOVE_BG)
+        {
+            if (!mTilePrioritiesTable[(spriteX + p) / 8] && isSpritePixelVisible(spriteX, colorIndex, p))
                 videoBuffer[spriteX + p][ly] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         }
         else if (mFinalPriority == BG_ABOVE_SPRITE)

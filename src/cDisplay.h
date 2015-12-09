@@ -73,7 +73,7 @@ protected:
     const int TOTAL_OAM_BLOCKS = 40;
     const int SPRITE_ABOVE_BG = 0;
     const int BG_ABOVE_SPRITE = 1;
-    const int FULL_BG_ABOVE_SPRITE = 2;
+    const int OAM_SPRITE_ABOVE_BG = 2;
     const int TILE_PATTERN_TABLE_0 = 0; //0x8000 - 0x8000;
     const int TILE_PATTERN_TABLE_1 = 0x0800; //0x8800 - 0x8000;
     const int TILE_MAP_TABLE_0 = 0x1800; // 0x9800 - 0x8000
@@ -82,14 +82,13 @@ protected:
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
     std::array<u32, 8> mSpriteColorTable;
+    std::array<bool, 32> mTilePrioritiesTable;
     int mVRAMBank;
     u32 videoBuffer[160][144];
     u32 gbcColors[0x10000];
     u32 BWColors[2][2];
     u32 BGPTable[2][2];
     u32 WPTable[2][2];
-    //u32 OBP0Table[2][2];
-    //u32 OBP1Table[2][2];
     u32 BGColors[64];
     u32 OBJColors[64];
     LCDC lcdc;
@@ -98,7 +97,7 @@ protected:
     int mBGPI;
     int mOBPI;
     bool mIsColor;
-    bool mMasterPriority, mBackgorundPriority, mOAMPriority;
+    bool mMasterPriority, mOAMPriority;
     void drawBackGround();
     void drawEmptyBG();
     void drawWindow();
