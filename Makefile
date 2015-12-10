@@ -6,11 +6,12 @@ SOURCES = ${SRCDIR}/main.cpp \
 	${SRCDIR}/cNet.cpp \
 	${SRCDIR}/cSound.cpp \
 	${SRCDIR}/cCpu.cpp \
+	${SRCDIR}/cMemory.cpp \
 	${SRCDIR}/imp/audio/cPortAudio.cpp
 	
 OBJS    = ${SOURCES:.c=.o}
 
-COPTIONS  =-DLINUX -g `sdl-config --cflags`
+COPTIONS  =-DLINUX -g -ggdb `sdl-config --cflags` -std=c++11
 LOPTIONS   =`sdl-config --libs` -lportaudio
 CC      = g++
 PACKAGE = biogb

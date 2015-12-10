@@ -54,7 +54,7 @@ public:
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
     u16 romBank, ramBank, wRamBank, vRamBank;
-    u8 mem[0x10000][0x200];
+    u8 mem[0x10000][1];
 
     cMemory();
     ~cMemory();
@@ -64,24 +64,29 @@ public:
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA();
+    void saveSram();
+    void loadSram();
 
     //TODO: Esto no va aqui. Paso intermedio para refactorizar.
     void hBlankDraw();
     void updateScreen();
 
+
 private:
     std::vector<std::array<u8, 0x4000>> mRom;
-
+    std::vector<std::array<u8, 0x2000>> mRam;
+    std::vector<std::array<u8, 0x1000>> mWRam;
+    std::array<u8, 0x80> mHRam;
+    std::string mRomFilename;
     HDMA hdma;
     u8 mm;
-    bool ramEnable;
     u8 hi, lo;
     u16 dest, source;
 
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
     u8 readRom(u16 a_address) const noexcept;
-    u8 readRTCRegisters(u16 address) const;
+    u8 readRam(u16 address) const;
     bool isMBC1(gbHeader a_header) const;
     bool isMBC2(gbHeader a_header) const;
     bool isMBC3(gbHeader a_header) const;

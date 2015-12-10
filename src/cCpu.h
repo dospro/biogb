@@ -162,8 +162,6 @@ public:
 	bool isCpuRunning(void){return isRunning;}
 	void doCycle(void);
 
-	void saveSram(void);
-	void loadSram(void);
 	void saveState(int number);
 	void loadState(int number);
 	int fetchOpcode();

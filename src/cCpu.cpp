@@ -127,96 +127,7 @@ u16 cCpu::readNextWord(void)
     return (memory->readByte(pc++) | (memory->readByte(pc++) << 8));
 }
 
-void cCpu::saveSram(void)
-{
-    std::string fileName;
-    std::ofstream saveFile;
-    std::ofstream rtcFile;
-    int i;
-#ifndef LINUX
-    fileName = "savs\\";
-#else
-    fileName = "savs/";
-#endif
-    fileName += memory->info.name;
-    fileName += ".sav";
-    saveFile.open(fileName.c_str(), std::ios::binary);
-    if (saveFile.fail())
-    {
-        std::cout << "WARNING: Couldn't save SRAM" << std::endl;
-        return;
-    }
-    for (i = 0x8000; i < 0xE000; i += 1)
-        saveFile.write((char *) &memory->mem[i][0], 0xFF);
 
-    saveFile.close();
-
-    if (memory->info.mbc == 0xF || memory->info.mbc == 0x10)
-    {
-#ifndef LINUX
-        fileName = "savs\\";
-#else
-        fileName = "savs/";
-#endif
-        fileName += memory->info.name;
-        fileName += ".rtc";
-        rtcFile.open(fileName.c_str(), std::ios::binary);
-        if (rtcFile.fail())
-        {
-            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
-            return;
-        }
-
-        rtcFile.write((char *) &memory->rtc, sizeof(RTC_Regs));
-        rtcFile.write((char *) &memory->rtc2, sizeof(RTC_Regs));
-        rtcFile.close();
-    }
-}
-
-void cCpu::loadSram(void)
-{
-    std::string fileName;
-    std::ifstream saveFile;
-    std::ifstream rtcFile;
-#ifndef LINUX
-    fileName = "savs\\";
-#else
-    fileName = "savs/";
-#endif
-    fileName += memory->info.name;
-    fileName += ".sav";
-    saveFile.open(fileName.c_str(), std::ios::binary);
-    if (saveFile.fail())
-    {
-        std::cout << "WARNING: Couldn't save SRAM" << std::endl;
-        return;
-    }
-    for (int i = 0x8000; i < 0xE000; i += 1)
-        saveFile.read((char *) &memory->mem[i][0], 0xFF);
-    saveFile.close();
-
-    if (memory->info.mbc == 0xF || memory->info.mbc == 0x10)
-    {
-#ifndef LINUX
-        fileName = "savs\\";
-#else
-        fileName = "savs/";
-#endif
-        fileName += memory->info.name;
-        fileName += ".rtc";
-        rtcFile.open(fileName.c_str(), std::ios::binary);
-        if (rtcFile.fail())
-        {
-            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
-            return;
-        }
-
-        rtcFile.read((char *) &memory->rtc, sizeof(RTC_Regs));
-        rtcFile.read((char *) &memory->rtc2, sizeof(RTC_Regs));
-        rtcFile.close();
-        initRTCTimer();
-    }
-}
 
 void cCpu::saveState(int number)
 {
@@ -941,7 +852,7 @@ void cCpu::fullUpdate(void)
     input->pollEvents();
     if (input->isKeyPressed(GBK_ESCAPE))
     {
-        saveSram();
+        memory->saveSram();
         //TODO: Turn off sound
         //sound->turnOff();
 #ifdef USE_SDL_NET

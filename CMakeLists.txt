@@ -24,3 +24,4 @@ set(SOURCE_FILES
         ${AUDIO_IMPLEMENTATION})
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL_LIBRARY})
+#-fsanitize=address -fstack-protector-all -g -ggdb

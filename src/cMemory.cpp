@@ -33,8 +33,8 @@ cMemory::~cMemory()
 bool cMemory::loadRom(const char *fileName)
 {
     std::ifstream file;
-    int size, banks, i, j;
-
+    int size, banks;
+    mRomFilename = std::string{fileName};
     file.open(fileName, std::ios::binary);
     if (file.fail())
     {
@@ -59,7 +59,7 @@ bool cMemory::loadRom(const char *fileName)
     file.seekg(0x149);
     file.read((char *) &info.ramSize, 1);
 
-    for (i = 0; i < 12; i++)
+    for (int i = 0; i < 12; i++)
     {
         if (romSizeList[i].id == info.romSize)
         {
@@ -79,29 +79,55 @@ bool cMemory::loadRom(const char *fileName)
 
     file.seekg(0);
 
-    for (i = 0; i < banks; i++)
+    for (int i = 0; i < banks; i++)
     {
         mRom.push_back(std::array<u8, 0x4000> {});
         file.read(reinterpret_cast<char *>(&mRom[i][0]), 0x4000);
-        for (j = 0; j < 0x4000; j++)
+        for (int j = 0; j < 0x4000; j++)
             mem[j][i] = mRom[i][j];
     }
 
     file.close();
 
+    for (int i = 0; i < 5; i++)
+    {
+        if (ramSizeList[i].id == info.ramSize)
+        {
+            banks = ramSizeList[i].banks;
+            std::cout << "Ram Banks: " << banks << "\n";
+            break;
+        }
+    }
+
+    for (int i = 0; i < banks; ++i)
+    {
+        mRam.emplace_back(std::array<u8, 0x2000>{});
+    }
+
+
     if (info.color == 0x80 || info.color == 0xC0)
         isColor = true;
     else
         isColor = false;
+
+    mWRam.push_back(std::array<u8, 0x1000>{});
+    mWRam.push_back(std::array<u8, 0x1000>{});
+    if (isColor)
+    {
+        for (int i = 0; i < 6; ++i)
+        {
+            mWRam.push_back(std::array<u8, 0x1000>{});
+        }
+    }
+    loadSram();
     romBank = 1;
-    ramBank = 1;
+    ramBank = 0;
     vRamBank = 0;
     wRamBank = 1;
     mm = 0;
     hi = lo = 0;
     source = 0;
     dest = 0;
-    ramEnable = false;
     std::memset(&hdma, 0, sizeof(HDMA));
     std::memset(&rtc, 0, sizeof(RTC_Regs));
     std::memset(&rtc2, 0, sizeof(RTC_Regs));
@@ -143,16 +169,26 @@ bool cMemory::loadRom(const char *fileName)
 
 u8 cMemory::readByte(u16 address)
 {
-    if (address < 0x4000)
-        return mRom[0][address];
-    else if (address < 0x8000)
-        return mRom[romBank][address - 0x4000];
+
+    if (address < 0x8000)
+        return readRom(address);
     else if (address < 0xA000)
         return mDisplay->readFromDisplay(address);
     else if (address < 0xC000)
-        return readRTCRegisters(address);
-    else if (address >= 0xD000 && address < 0xE000)
-        return mem[address][wRamBank];
+        return readRam(address);
+    else if (address < 0xD000)
+        return mWRam[0][address - 0xC000];
+    else if (address < 0xE000)
+        return mWRam[wRamBank][address - 0xD000];
+    else if (address < 0xFE00)
+        return readByte(address - 0x2000);
+    else if (address < 0xFEA0)
+        return mDisplay->readFromDisplay(address);
+    else if (address < 0xFF00);
+    else if (address < 0xFF80)
+        return mem[address][0];
+    else if (address < 0xFFFE)
+        return mHRam[address - 0xFF80];
     else
         return mem[address][0];
 }
@@ -165,7 +201,7 @@ u8 cMemory::readRom(u16 a_address) const noexcept
         return mRom[romBank][a_address - 0x4000];
 }
 
-u8 cMemory::readRTCRegisters(u16 address) const
+u8 cMemory::readRam(u16 address) const
 {
     if (rtc.areRtcRegsSelected)
     {
@@ -176,13 +212,11 @@ u8 cMemory::readRTCRegisters(u16 address) const
             case 0xA: return rtc2.hr;
             case 0xB: return rtc2.dl;
             case 0xC: return rtc2.dh;
-            default: return mem[address][ramBank];
+            default: return mRam[ramBank][address - 0xA000];
         }
     }
     else
-    {
-        return mem[address][ramBank];
-    }
+        return mRam[ramBank][address - 0xA000];
 }
 
 void cMemory::writeByte(u16 a_address, u8 a_value)
@@ -206,35 +240,33 @@ void cMemory::writeByte(u16 a_address, u8 a_value)
             sendMBC5Command(a_address, a_value);
         }
     }
-    else if (a_address < 0xFF00)
+    else if (a_address < 0xA000)
+        mDisplay->writeToDisplay(a_address, a_value);
+    else if (a_address < 0xC000)
     {
-        if (a_address < 0xA000)
-            mDisplay->writeToDisplay(a_address, a_value);
-        else if (a_address < 0xC000)
+        if (rtc.areRtcRegsSelected)
         {
-            if (rtc.areRtcRegsSelected)
-            {
-                writeRTCRegister(a_value);
-            }
-            else
-                mem[a_address][ramBank] = a_value;
-        }
-        else if (a_address >= 0xD000 && a_address < 0xE000)
-            mem[a_address][wRamBank] = a_value;
-        else if (a_address < 0xFE00)
-            mem[a_address][0] = a_value;
-        else if (a_address < 0xFEA0)
-        {
-            mDisplay->writeToDisplay(a_address, a_value);
-            mem[a_address][0] = a_value;
+            writeRTCRegister(a_value);
         }
         else
-            mem[a_address][0] = a_value;
+            mRam[ramBank][a_address - 0xA000] = a_value;
     }
-    else
-    {
+    else if (a_address < 0xD000)
+        mWRam[0][a_address - 0xC000] = a_value;
+    else if (a_address < 0xE000)
+        mWRam[wRamBank][a_address - 0xD000] = a_value;
+    else if (a_address < 0xFE00)
+        writeByte(a_address - 0x2000, a_value);
+    else if (a_address < 0xFEA0)
+        mDisplay->writeToDisplay(a_address, a_value);
+    else if (a_address < 0xFF00);
+    else if (a_address < 0xFF80)
         writeIO(a_address, a_value);
-    }
+    else if (a_address < 0xFFFE)
+        mHRam[a_address - 0xFF80] = a_value;
+    else
+        writeIO(a_address, a_value);
+
 }
 
 bool cMemory::isMBC1(gbHeader a_header) const
@@ -524,9 +556,12 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             break;
         case 0xFF70:
             mem[a_address][0] = a_value;
-            wRamBank = a_value & 7;
-            if (wRamBank == 0)
-                wRamBank++;
+            if (isColor)
+            {
+                wRamBank = a_value & 7;
+                if (wRamBank == 0)
+                    wRamBank++;
+            }
             break;
         default:
             mem[a_address][0] = a_value;
@@ -626,4 +661,100 @@ void cMemory::hBlankDraw()
 void cMemory::updateScreen()
 {
     mDisplay->updateScreen();
+}
+
+void cMemory::saveSram()
+{
+    std::string fileName;
+    std::ofstream saveFile;
+    std::ofstream rtcFile;
+#ifndef LINUX
+    fileName = "savs\\";
+#else
+    fileName = "savs/";
+#endif
+    auto lastIndex = mRomFilename.find_last_of("/")+1;
+    auto temp = mRomFilename.substr(lastIndex);
+    fileName += temp.substr(0, temp.find_last_of("."));
+    fileName += ".sav";
+    std::cout << "Saving: " << fileName << "\n";
+    saveFile.open(fileName, std::ios::binary);
+    if (saveFile.fail())
+    {
+        std::cout << "WARNING: Couldn't save SRAM" << std::endl;
+        return;
+    }
+    for (int i = 0; i < mRam.size(); ++i)
+        saveFile.write(reinterpret_cast<char *> (&mRam[i][0]), mRam[i].size());
+
+    saveFile.close();
+
+    if (info.mbc == 0xF || info.mbc == 0x10)
+    {
+#ifndef LINUX
+        fileName = "savs\\";
+#else
+        fileName = "savs/";
+#endif
+        fileName += info.name;
+        fileName += ".rtc";
+        rtcFile.open(fileName, std::ios::binary);
+        if (rtcFile.fail())
+        {
+            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
+            return;
+        }
+
+        rtcFile.write((char *) &rtc, sizeof(RTC_Regs));
+        rtcFile.write((char *) &rtc2, sizeof(RTC_Regs));
+        rtcFile.close();
+    }
+}
+
+void cMemory::loadSram()
+{
+    std::string fileName;
+    std::ifstream saveFile;
+    std::ifstream rtcFile;
+#ifndef LINUX
+    fileName = "savs\\";
+#else
+    fileName = "savs/";
+#endif
+    auto lastIndex = mRomFilename.find_last_of("/")+1;
+    std::string temp = mRomFilename.substr(lastIndex);
+    fileName += temp.substr(0, temp.find_last_of("."));
+    fileName += ".sav";
+    std::cout << "Loading: " << fileName << "\n";
+    saveFile.open(fileName, std::ios::binary);
+    if (saveFile.fail())
+    {
+        std::cout << "WARNING: Couldn't load SRAM" << std::endl;
+        return;
+    }
+    for (int i = 0; i < mRam.size(); ++i)
+        saveFile.read(reinterpret_cast<char *>(&mRam[i][0]), mRam[i].size());
+    saveFile.close();
+
+    if (info.mbc == 0xF || info.mbc == 0x10)
+    {
+#ifndef LINUX
+        fileName = "savs\\";
+#else
+        fileName = "savs/";
+#endif
+        fileName += info.name;
+        fileName += ".rtc";
+        rtcFile.open(fileName.c_str(), std::ios::binary);
+        if (rtcFile.fail())
+        {
+            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
+            return;
+        }
+
+        rtcFile.read((char *) &rtc, sizeof(RTC_Regs));
+        rtcFile.read((char *) &rtc2, sizeof(RTC_Regs));
+        rtcFile.close();
+        //initRTCTimer();
+    }
 }

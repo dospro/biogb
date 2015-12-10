@@ -65,11 +65,14 @@ public:
     void writeToDisplay(u16 a_address, u8 a_value);
     void setVRAMBank(int a_bank);
 
-    void getMemoryPointer(cMemory *tmem)
-    { mem = tmem; };
+    void getMemoryPointer(cMemory *a_memory)
+    { memory = a_memory; };
     void hBlankDraw(void);
 
 protected:
+    u32 videoBuffer[160][144];
+
+private:
     const int TOTAL_OAM_BLOCKS = 40;
     const int SPRITE_ABOVE_BG = 0;
     const int BG_ABOVE_SPRITE = 1;
@@ -78,13 +81,12 @@ protected:
     const int TILE_PATTERN_TABLE_1 = 0x0800; //0x8800 - 0x8000;
     const int TILE_MAP_TABLE_0 = 0x1800; // 0x9800 - 0x8000
     const int TILE_MAP_TABLE_1 = 0x1C00; // 0x9C00 - 0x8000
-    cMemory *mem;
+    cMemory *memory;
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
     std::array<u32, 8> mSpriteColorTable;
     std::array<bool, 32> mTilePrioritiesTable;
     int mVRAMBank;
-    u32 videoBuffer[160][144];
     u32 gbcColors[0x10000];
     u32 BWColors[2][2];
     u32 BGPTable[2][2];

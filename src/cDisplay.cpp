@@ -34,21 +34,28 @@
 #define COLOR_INFLUENCE_FACTOR 8
 #define COLOR_INCREMENT_FACTOR 20
 
+#define BG_WHITE 0xE0F8D0
+#define BG_LIGHT_GRAY 0x7EC070
+#define GB_DARK_GRAY 0x346856
+#define GB_BLACK 0x081820
+
 
 cDisplay::cDisplay(bool a_isColor) :
-        BGPTable{{0xFFFFFF, 0xC0C0C0},
-                 {0x808080, 0x000000}},
-        WPTable{{0xFFFFFF, 0xC0C0C0},
-                {0x808080, 0x000000}},
-        BWColors{{0xFFFFFF, 0xC0C0C0},
-                 {0x808080, 0x000000}},
-        mem{nullptr},
+        BGPTable{{BG_WHITE,     BG_LIGHT_GRAY},
+                 {GB_DARK_GRAY, GB_BLACK}},
+        WPTable{{BG_WHITE,     BG_LIGHT_GRAY},
+                {GB_DARK_GRAY, GB_BLACK}},
+        BWColors{{BG_WHITE,     BG_LIGHT_GRAY},
+                 {GB_DARK_GRAY, GB_BLACK}},
+        memory{nullptr},
         mMasterPriority{false},
         mIsColor{a_isColor},
         mVRAMBank{0},
         mTilePrioritiesTable{}
 {
-    mSpriteColorTable = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000, 0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+    mSpriteColorTable = {
+            BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK,
+            BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK};
     for (int color = 0; color < 0x10000; ++color)
     {
         int red{((color & 0x1F) << 8) >> 5};
@@ -148,6 +155,7 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
                 break;
             default:
                 //TODO: Raise exception/
+                std::cout << "Falta: " << a_address << "\n";
                 break;
         }
     }
@@ -159,25 +167,18 @@ void cDisplay::setVRAMBank(int a_bank)
 }
 
 void cDisplay::hBlankDraw(void)
-{//Draws a single line
+{
+    int LCDCValue;
 
-    /*
-     * TODO: All this must be rewritten. Why? Well, this design won't let display the graphics with the correct
-     * priority. There is duplicated becaivor: Each time a tile or sprite is draw it actually uses the same snippet
-     * of code.
-     * TODO: In CGB mode each BG/Window tile has its own bg-to-oam priority flag. This is really hard to emulate now.
-     */
-    unsigned char val;
-
-    val = mem->mem[0xFF40][0];
-    lcdc.lcdcActive = ((val >> 7) & 1) != 0;
-    lcdc.wndMap = (((val >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-    lcdc.wndActive = ((val >> 5) & 1) != 0;
-    lcdc.tileDataAddress = (((val >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
-    lcdc.BGMapAddress = (((val >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-    lcdc.spActive = ((val >> 1) & 1) != 0;
-    lcdc.bgWndActive = (val & 1) != 0;
-    ly = mem->mem[0xFF44][0];
+    LCDCValue = memory->mem[0xFF40][0];
+    lcdc.lcdcActive = ((LCDCValue >> 7) & 1) != 0;
+    lcdc.wndMap = (((LCDCValue >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
+    lcdc.wndActive = ((LCDCValue >> 5) & 1) != 0;
+    lcdc.tileDataAddress = (((LCDCValue >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
+    lcdc.BGMapAddress = (((LCDCValue >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
+    lcdc.spActive = ((LCDCValue >> 1) & 1) != 0;
+    lcdc.bgWndActive = (LCDCValue & 1) != 0;
+    ly = memory->mem[0xFF44][0];
 
     if (lcdc.lcdcActive)//If the lcd is on
     {
@@ -219,9 +220,9 @@ void cDisplay::drawEmptyBG()
 
 void cDisplay::drawBackGround()
 {
-    int xScroll{-(mem->mem[0xFF43][0] & 7)};
-    int yScroll{(ly + mem->mem[0xFF42][0]) & 0xFF};
-    int currentTileInLine = mem->mem[0xFF43][0] / 8;
+    int xScroll{-(memory->mem[0xFF43][0] & 7)};
+    int yScroll{(ly + memory->mem[0xFF42][0]) & 0xFF};
+    int currentTileInLine = memory->mem[0xFF43][0] / 8;
 
     for (int i = xScroll; i < 160; i += 8)
     {
@@ -290,8 +291,8 @@ void cDisplay::setBGColorTable(int tileNumber)
 
 void cDisplay::drawWindow()
 {
-    int wx{mem->mem[0xFF4B][0] - 7};
-    int wy{mem->mem[0xFF4A][0]};
+    int wx{memory->mem[0xFF4B][0] - 7};
+    int wy{memory->mem[0xFF4A][0]};
     int y{(ly - wy) & 0xFF};
 
     if (ly >= wy && wx < 160 && wy >= 0 && wy < 144)
@@ -346,7 +347,7 @@ void cDisplay::drawWindow()
  */
 void cDisplay::drawSprites()
 {
-    int spriteHeight{((mem->mem[0xFF40][0] >> 2) & 1) == 1 ? 15 : 7};
+    int spriteHeight{((memory->mem[0xFF40][0] >> 2) & 1) == 1 ? 15 : 7};
     for (int i = 0; i < TOTAL_OAM_BLOCKS; ++i)
     {
         // TODO: Quitar ly??
