@@ -84,7 +84,7 @@ bool cMemory::loadRom(const char *fileName)
         mRom.push_back(std::array<u8, 0x4000> {});
         file.read(reinterpret_cast<char *>(&mRom[i][0]), 0x4000);
         for (int j = 0; j < 0x4000; j++)
-            mem[j][i] = mRom[i][j];
+            IOMap[j][i] = mRom[i][j];
     }
 
     file.close();
@@ -153,7 +153,7 @@ bool cMemory::loadRom(const char *fileName)
         std::cout << "No memory for Dound object" << std::endl;
         return false;
     }
-    if (!mSound->init(44100, 8, 512))
+    if (!mSound->init(22050, 8, 256))
     {
         std::cout << "Sound was not inited." << std::endl;
         return false;
@@ -186,11 +186,11 @@ u8 cMemory::readByte(u16 address)
         return mDisplay->readFromDisplay(address);
     else if (address < 0xFF00);
     else if (address < 0xFF80)
-        return mem[address][0];
+        return IOMap[address][0];
     else if (address < 0xFFFE)
         return mHRam[address - 0xFF80];
     else
-        return mem[address][0];
+        return IOMap[address][0];
 }
 
 u8 cMemory::readRom(u16 a_address) const noexcept
@@ -425,6 +425,11 @@ void cMemory::writeRTCRegister(u8 a_value)
 
 void cMemory::writeIO(u16 a_address, u8 a_value)
 {
+    if(a_address >= 0xFF10 && a_address < 0xFF40)
+    {
+        IOMap[a_address][0] = mSound->writeToSound(a_address, a_value);
+        return;
+    }
     switch (a_address)
     {
         case 0xFF00://P1-Conotrols
@@ -432,21 +437,21 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             { ;
             }
             else if ((a_value & 16) == 0)//Directions
-                mem[a_address][0] = ((jpd ^ 255) & 0xF) | 0xE0;
+                IOMap[a_address][0] = ((jpd ^ 255) & 0xF) | 0xE0;
             else if ((a_value & 32) == 0)//Buttons
-                mem[a_address][0] = ((jpb ^ 255) & 0xF) | 0xD0;
+                IOMap[a_address][0] = ((jpb ^ 255) & 0xF) | 0xD0;
             else
-                mem[a_address][0] = 0xFF;
+                IOMap[a_address][0] = 0xFF;
             break;
         case 0xFF01://SB-Serial Transfer data
             ST.trans = a_value;
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             break;
         case 0xFF02://SC-SIO Control
             ST.start = (a_value >> 7) & 1;
             ST.speed = (a_value >> 1) & 1;
             ST.cType = (a_value & 1);
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             if (ST.start)
             {
 #ifdef USE_SDL_NET
@@ -462,100 +467,95 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
                 {
                     if (ST.cType)
                     {
-                        mem[0xFF01][0] = 0xFF;
-                        mem[a_address][0] = a_value & 0x7F;
-                        mem[0xFF0F][0] |= 8;
+                        IOMap[0xFF01][0] = 0xFF;
+                        IOMap[a_address][0] = a_value & 0x7F;
+                        IOMap[0xFF0F][0] |= 8;
                     }
                 }
             }
             break;
         case 0xFF04://DIV-Divider Register
-            mem[a_address][0] = 0;
-            break;
-        case 0xFF10://NR10
-        case 0xFF11://NR11
-        case 0xFF12://NR12
-        case 0xFF13://NR13
-        case 0xFF14://NR14
-        case 0xFF16://NR21
-        case 0xFF17://NR22
-        case 0xFF18://NR23
-        case 0xFF19://NR24
-        case 0xFF1A://NR30
-        case 0xFF1B://NR31
-        case 0xFF1C://NR32
-        case 0xFF1D://NR33
-        case 0xFF1E://NR34
-        case 0xFF20://NR41
-        case 0xFF21://NR42
-        case 0xFF22://NR43
-        case 0xFF23://NR44
-        case 0xFF24://NR50
-        case 0xFF25://NR51
-        case 0xFF26://NR52
-            mem[a_address][0] = mSound->getSoundMessage(a_address, a_value);
+            IOMap[a_address][0] = 0;
             break;
         case 0xFF41:
-            mem[a_address][0] = (mem[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
+            IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
             break;
         case 0xFF44://LY
-            mem[a_address][0] = 0;
+            IOMap[a_address][0] = 0;
             break;
         case 0xFF46://DMA
             DMATransfer(a_value);
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             break;
         case 0xFF47://BGP
         case 0xFF48://OBP0
         case 0xFF49://OBP1
         case 0xFF4F:// VRAM bank
             mDisplay->writeToDisplay(a_address, a_value);
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             break;
         case 0xFF4D:
             speedChange = a_value & 1;
-            mem[a_address][0] = ((int) speedChange) | (currentSpeed << 7);
+            IOMap[a_address][0] = ((int) speedChange) | (currentSpeed << 7);
             break;
         case 0xFF55://HDMA Transfer
-            hdma.mode = (a_value >> 7) & 1;
-            hdma.length = ((a_value & 0x7F) + 1) << 4;
-            dest = ((mem[0xFF53][0] << 8) | mem[0xFF54][0]) & 0x1FF0;
-            source = ((mem[0xFF51][0] << 8) | mem[0xFF52][0]) & 0xFFF0;
+            hdma.mode = ((a_value >> 7) & 1) != 0;
+            hdma.length = ((a_value & 0x7F) + 1) * 0x10;
+            dest = ((IOMap[0xFF53][0] << 8) | IOMap[0xFF54][0]) & 0x1FF0;
+            source = ((IOMap[0xFF51][0] << 8) | IOMap[0xFF52][0]) & 0xFFF0;
+//            std::cout << "Write to FF55: " << "\n";
+//            std::cout << "Mode: " << ((a_value >> 7) & 1) << "\n";
+//            std::cout << "Length: " << std::hex << hdma.length << std::dec << "\n";
+//            std::cout << "Source: " << std::hex << source << std::dec << "\n";
+//            std::cout << "Destiny: " << std::hex << dest << std::dec << "\n";
             if (hdma.active && !hdma.mode)
             {
-                mem[a_address][0] = mem[a_address][0] | 0x80;
+                //std::cout << "HDMA: Stop" << "\n";
+                IOMap[a_address][0] |= 0x80;
+                //std::cout << "FF55: " << std::hex << static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
                 hdma.active = false;
                 break;
             }
             else if (!hdma.mode && !hdma.active)
+            {
+                //std::cout << "HDMA: Mode 0 start" << "\n";
                 HDMATransfer(source, dest, hdma.length);
+                IOMap[a_address][0] = 0xFF;
+                //std::cout << "FF55: " << std::hex << static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
+                break;
+            }
             else
+            {
+                //std::cout << "HDMA: Mode 1 active" << "\n";
                 hdma.active = true;
-            mem[a_address][0] = a_value & 0x7F;
+                IOMap[a_address][0] = a_value & 0x7F;
+                //std::cout << "FF55: " << std::hex << static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
+            }
+
             break;
             /* TODO: Display ya maneja todo internamente, para quitar mem, falta modificar readByte para leer desde display */
         case 0xFF68:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             mDisplay->writeToDisplay(a_address, a_value);
             break;
         case 0xFF69:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             mDisplay->writeToDisplay(a_address, a_value);
-            if (mem[0xFF68][0] & 0x80)//Autoincrement
-                mem[0xFF68][0]++;
+            if (IOMap[0xFF68][0] & 0x80)//Autoincrement
+                IOMap[0xFF68][0]++;
             break;
         case 0xFF6A:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             mDisplay->writeToDisplay(a_address, a_value);
             break;
         case 0xFF6B:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             mDisplay->writeToDisplay(a_address, a_value);
-            if (mem[0xFF6A][0] & 0x80)
-                mem[0xFF6A][0]++;
+            if (IOMap[0xFF6A][0] & 0x80)
+                IOMap[0xFF6A][0]++;
             break;
         case 0xFF70:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
             if (isColor)
             {
                 wRamBank = a_value & 7;
@@ -564,7 +564,7 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             }
             break;
         default:
-            mem[a_address][0] = a_value;
+            IOMap[a_address][0] = a_value;
     }
 }
 
@@ -574,43 +574,49 @@ void cMemory::DMATransfer(u8 address)
     int temp = (address << 8);
     for (i = 0xFE00; i < 0xFEA0; i++)
     {
-        mem[i][0] = readByte(temp);
-        mDisplay->writeToDisplay(i, mem[i][0]);
+        IOMap[i][0] = readByte(temp);
+        mDisplay->writeToDisplay(i, IOMap[i][0]);
         temp++;
     }
 }
 
 void cMemory::HDMATransfer(u16 source, u16 dest, u32 length)
 {
-    u32 i;
-    for (i = 0; i < length; i++)
+    for (int i = 0; i < length; i++)
     {
         writeByte(0x8000 + dest + i, readByte(source + i));
     }
-    mem[0xFF55][0] = 0xFF;
 }
 
 void cMemory::HBlankHDMA()
 {
-
-    int i;
     if (hdma.active)
     {
-        for (i = 0; i < 0x10; i++)
+        //std::cout << "HDMA at LY: " << static_cast<int>(IOMap[0xFF44][0]) << "\n";
+        for (int i = 0; i < 0x10; ++i)
         {
             writeByte(0x8000 + dest + i, readByte(source + i));
         }
         dest += 0x10;
+        IOMap[0xFF53][0] = dest >> 8;
+        IOMap[0xFF54][0] = dest & 0xFF;
         source += 0x10;
+        IOMap[0xFF51][0] = source >> 8;
+        IOMap[0xFF52][0] = source & 0xFF;
         hdma.length -= 0x10;
+        //std::cout << "Length after transfer: " << std::hex << static_cast<int>(hdma.length) << std::dec << "\n";
 
-        if (hdma.length < 0x10)
+
+        if (hdma.length <= 0)
         {
-            mem[0xFF55][0] = 0xFF;
+            IOMap[0xFF55][0] = 0xFF;
             hdma.active = false;
         }
         else
-            mem[0xFF55][0]--;
+        {
+            IOMap[0xFF55][0] = hdma.length / 0x10 - 1;
+        }
+        //std::cout << "FF55 length: " << std::hex << static_cast<int>(IOMap[0xFF55][0]) << std::dec << "\n";
     }
 }
 
@@ -673,7 +679,7 @@ void cMemory::saveSram()
 #else
     fileName = "savs/";
 #endif
-    auto lastIndex = mRomFilename.find_last_of("/")+1;
+    auto lastIndex = mRomFilename.find_last_of("/") + 1;
     auto temp = mRomFilename.substr(lastIndex);
     fileName += temp.substr(0, temp.find_last_of("."));
     fileName += ".sav";
@@ -721,7 +727,7 @@ void cMemory::loadSram()
 #else
     fileName = "savs/";
 #endif
-    auto lastIndex = mRomFilename.find_last_of("/")+1;
+    auto lastIndex = mRomFilename.find_last_of("/") + 1;
     std::string temp = mRomFilename.substr(lastIndex);
     fileName += temp.substr(0, temp.find_last_of("."));
     fileName += ".sav";

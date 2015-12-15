@@ -20,6 +20,12 @@ set(SOURCE_FILES
         src/cInput.cpp
         src/cSound.h
         src/cSound.cpp
+        src/cSoundChannel.cpp
+        src/cSoundChannel.h
+        src/cSoundChannel1.cpp
+        src/cSoundChannel1.h
+        src/cSoundChannel3.cpp
+        src/cSoundChannel3.h
         ${GRAPHICS_IMPLEMENTATION}
         ${AUDIO_IMPLEMENTATION})
 add_executable(biogb ${SOURCE_FILES})

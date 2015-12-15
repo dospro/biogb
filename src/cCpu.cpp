@@ -34,7 +34,6 @@
 #include"imp/audio/cPortAudio.h"
 
 
-
 #ifdef USE_SDL_NET
 cNet net;
 #endif
@@ -127,8 +126,6 @@ u16 cCpu::readNextWord(void)
     return (memory->readByte(pc++) | (memory->readByte(pc++) << 8));
 }
 
-
-
 void cCpu::saveState(int number)
 {
     std::string fileName;
@@ -183,7 +180,7 @@ void cCpu::saveState(int number)
     stateFile.write((char *) OBP1Table, sizeof(OBP1Table));*/
 
 
-    stateFile.write((char *) memory->mem[0x8000], 0xFFFF00);
+    stateFile.write((char *) memory->IOMap[0x8000], 0xFFFF00);
     std::cout << "State " << number << " saved." << std::endl;
     stateFile.close();
 }
@@ -236,7 +233,7 @@ void cCpu::loadState(int number)
     stateFile.read((char *) OBP0Table, sizeof(OBP0Table));
     stateFile.read((char *) OBP1Table, sizeof(OBP1Table));*/
 
-    stateFile.read((char *) memory->mem[0x8000], 0xFFFF00);
+    stateFile.read((char *) memory->IOMap[0x8000], 0xFFFF00);
     stateFile.close();
     std::cout << "State " << number << " loades" << std::endl;
 }
@@ -517,7 +514,6 @@ bool cCpu::initCpu(const char *file)
         opCycles[i] <<= 1;
 
 
-
     std::cout << "Input...";
     input = new cInput;
     if (input == NULL)
@@ -605,7 +601,7 @@ bool cCpu::initCpu(const char *file)
 void cCpu::setInterrupt(int interrupt)
 {
     ERROR(interrupt >= 4, "Interrups!!")
-    memory->mem[0xFF0F][0] |= (1 << interrupt);
+    memory->IOMap[0xFF0F][0] |= (1 << interrupt);
 }
 
 void cCpu::setMode(int mode)
@@ -613,19 +609,19 @@ void cCpu::setMode(int mode)
     switch (mode)
     {
         case 0:
-            memory->mem[0xFF41][0] &= 252;
+            memory->IOMap[0xFF41][0] &= 252;
             break;
         case 1:
-            memory->mem[0xFF41][0] = (memory->mem[0xFF41][0] & 252) | 1;
+            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 1;
             break;
         case 2:
-            memory->mem[0xFF41][0] = (memory->mem[0xFF41][0] & 252) | 2;
+            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 2;
             break;
         case 3:
-            memory->mem[0xFF41][0] = (memory->mem[0xFF41][0] & 252) | 3;
+            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 3;
             break;
         case 4:
-            memory->mem[0xFF41][0] |= 4;
+            memory->IOMap[0xFF41][0] |= 4;
             break;
     }
 }
@@ -633,43 +629,43 @@ void cCpu::setMode(int mode)
 void cCpu::checkInterrupts(void)
 {
     int interrupt;
-    interrupt = memory->mem[0xFF0F][0] & memory->mem[0xFFFF][0]; //Get all enabled interrupts
-    if (interruptsEnabled == true && interrupt > 0)
+    interrupt = memory->IOMap[0xFF0F][0] & memory->IOMap[0xFFFF][0]; //Get all enabled interrupts
+    if (interruptsEnabled && interrupt > 0)
     {
         interruptsEnabled = false;
         if (interrupt & 1)//v-blank
         {
             call(true, 0x0040);
-            memory->mem[0xFF0F][0] &= 254; //Reset the flag
+            memory->IOMap[0xFF0F][0] &= 254; //Reset the flag
         }
         else if (interrupt & 2)//LCDC
         {
             call(true, 0x0048);
-            memory->mem[0xFF0F][0] &= 253; //Reset the flag
+            memory->IOMap[0xFF0F][0] &= 253; //Reset the flag
         }
         else if (interrupt & 4)//timer
         {
             call(true, 0x0050);
-            memory->mem[0xFF0F][0] &= 251; //Reset the flag
+            memory->IOMap[0xFF0F][0] &= 251; //Reset the flag
         }
         else if (interrupt & 8)//Serial Transfer
         {
             call(true, 0x0058);
-            memory->mem[0xFF0F][0] &= 247; //Reset the flag
+            memory->IOMap[0xFF0F][0] &= 247; //Reset the flag
         }
         else if (interrupt & 16)//P10-P13
         {
             call(true, 0x0060);
-            memory->mem[0xFF0F][0] &= 239; //Reset the flag
+            memory->IOMap[0xFF0F][0] &= 239; //Reset the flag
         }
     }
 }
 
 void cCpu::updateTimer(int cycles)
 {
-    int temp = memory->mem[0xFF07][0];
-    int tima = memory->mem[0xFF05][0];
-    int tma = memory->mem[0xFF06][0];
+    int temp = memory->IOMap[0xFF07][0];
+    int tima = memory->IOMap[0xFF05][0];
+    int tma = memory->IOMap[0xFF06][0];
     int freq = temp & 3;
     bool enable = (temp >> 2) & 1;
     if (enable)
@@ -711,7 +707,7 @@ void cCpu::updateTimer(int cycles)
             tima = tma;
             setInterrupt(2);
         }
-        memory->mem[0xFF05][0] = tima & 0xFF;
+        memory->IOMap[0xFF05][0] = tima & 0xFF;
     }
 }
 
@@ -746,7 +742,7 @@ void cCpu::doCycle(void)
     if (divideReg <= 0)
     {
         divideReg += 256;
-        memory->mem[0xFF04][0]++;
+        memory->IOMap[0xFF04][0]++;
     }
 
     if (rtcCount >= 4194304)
@@ -780,16 +776,16 @@ void cCpu::updateModes(void)
     if (lyCycles <= 0)
     {
         lyCycles += (456 << currentSpeed);
-        scanLine = ++memory->mem[0xFF44][0]; //Increment LY
+        scanLine = ++memory->IOMap[0xFF44][0]; //Increment LY
         if (scanLine > 153)
         {
             scanLine = 0;
-            memory->mem[0xFF44][0] = 0;
+            memory->IOMap[0xFF44][0] = 0;
         }
 
-        if (scanLine == memory->mem[0xFF45][0])//We have a LY==LYC interrupt
+        if (scanLine == memory->IOMap[0xFF45][0])//We have a LY==LYC interrupt
         {
-            if ((memory->mem[0xFF41][0] & 0x40) && memory->mem[0xFF40][0] & 0x80)
+            if ((memory->IOMap[0xFF41][0] & 0x40) && memory->IOMap[0xFF40][0] & 0x80)
                 setInterrupt(1);
             setMode(4); //Set LYC flag(no mode)
         }
@@ -805,7 +801,7 @@ void cCpu::updateModes(void)
 
                 setMode(0);
                 memory->hBlankDraw();
-                if (memory->mem[0xFF41][0] & 8 && memory->mem[0xFF40][0] & 0x80)
+                if ((memory->IOMap[0xFF41][0] & 8) && (memory->IOMap[0xFF40][0] & 0x80))
                     setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
                     memory->HBlankHDMA();
@@ -819,9 +815,9 @@ void cCpu::updateModes(void)
                 nextMode = 4; //Full update
                 //display->updateScreen();
                 setMode(1);
-                if (memory->mem[0xFF40][0] & 0x80)
+                if (memory->IOMap[0xFF40][0] & 0x80)
                     setInterrupt(0);
-                if (memory->mem[0xFF41][0] & 0x10 && memory->mem[0xFF40][0] & 0x80)
+                if (memory->IOMap[0xFF41][0] & 0x10 && memory->IOMap[0xFF40][0] & 0x80)
                     setInterrupt(1); //Mode 1 V-Blank LCDC Interrupt
                 break;
 
@@ -829,7 +825,7 @@ void cCpu::updateModes(void)
                 cyclesCount += (80 << currentSpeed);
                 nextMode = 3;
                 setMode(2);
-                if (memory->mem[0xFF41][0] & 0x20 && memory->mem[0xFF40][0] >> 7 == 1)
+                if (memory->IOMap[0xFF41][0] & 0x20 && memory->IOMap[0xFF40][0] >> 7 == 1)
                     setInterrupt(1); //Mode 2 OAM LCDC Interrupt
                 break;
 
@@ -1408,7 +1404,7 @@ void cCpu::executeOpcode(int a_opcode)
                 else
                     currentSpeed = 0;
                 speedChange = false;
-                memory->mem[0xFF4D][0] = currentSpeed << 7;
+                memory->IOMap[0xFF4D][0] = currentSpeed << 7;
             }
             break;
         case 0xF3: intStatus = 2;

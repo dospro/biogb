@@ -170,7 +170,7 @@ void cDisplay::hBlankDraw(void)
 {
     int LCDCValue;
 
-    LCDCValue = memory->mem[0xFF40][0];
+    LCDCValue = memory->IOMap[0xFF40][0];
     lcdc.lcdcActive = ((LCDCValue >> 7) & 1) != 0;
     lcdc.wndMap = (((LCDCValue >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
     lcdc.wndActive = ((LCDCValue >> 5) & 1) != 0;
@@ -178,7 +178,7 @@ void cDisplay::hBlankDraw(void)
     lcdc.BGMapAddress = (((LCDCValue >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
     lcdc.spActive = ((LCDCValue >> 1) & 1) != 0;
     lcdc.bgWndActive = (LCDCValue & 1) != 0;
-    ly = memory->mem[0xFF44][0];
+    ly = memory->IOMap[0xFF44][0];
 
     if (lcdc.lcdcActive)//If the lcd is on
     {
@@ -220,9 +220,9 @@ void cDisplay::drawEmptyBG()
 
 void cDisplay::drawBackGround()
 {
-    int xScroll{-(memory->mem[0xFF43][0] & 7)};
-    int yScroll{(ly + memory->mem[0xFF42][0]) & 0xFF};
-    int currentTileInLine = memory->mem[0xFF43][0] / 8;
+    int xScroll{-(memory->IOMap[0xFF43][0] & 7)};
+    int yScroll{(ly + memory->IOMap[0xFF42][0]) & 0xFF};
+    int currentTileInLine = memory->IOMap[0xFF43][0] / 8;
 
     for (int i = xScroll; i < 160; i += 8)
     {
@@ -291,8 +291,8 @@ void cDisplay::setBGColorTable(int tileNumber)
 
 void cDisplay::drawWindow()
 {
-    int wx{memory->mem[0xFF4B][0] - 7};
-    int wy{memory->mem[0xFF4A][0]};
+    int wx{memory->IOMap[0xFF4B][0] - 7};
+    int wy{memory->IOMap[0xFF4A][0]};
     int y{(ly - wy) & 0xFF};
 
     if (ly >= wy && wx < 160 && wy >= 0 && wy < 144)
@@ -347,8 +347,8 @@ void cDisplay::drawWindow()
  */
 void cDisplay::drawSprites()
 {
-    int spriteHeight{((memory->mem[0xFF40][0] >> 2) & 1) == 1 ? 15 : 7};
-    for (int i = 0; i < TOTAL_OAM_BLOCKS; ++i)
+    int spriteHeight{((memory->IOMap[0xFF40][0] >> 2) & 1) == 1 ? 15 : 7};
+    for (int i = TOTAL_OAM_BLOCKS - 1; i >= 0; --i)
     {
         // TODO: Quitar ly??
         int currentScanLine = ly;

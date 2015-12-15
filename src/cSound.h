@@ -33,6 +33,9 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include"macros.h"
+#include "cSoundChannel.h"
+#include "cSoundChannel1.h"
+#include "cSoundChannel3.h"
 
 class cMemory;
 
@@ -64,6 +67,8 @@ struct soundChannel {
 class cSound {
 protected:
     soundChannel ch[4];
+    cSoundChannel1 *mChannel1;
+    cSoundChannel3 *mChannel3;
     bool soundActive;
 
     bool s1, s2;
@@ -81,14 +86,15 @@ protected:
 public:
     cSound();
     virtual ~cSound();
-    virtual bool init(u32 freq, u32 size, u32 bSize);
+    virtual bool init(u32 a_frequency, u32 size, u32 bSize);
     virtual void turnOn(void) = 0;
     virtual void turnOff(void) = 0;
 
     void getMemoryPointer(cMemory *memp) {
         mem = memp;
     };
-    u8 getSoundMessage(u16 address, u8 value);
+    u8 readFromSound(u16 a_address);
+    u8 writeToSound(u16 address, u8 value);
     u8 getCurrentSample(float freq, float &c1, u8 *pattern, s32 size, s32 &c2);
     u8 getCurrentNoise(float freq, float *c1, u8 *pattern, s32 size, s32 *c2);
     void fillBuffer(void);

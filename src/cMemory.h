@@ -22,7 +22,7 @@ struct gbHeader{
 struct HDMA {
     u8 hs, ls;
     u8 hd, ld;
-    u16 length;
+    int length;
     bool mode, active;
 };
 
@@ -54,7 +54,7 @@ public:
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
     u16 romBank, ramBank, wRamBank, vRamBank;
-    u8 mem[0x10000][1];
+    u8 IOMap[0x10000][1];
 
     cMemory();
     ~cMemory();
@@ -81,7 +81,7 @@ private:
     HDMA hdma;
     u8 mm;
     u8 hi, lo;
-    u16 dest, source;
+    int dest, source;
 
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
