@@ -38,7 +38,37 @@ int cSoundChannel3::readRegister(int a_address)
         case 0xFF1E:
             return NR34;
         default:
+            if (a_address >= 0xFF30 && a_address < 0xFF40)
+                return mWaveLastWrittenValue;
             return 0xFF;
+    }
+}
+
+void cSoundChannel3::writeRegister(int a_address, int a_value)
+{
+    switch (a_address)
+    {
+        case 0xFF1A:
+            writeNR30(a_value);
+            break;
+        case 0xFF1B:
+            writeNR31(a_value);
+            break;
+        case 0xFF1C:
+            writeNR32(a_value);
+            break;
+        case 0xFF1D:
+            writeNR33(a_value);
+            break;
+        case 0xFF1E:
+            writeNR34(a_value);
+            break;
+        default:
+            if (a_address >= 0xFF30 && a_address < 0xFF40)
+            {
+                writeWaveRam(a_address, a_value);
+            }
+            break;
     }
 }
 
@@ -104,8 +134,10 @@ void cSoundChannel3::writeNR34(int a_value)
 
 void cSoundChannel3::writeWaveRam(int a_address, int a_value)
 {
-    mWaveRam[a_address * 2] = (a_value >> 4) << 4;
-    mWaveRam[a_address * 2 + 1] = (a_value & 0xF) << 4;
+    int index = a_address - 0xFF30;
+    mWaveRam[index * 2] = (a_value >> 4) << 4;
+    mWaveRam[index * 2 + 1] = (a_value & 0xF) << 4;
+    mWaveLastWrittenValue = a_value;
 }
 
 int cSoundChannel3::getOnOffBit()
@@ -123,7 +155,6 @@ int cSoundChannel3::getSample()
     if (mCounter <= samplePerSecond)
     {
         ++mCounter;
-        return mWaveRam[mPatternIndex] >> mOutputLevel;
     }
     else
     {
@@ -131,8 +162,9 @@ int cSoundChannel3::getSample()
         if (mPatternIndex >= mWaveRam.size())
             mPatternIndex = 0;
         mCounter -= samplePerSecond - 1;
-        return mWaveRam[mPatternIndex] >> mOutputLevel;
+
     }
+    return mWaveRam[mPatternIndex] >> mOutputLevel;
 }
 
 void cSoundChannel3::update(int a_cycles)
@@ -146,9 +178,4 @@ void cSoundChannel3::update(int a_cycles)
             mSoundLength = 0;
         }
     }
-}
-
-bool cSoundChannel3::isOn()
-{
-    return mOnOff;
 }

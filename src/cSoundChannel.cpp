@@ -53,7 +53,7 @@ cSoundChannel::~cSoundChannel()
 
 }
 
-
-
-
-
+bool cSoundChannel::isOn()
+{
+    return mOnOff;
+}

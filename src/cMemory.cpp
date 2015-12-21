@@ -153,13 +153,12 @@ bool cMemory::loadRom(const char *fileName)
         std::cout << "No memory for Dound object" << std::endl;
         return false;
     }
-    if (!mSound->init(22050, 8, 256))
+    if (!mSound->init(44100, 8, 512))
     {
         std::cout << "Sound was not inited." << std::endl;
         return false;
     }
     std::cout << "OK" << std::endl;
-    mSound->getMemoryPointer(this);
     std::cout << "Turning sound on" << std::endl;
     mSound->turnOn();
 
@@ -185,6 +184,10 @@ u8 cMemory::readByte(u16 address)
     else if (address < 0xFEA0)
         return mDisplay->readFromDisplay(address);
     else if (address < 0xFF00);
+    else if (address < 0xFF10)
+        return IOMap[address][0];
+    else if (address < 0xFF40)
+        return mSound->readFromSound(address);
     else if (address < 0xFF80)
         return IOMap[address][0];
     else if (address < 0xFFFE)
@@ -425,9 +428,9 @@ void cMemory::writeRTCRegister(u8 a_value)
 
 void cMemory::writeIO(u16 a_address, u8 a_value)
 {
-    if(a_address >= 0xFF10 && a_address < 0xFF40)
+    if (a_address >= 0xFF10 && a_address < 0xFF40)
     {
-        IOMap[a_address][0] = mSound->writeToSound(a_address, a_value);
+        mSound->writeToSound(a_address, a_value);
         return;
     }
     switch (a_address)

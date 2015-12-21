@@ -14,12 +14,11 @@ class cSoundChannel1 : public cSoundChannel
 public:
     cSoundChannel1(int a_generalFrecuency);
     virtual ~cSoundChannel1();
-    int readRegister(int a_address);
-    void writeRegister(int a_address, int a_value);
-    int getOnOffBit();
+    virtual int readRegister(int a_address) override;
+    virtual void writeRegister(int a_address, int a_value) override;
     virtual int getSample() override;
     virtual void update(int a_cycles) override;
-    bool isOn();
+    virtual int getOnOffBit() override;
 
 private:
     void writeNR10(int a_value);
@@ -41,6 +40,7 @@ private:
     bool mVolumenIncrease;
     int mEnvelopSweep;
     int mFrequency;
+    double mFinalFrequency;
     bool mConsecutive;
     int mShadowFrequency;
     double mCounter;

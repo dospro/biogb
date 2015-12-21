@@ -27,7 +27,7 @@ set(SOURCE_FILES
         src/cSoundChannel3.cpp
         src/cSoundChannel3.h
         ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION})
+        ${AUDIO_IMPLEMENTATION} src/cSoundChannel2.cpp src/cSoundChannel2.h src/cSoundChannel4.cpp src/cSoundChannel4.h)
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL_LIBRARY})
 #-fsanitize=address -fstack-protector-all -g -ggdb

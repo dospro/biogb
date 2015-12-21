@@ -151,11 +151,6 @@ void cSoundChannel1::update(int a_cycles)
     }
 }
 
-bool cSoundChannel1::isOn()
-{
-    return mOnOff;
-}
-
 void cSoundChannel1::writeNR10(int a_value)
 {
     mSweepTime = ((a_value & 0x70) >> 4) * (CYCLES_PER_SECOND / 128);
@@ -167,7 +162,7 @@ void cSoundChannel1::writeNR10(int a_value)
 void cSoundChannel1::writeNR11(int a_value)
 {
     mWavePatternType = a_value >> 6;
-    mSoundLength = (64 - (a_value & 63)) << 14;
+    mSoundLength = (64 - (a_value & 63)) * (CYCLES_PER_SECOND / 256);
     NR11 = a_value | 0x3F;
 }
 
@@ -182,21 +177,23 @@ void cSoundChannel1::writeNR12(int a_value)
 void cSoundChannel1::writeNR13(int a_value)
 {
     mFrequency = (mFrequency & 0x700) | a_value;
+    mShadowFrequency = mFrequency;
     NR13 = 0xFF;
 }
 
 void cSoundChannel1::writeNR14(int a_value)
 {
     mFrequency = (mFrequency & 0xFF) | ((a_value & 7) << 8);
+    mShadowFrequency = mFrequency;
     mConsecutive = ((a_value >> 6) & 1) == 0;
     if ((a_value >> 7) == 1) // Trigger
     {
         mOnOff = true;
-        //mem->IOMap[0xFF26][0] |= 1;
         mShadowFrequency = mFrequency;
-        mSoundLength = (mSoundLength == 0) ? 64 << 14 : mSoundLength;// TODO: Revisar esto
-        //ch[0].soundLength = ch[0].soundLength == 0 ? 64 << 14 : ch[0].keptLength;
+        mSoundLength = (mSoundLength == 0) ? 64 * (CYCLES_PER_SECOND / 256) : mSoundLength;
         mInitialVolumen = NR12 >> 4;
+        if (mInitialVolumen == 0)
+            mOnOff = false;
 
         mSweepTime = ((NR10 & 0x70) >> 4) * (CYCLES_PER_SECOND / 128);
 

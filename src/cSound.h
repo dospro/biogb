@@ -36,52 +36,20 @@
 #include "cSoundChannel.h"
 #include "cSoundChannel1.h"
 #include "cSoundChannel3.h"
+#include "cSoundChannel2.h"
+#include "cSoundChannel4.h"
 
-class cMemory;
 
-struct soundChannel {
-    bool onOff;
-    bool s1, s2;
-
-    s32 sweepTime;
-    s32 sweepCounter;
-    bool sDecInc;
-    s32 sweepShift;
-    s32 wavePattern;
-    s32 soundLength, keptLength;
-
-    s32 envInitVol;
-    s32 envCounter;
-    bool envUpdown;
-    s32 envSweep;
-
-    s32 freq;
-    u16 realFreq;
-    double finalFreq;
-    bool CountCons;
-
-    float counter1;
-    s32 counter2;
-};
-
-class cSound {
+class cSound
+{
 protected:
-    soundChannel ch[4];
     cSoundChannel1 *mChannel1;
+    cSoundChannel2 *mChannel2;
     cSoundChannel3 *mChannel3;
+    cSoundChannel4 *mChannel4;
     bool soundActive;
-
-    bool s1, s2;
-    u32 s1Volumen, s2Volumen;
-
     u8 *buffer;
-    u8 wavePatternDuty[4][8];
-    u8 wavePatternRam[0x20];
-    u8 noise[32768];
-
-    cMemory *mem; //mem Pointer
-
-    u32 generalFreq, bufferSize;
+    u32 bufferSize;
 
 public:
     cSound();
@@ -90,13 +58,8 @@ public:
     virtual void turnOn(void) = 0;
     virtual void turnOff(void) = 0;
 
-    void getMemoryPointer(cMemory *memp) {
-        mem = memp;
-    };
     u8 readFromSound(u16 a_address);
-    u8 writeToSound(u16 address, u8 value);
-    u8 getCurrentSample(float freq, float &c1, u8 *pattern, s32 size, s32 &c2);
-    u8 getCurrentNoise(float freq, float *c1, u8 *pattern, s32 size, s32 *c2);
+    void writeToSound(u16 address, u8 value);
     void fillBuffer(void);
     void updateCycles(s32 cycles);
 };

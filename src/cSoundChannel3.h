@@ -13,32 +13,32 @@ class cSoundChannel3 : public cSoundChannel
 public:
     cSoundChannel3(int a_generalFrecuency);
     virtual ~cSoundChannel3();
-    int readRegister(int a_address);
+    virtual int readRegister(int a_address) override;
+    virtual void writeRegister(int a_address, int a_value) override;
+    virtual int getSample() override;
+    virtual void update(int a_cycles) override;
+    virtual int getOnOffBit() override;
+private:
     void writeNR30(int a_value);
     void writeNR31(int a_value);
     void writeNR32(int a_value);
     void writeNR33(int a_value);
     void writeNR34(int a_value);
     void writeWaveRam(int a_address, int a_value);
-    int getOnOffBit();
-    virtual int getSample() override;
-    virtual void update(int a_cycles) override;
-    bool isOn();
-private:
-    int mSoundLength;
     std::array<int, 32> mWaveRam;
-    int mOutputLevel;
-    int mFrequency;
-    bool mConsecutive;
-    bool mDACBit;
     int NR30;
     int NR31;
     int NR32;
     int NR33;
     int NR34;
+    int mWaveLastWrittenValue;
+    int mSoundLength;
+    int mOutputLevel;
+    int mFrequency;
+    bool mConsecutive;
+    bool mDACBit;
     double mCounter;
     int mPatternIndex;
-
 };
 
 

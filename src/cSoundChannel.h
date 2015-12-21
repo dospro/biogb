@@ -13,8 +13,12 @@ class cSoundChannel
 public:
     cSoundChannel(int a_generalFrecuency);
     virtual ~cSoundChannel();
+    virtual int readRegister(int a_address) = 0;
+    virtual void writeRegister(int a_address, int a_value) = 0;
     virtual int getSample() = 0;
     virtual void update(int a_cycles) = 0;
+    virtual int getOnOffBit() = 0;
+    virtual bool isOn();
 
 protected:
     const int CYCLES_PER_SECOND = 4194304;
