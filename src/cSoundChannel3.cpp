@@ -102,10 +102,10 @@ void cSoundChannel3::writeNR32(int a_value)
             mOutputLevel = 0;
             break;
         case 2:
-            mOutputLevel = 4;
+            mOutputLevel = 1;
             break;
         case 3:
-            mOutputLevel = 6;
+            mOutputLevel = 2;
         default:
             break;
     }
