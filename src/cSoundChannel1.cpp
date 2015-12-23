@@ -76,6 +76,8 @@ int cSoundChannel1::getSample()
             mPatternIndex = 0;
         mCounter -= mSamplesPerSecond - 1;
     }
+    if (!outputTerminal1 && !outputTerminal2)
+        return 0;
     return (mInitialVolumen * mWavePatternDuty[mWavePatternType][mPatternIndex]) / 15;
 
 }
@@ -124,6 +126,7 @@ void cSoundChannel1::update(int a_cycles)
                 {
                     mShadowFrequency = 2047;
                     mOnOff = false;
+                    mSweepEnabled = false;
                 }
                 else
                 {
@@ -243,7 +246,10 @@ void cSoundChannel1::calculateNewFrequency()
 
 void cSoundChannel1::setSweepTimer(int a_value)
 {
-    mSweepTime = ((a_value & 0x70) >> 4) * (CYCLES_PER_SECOND / 128);
+    mSweepTime = (a_value & 0x70) >> 4;
+    //if (mSweepTime == 0)
+    //    mSweepTime = 8;
+    mSweepTime *= (CYCLES_PER_SECOND / 128);
 }
 
 void cSoundChannel1::setLengthTimer(int a_value)

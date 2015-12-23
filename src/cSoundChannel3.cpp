@@ -28,15 +28,15 @@ int cSoundChannel3::readRegister(int a_address)
     switch (a_address)
     {
         case 0xFF1A:
-            return NR30;
+            return NR30 | 0x7F;
         case 0xFF1B:
-            return NR31;
+            return NR31 | 0xFF;
         case 0xFF1C:
-            return NR32;
+            return NR32 | 0x9F;
         case 0xFF1D:
-            return NR33;
+            return NR33 | 0xFF;
         case 0xFF1E:
-            return NR34;
+            return NR34 | 0xBF;
         default:
             if (a_address >= 0xFF30 && a_address < 0xFF40)
                 return mWaveLastWrittenValue;
@@ -81,13 +81,13 @@ void cSoundChannel3::writeNR30(int a_value)
     }
     else
         mDACBit = true;
-    NR30 = a_value | 0x7F;
+    NR30 = a_value;
 }
 
 void cSoundChannel3::writeNR31(int a_value)
 {
     mSoundLength = (256 - a_value) * (CYCLES_PER_SECOND / 256);
-    NR31 = 0xFF;
+    NR31 = a_value;
 }
 
 void cSoundChannel3::writeNR32(int a_value)
@@ -109,18 +109,20 @@ void cSoundChannel3::writeNR32(int a_value)
         default:
             break;
     }
-    NR32 = a_value | 0x9F;
+    NR32 = a_value;
 }
 
 void cSoundChannel3::writeNR33(int a_value)
 {
     mFrequency = (mFrequency & 0x700) | a_value;
-    NR33 = 0xFF;
+    setFrequency();
+    NR33 = a_value;
 }
 
 void cSoundChannel3::writeNR34(int a_value)
 {
     mFrequency = (mFrequency & 0xFF) | ((a_value & 7) << 8);
+    setFrequency();
     mConsecutive = (a_value & 0x40) == 0;
     if ((a_value & 0x80) != 0) // Trigger
     {
@@ -129,7 +131,7 @@ void cSoundChannel3::writeNR34(int a_value)
         mCounter = 0.0f;
         mOnOff = mDACBit;
     }
-    NR34 = a_value | 0xBF;
+    NR34 = a_value;
 }
 
 void cSoundChannel3::writeWaveRam(int a_address, int a_value)
@@ -149,10 +151,7 @@ int cSoundChannel3::getOnOffBit()
 
 int cSoundChannel3::getSample()
 {
-    double finalFrequency = {65536.0f / (2048.0f - mFrequency)};
-    double samplePerSecond = GENERAL_FREQUENCY / finalFrequency / mWaveRam.size();
-
-    if (mCounter <= samplePerSecond)
+    if (mCounter <= mSamplePerSecond)
     {
         ++mCounter;
     }
@@ -161,15 +160,17 @@ int cSoundChannel3::getSample()
         ++mPatternIndex;
         if (mPatternIndex >= mWaveRam.size())
             mPatternIndex = 0;
-        mCounter -= samplePerSecond - 1;
+        mCounter -= mSamplePerSecond - 1;
 
     }
+    if (!outputTerminal1 && !outputTerminal2)
+        return 0;
     return mWaveRam[mPatternIndex] >> mOutputLevel;
 }
 
 void cSoundChannel3::update(int a_cycles)
 {
-    if (!mConsecutive && mSoundLength != 0)
+    if (mOnOff && !mConsecutive)
     {
         mSoundLength -= a_cycles;
         if (mSoundLength <= 0)
@@ -178,4 +179,10 @@ void cSoundChannel3::update(int a_cycles)
             mSoundLength = 0;
         }
     }
+}
+
+void cSoundChannel3::setFrequency()
+{
+    double finalFrequency = {65536.0f / (2048.0f - mFrequency)};
+    mSamplePerSecond = GENERAL_FREQUENCY / finalFrequency / mWaveRam.size();
 }

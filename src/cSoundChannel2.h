@@ -24,6 +24,8 @@ private:
     void writeNR22(int a_value);
     void writeNR23(int a_value);
     void writeNR24(int a_value);
+    void setEnvelopTimer(int a_value);
+    void setFrequency();
     int NR21;
     int NR22;
     int NR23;
@@ -34,9 +36,11 @@ private:
     int mWavePatternType;
     int mSoundLength;
     int mFrequency;
+    double mSamplesPerSecond;
     bool mConsecutive;
     double mCounter;
     int mPatternIndex;
+
 };
 
 

@@ -42,6 +42,16 @@
 
 class cSound
 {
+public:
+    cSound();
+    virtual ~cSound();
+    virtual bool init(u32 a_frequency, u32 size, u32 bSize);
+    virtual void turnOn(void) = 0;
+    virtual void turnOff(void) = 0;
+    u8 readFromSound(u16 a_address);
+    void writeToSound(u16 address, u8 value);
+    void fillBuffer(void);
+    void updateCycles(s32 cycles);
 protected:
     cSoundChannel1 *mChannel1;
     cSoundChannel2 *mChannel2;
@@ -50,18 +60,10 @@ protected:
     bool soundActive;
     u8 *buffer;
     u32 bufferSize;
+    int NR50;
+    int NR51;
 
-public:
-    cSound();
-    virtual ~cSound();
-    virtual bool init(u32 a_frequency, u32 size, u32 bSize);
-    virtual void turnOn(void) = 0;
-    virtual void turnOff(void) = 0;
 
-    u8 readFromSound(u16 a_address);
-    void writeToSound(u16 address, u8 value);
-    void fillBuffer(void);
-    void updateCycles(s32 cycles);
 };
 
 #endif

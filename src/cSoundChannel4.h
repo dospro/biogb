@@ -25,6 +25,7 @@ private:
     void writeNR42(int a_value);
     void writeNR43(int a_value);
     void writeNR44(int a_value);
+    void setEnvelopTimer(int a_value);
     std::array<int, 0x8000> mRandomWave;
     int NR41;
     int NR42;

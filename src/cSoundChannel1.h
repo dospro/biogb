@@ -27,6 +27,11 @@ private:
     void writeNR13(int a_value);
     void writeNR14(int a_value);
     void sweepTrigger();
+    void setEnvelopTimer(int a_value);
+    void calculateNewFrequency();
+    void setSweepTimer(int a_value);
+    void setLengthTimer(int a_value);
+    void setFrequency();
     int NR10;
     int NR11;
     int NR12;
@@ -41,18 +46,13 @@ private:
     bool mVolumenIncrease;
     int mEnvelopSweep;
     int mFrequency;
-    double mFinalFrequency;
     double mSamplesPerSecond;
     bool mConsecutive;
     int mShadowFrequency;
     double mCounter;
     int mPatternIndex;
     bool mSweepEnabled;
-    void setEnvelopTimer(int a_value);
-    void calculateNewFrequency();
-    void setSweepTimer(int a_value);
-    void setLengthTimer(int a_value);
-    void setFrequency();
+
 };
 
 

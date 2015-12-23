@@ -2,7 +2,6 @@
 // Created by dospro on 18/12/15.
 //
 
-#include <iostream>
 #include "cSoundChannel4.h"
 
 cSoundChannel4::cSoundChannel4(int a_generalFrecuency) :
@@ -31,13 +30,13 @@ int cSoundChannel4::readRegister(int a_address)
     switch (a_address)
     {
         case 0xFF20:
-            return NR41;
+            return NR41 | 0xFF;
         case 0xFF21:
             return NR42;
         case 0xFF22:
             return NR43;
         case 0xFF23:
-            return NR44;
+            return NR44 | 0xBF;
         default:
             return 0xFF;
     }
@@ -77,6 +76,8 @@ int cSoundChannel4::getSample()
             mPatternIndex = 0;
         mCounter -= mPeriod;
     }
+    if (!outputTerminal1 && !outputTerminal2)
+        return 0;
     return (mInitialVolumen * mRandomWave[mPatternIndex]) / 15;
     /*double frequency = mDivisorCode / mShiftClock;
     int size = (mPatternWidth ? 0x80 : 0x8000);
@@ -98,7 +99,7 @@ int cSoundChannel4::getSample()
 
 void cSoundChannel4::update(int a_cycles)
 {
-    if (!mConsecutive)
+    if (mOnOff && !mConsecutive)
     {
         mSoundLength -= a_cycles;
         if (mSoundLength <= 0)
@@ -108,7 +109,7 @@ void cSoundChannel4::update(int a_cycles)
         }
     }
 
-    if (mEnvelopSweep != 0 && mOnOff)
+    if (mOnOff && mEnvelopSweep != 0)
     {
         mEnvelopSweep -= a_cycles;
         if (mEnvelopSweep <= 0)
@@ -125,7 +126,7 @@ void cSoundChannel4::update(int a_cycles)
                 if (mInitialVolumen < 0)
                     mInitialVolumen = 0;
             }
-            mEnvelopSweep = (NR42 & 7) * (CYCLES_PER_SECOND / 64);
+            setEnvelopTimer(NR42);
         }
     }
 }
@@ -140,14 +141,14 @@ int cSoundChannel4::getOnOffBit()
 void cSoundChannel4::writeNR41(int a_value)
 {
     mSoundLength = (64 - (a_value & 63)) * (CYCLES_PER_SECOND / 256);
-    NR41 = 0xFF;
+    NR41 = a_value;
 }
 
 void cSoundChannel4::writeNR42(int a_value)
 {
     mInitialVolumen = a_value >> 4;
     mVolumenIncrease = ((a_value >> 3) & 1) != 0;
-    mEnvelopSweep = (a_value & 7) * (CYCLES_PER_SECOND / 64);
+    setEnvelopTimer(a_value);
     NR42 = a_value;
 }
 
@@ -172,11 +173,17 @@ void cSoundChannel4::writeNR44(int a_value)
     {
         mOnOff = true;
         mSoundLength = (mSoundLength == 0) ? 64 * (CYCLES_PER_SECOND / 256) : mSoundLength;
-        mInitialVolumen = NR42 >> 4;
-        if (mInitialVolumen == 0)
-            mOnOff = false;
-        mPatternIndex = 0;
         mCounter = 0;
+        mPatternIndex = 0;
+        setEnvelopTimer(NR42);
+        mInitialVolumen = NR42 >> 4;
+        if ((NR42 & 0xF8) == 0)
+            mOnOff = false;
     }
-    NR44 = a_value | 0xBF;
+    NR44 = a_value;
+}
+
+void cSoundChannel4::setEnvelopTimer(int a_value)
+{
+    mEnvelopSweep = (a_value & 7) * (CYCLES_PER_SECOND / 64);
 }

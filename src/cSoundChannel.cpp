@@ -2,7 +2,7 @@
 // Created by dospro on 10/12/15.
 //
 
-#include <iostream>
+
 #include "cSoundChannel.h"
 
 
@@ -56,4 +56,10 @@ cSoundChannel::~cSoundChannel()
 bool cSoundChannel::isOn()
 {
     return mOnOff;
+}
+
+void cSoundChannel::setOutputTerminal(bool a_left, bool a_right)
+{
+    outputTerminal1 = a_left;
+    outputTerminal2 = a_right;
 }

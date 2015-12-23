@@ -25,6 +25,7 @@ private:
     void writeNR33(int a_value);
     void writeNR34(int a_value);
     void writeWaveRam(int a_address, int a_value);
+    void setFrequency();
     std::array<int, 32> mWaveRam;
     int NR30;
     int NR31;
@@ -35,6 +36,7 @@ private:
     int mSoundLength;
     int mOutputLevel;
     int mFrequency;
+    double mSamplePerSecond;
     bool mConsecutive;
     bool mDACBit;
     double mCounter;

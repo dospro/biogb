@@ -75,29 +75,16 @@ u8 cSound::readFromSound(u16 a_address)
         switch (a_address)
         {
             case 0xFF24: //NR 50
-                /*s1Volumen = value & 7;
-                s1 = (value >> 3) & 1;
-                s2Volumen = (value >> 4) & 7;
-                s2 = (value >> 7) & 1;*/
-                break;
+                return NR50;
             case 0xFF25:
-                //ch[0].s1 = value & 1;
-                //ch[1].s1 = (value >> 1) & 1;
-                //ch[2].s1 = (value >> 2) & 1;
-                //ch[3].s1 = (value >> 3) & 1;
-                //ch[0].s2 = (value >> 4) & 1;
-                //ch[1].s2 = (value >> 5) & 1;
-                //ch[2].s2 = (value >> 6) & 1;
-                //ch[3].s2 = (value >> 7) & 1;
-                break;
-
+                return NR51;
             case 0xFF26: //NR 52
-                return mChannel1->getOnOffBit()
-                       | mChannel2->getOnOffBit()
-                       | mChannel3->getOnOffBit()
-                       | mChannel4->getOnOffBit()
-                       | (soundActive << 7)
-                       | 0x70;
+                return static_cast<u8>(mChannel1->getOnOffBit()
+                                       | mChannel2->getOnOffBit()
+                                       | mChannel3->getOnOffBit()
+                                       | mChannel4->getOnOffBit()
+                                       | (soundActive << 7)
+                                       | 0x70);
         }
     }
     else
@@ -131,22 +118,15 @@ void cSound::writeToSound(u16 address, u8 value)
         case 0xFF23: //NR 44
             mChannel4->writeRegister(address, value);
         case 0xFF24: //NR 50
-            /*s1Volumen = value & 7;
-            s1 = (value >> 3) & 1;
-            s2Volumen = (value >> 4) & 7;
-            s2 = (value >> 7) & 1;*/
+            NR50 = value;
             break;
         case 0xFF25:
-            //ch[0].s1 = value & 1;
-            //ch[1].s1 = (value >> 1) & 1;
-            //ch[2].s1 = (value >> 2) & 1;
-            //ch[3].s1 = (value >> 3) & 1;
-            //ch[0].s2 = (value >> 4) & 1;
-            //ch[1].s2 = (value >> 5) & 1;
-            //ch[2].s2 = (value >> 6) & 1;
-            //ch[3].s2 = (value >> 7) & 1;
+            mChannel1->setOutputTerminal((value & 1) != 0, (value & 0x10) != 0);
+            mChannel2->setOutputTerminal((value & 2) != 0, (value & 0x20) != 0);
+            mChannel3->setOutputTerminal((value & 4) != 0, (value & 0x40) != 0);
+            mChannel4->setOutputTerminal((value & 8) != 0, (value & 0x80) != 0);
+            NR51 = value;
             break;
-
         case 0xFF26: //NR 52
             soundActive = (value >> 7) & 1;
             break;
