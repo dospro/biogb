@@ -68,6 +68,7 @@ public:
     void HBlankHDMA();
     void saveSram();
     void loadSram();
+    void updateIO(int a_cycles, int a_speedShift);
 
     //TODO: Esto no va aqui. Paso intermedio para refactorizar.
     void hBlankDraw();
@@ -84,6 +85,7 @@ private:
     u8 mm;
     u8 hi, lo;
     int dest, source;
+    int mDividerRegister;
 
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);

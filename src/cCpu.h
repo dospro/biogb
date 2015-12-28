@@ -72,7 +72,6 @@ private:
     u8 nextMode;
     u8 scanLine;
     s32 lyCycles;
-    s32 divideReg;
     s32 rtcCount;
     bool isRunning;
     u32 fps, fpsCounter;

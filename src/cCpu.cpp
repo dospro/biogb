@@ -164,7 +164,7 @@ void cCpu::saveState(int number)
     stateFile.write((char *) &intStatus, sizeof(int));
     stateFile.write((char *) &timerCounter, sizeof(int));
     stateFile.write((char *) &cyclesCount, sizeof(int));
-    stateFile.write((char *) &divideReg, sizeof(int));
+
 
     stateFile.write((char *) &isColor, sizeof(bool));
     stateFile.write((char *) &currentSpeed, sizeof(int));
@@ -217,7 +217,6 @@ void cCpu::loadState(int number)
     stateFile.read((char *) &intStatus, sizeof(int));
     stateFile.read((char *) &timerCounter, sizeof(int));
     stateFile.read((char *) &cyclesCount, sizeof(int));
-    stateFile.read((char *) &divideReg, sizeof(int));
 
 
     stateFile.read((char *) &isColor, sizeof(bool));
@@ -243,7 +242,6 @@ bool cCpu::initCpu(const char *file)
     lyCycles = 456;
     scanLine = 0;
 
-    divideReg = 256;
     timerCounter = 0;
 
     af(0x11B0);
@@ -720,11 +718,6 @@ void cCpu::doCycle(void)
     checkInterrupts();
     updateModes();
 
-    if (divideReg <= 0)
-    {
-        divideReg += 256;
-        mMemory->IOMap[0xFF04][0]++;
-    }
 
     if (rtcCount >= 4194304)
     {
@@ -742,9 +735,9 @@ void cCpu::updateCycles(int a_opcode)
 {
     int cycles = opCycles[a_opcode];
     updateTimer(cycles);
-    mMemory->mSound->updateCycles(cycles >> currentSpeed);//In double speed this is slower.
+    mMemory->updateIO(cycles, currentSpeed);
     cyclesCount -= cycles;
-    divideReg -= cycles;
+
     lyCycles -= cycles;
     rtcCount += cycles;
 }

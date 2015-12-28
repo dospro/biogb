@@ -192,7 +192,7 @@ u8 cMemory::readByte(u16 address)
     else if (address < 0xFF01)
         return mInput->readRegister();
     else if (address < 0xFF10)
-        return IOMap[address][0];
+        return readIO(address);
     else if (address < 0xFF40)
         return mSound->readFromSound(address);
     else if (address < 0xFF80)
@@ -207,6 +207,8 @@ int cMemory::readIO(int a_address)
 {
     switch (a_address)
     {
+        case 0xFF04:
+            return mDividerRegister >> 8;
         case 0xFF68:
         case 0xFF69:
         case 0xFF6A:
@@ -495,7 +497,7 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             }
             break;
         case 0xFF04://DIV-Divider Register
-            IOMap[a_address][0] = 0;
+            mDividerRegister = 0;
             break;
         case 0xFF41:
             IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
@@ -768,4 +770,10 @@ void cMemory::loadSram()
         rtcFile.close();
         //initRTCTimer();
     }
+}
+
+void cMemory::updateIO(int a_cycles, int a_speedShift)
+{
+    mSound->updateCycles(a_cycles >> a_speedShift);
+    mDividerRegister = (mDividerRegister + a_cycles) & 0xFFFF;
 }
