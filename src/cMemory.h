@@ -10,6 +10,7 @@
 #include "macros.h"
 #include "cDisplay.h"
 #include "cSound.h"
+#include "cInput.h"
 
 struct gbHeader{
     char name[16];
@@ -50,6 +51,7 @@ class cMemory
 public:
     cDisplay *mDisplay;
     cSound *mSound;
+    cInput *mInput;
     gbHeader info;
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
@@ -97,7 +99,7 @@ private:
     void sendMBC5Command(u16 a_address, u8 a_value);
     void writeRTCRegister(u8 a_value);
     void writeIO(u16 a_address, u8 a_value);
-
+    int readIO(int a_address);
 };
 
 

@@ -91,8 +91,8 @@ private:
     u32 BWColors[2][2];
     u32 BGPTable[2][2];
     u32 WPTable[2][2];
-    u32 BGColors[64];
-    u32 OBJColors[64];
+    u32 mBGPaletteMemory[64];
+    u32 mOBJPaletteMemory[64];
     LCDC lcdc;
     s32 ly;
     int mFinalPriority;

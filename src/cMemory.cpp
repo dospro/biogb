@@ -11,7 +11,6 @@
 #include "imp/audio/cPortAudio.h"
 
 
-extern u8 jpb, jpd; //Joy pad buttons and directions
 extern bool isColor;
 extern bool speedChange;
 extern u32 currentSpeed;
@@ -19,6 +18,8 @@ extern u32 currentSpeed;
 cMemory::cMemory()
 {
     mDisplay = nullptr;
+    mSound = nullptr;
+    mInput = nullptr;
 }
 
 cMemory::~cMemory()
@@ -28,6 +29,8 @@ cMemory::~cMemory()
         delete (mDisplay);
         mDisplay = nullptr;
     }
+    delete (mSound);
+    delete (mInput);
 }
 
 bool cMemory::loadRom(const char *fileName)
@@ -150,7 +153,7 @@ bool cMemory::loadRom(const char *fileName)
     mSound = new cPortAudio;
     if (!mSound)
     {
-        std::cout << "No memory for Dound object" << std::endl;
+        std::cout << "No mMemory for Sound object" << std::endl;
         return false;
     }
     if (!mSound->init(44100, 8, 512))
@@ -162,13 +165,15 @@ bool cMemory::loadRom(const char *fileName)
     std::cout << "Turning sound on" << std::endl;
     mSound->turnOn();
 
+    std::cout << "Input...";
+    mInput = new cInput;
+    std::cout << "OK" << std::endl;
 
     return true;
 }
 
 u8 cMemory::readByte(u16 address)
 {
-
     if (address < 0x8000)
         return readRom(address);
     else if (address < 0xA000)
@@ -184,16 +189,32 @@ u8 cMemory::readByte(u16 address)
     else if (address < 0xFEA0)
         return mDisplay->readFromDisplay(address);
     else if (address < 0xFF00);
+    else if (address < 0xFF01)
+        return mInput->readRegister();
     else if (address < 0xFF10)
         return IOMap[address][0];
     else if (address < 0xFF40)
         return mSound->readFromSound(address);
     else if (address < 0xFF80)
-        return IOMap[address][0];
+        return readIO(address);
     else if (address < 0xFFFE)
         return mHRam[address - 0xFF80];
     else
         return IOMap[address][0];
+}
+
+int cMemory::readIO(int a_address)
+{
+    switch (a_address)
+    {
+        case 0xFF68:
+        case 0xFF69:
+        case 0xFF6A:
+        case 0xFF6B:
+            return mDisplay->readFromDisplay(a_address);
+        default:
+            return IOMap[a_address][0];
+    }
 }
 
 u8 cMemory::readRom(u16 a_address) const noexcept
@@ -439,12 +460,8 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             if ((a_value & 0x32) == 0)//SGB Reset
             { ;
             }
-            else if ((a_value & 16) == 0)//Directions
-                IOMap[a_address][0] = ((jpd ^ 255) & 0xF) | 0xE0;
-            else if ((a_value & 32) == 0)//Buttons
-                IOMap[a_address][0] = ((jpb ^ 255) & 0xF) | 0xD0;
             else
-                IOMap[a_address][0] = 0xFF;
+                mInput->writeRegister(a_value);
             break;
         case 0xFF01://SB-Serial Transfer data
             ST.trans = a_value;
@@ -536,26 +553,11 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             }
 
             break;
-            /* TODO: Display ya maneja todo internamente, para quitar mem, falta modificar readByte para leer desde display */
         case 0xFF68:
-            IOMap[a_address][0] = a_value;
-            mDisplay->writeToDisplay(a_address, a_value);
-            break;
         case 0xFF69:
-            IOMap[a_address][0] = a_value;
-            mDisplay->writeToDisplay(a_address, a_value);
-            if (IOMap[0xFF68][0] & 0x80)//Autoincrement
-                IOMap[0xFF68][0]++;
-            break;
         case 0xFF6A:
-            IOMap[a_address][0] = a_value;
-            mDisplay->writeToDisplay(a_address, a_value);
-            break;
         case 0xFF6B:
-            IOMap[a_address][0] = a_value;
             mDisplay->writeToDisplay(a_address, a_value);
-            if (IOMap[0xFF6A][0] & 0x80)
-                IOMap[0xFF6A][0]++;
             break;
         case 0xFF70:
             IOMap[a_address][0] = a_value;

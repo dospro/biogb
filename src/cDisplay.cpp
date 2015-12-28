@@ -98,6 +98,22 @@ u8 cDisplay::readFromDisplay(u16 a_address)
     {
         return mOAM[a_address - 0xFE00];
     }
+    else
+    {
+        switch (a_address)
+        {
+            case 0xFF68:
+                return mBGPI;
+            case 0xFF69:
+                return mBGPaletteMemory[mBGPI & 0x3F];
+            case 0xFF6A:
+                return mOBPI;
+            case 0xFF6B:
+                return mOBJPaletteMemory[mOBPI & 0x3F];
+            default:
+                break;
+        }
+    }
     return 0;
 }
 
@@ -140,7 +156,7 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
                 mBGPI = a_value;
                 break;
             case 0xFF69: // BGPD
-                BGColors[mBGPI & 0x3F] = a_value;
+                mBGPaletteMemory[mBGPI & 0x3F] = a_value;
                 if (mBGPI & 0x80)
                     mBGPI = (mBGPI + 1) & 0xFF;
                 break;
@@ -149,7 +165,7 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
                 break;
             case OBPD:
                 // 8 color palettes x 4 colors each palette x 2 bytes each color = 64 bytes(0x3F bytes)
-                OBJColors[mOBPI & 0x3F] = a_value;
+                mOBJPaletteMemory[mOBPI & 0x3F] = a_value;
                 if (mOBPI & 0x80)
                     mOBPI = (mOBPI + 1) & 0xFF;
                 break;
@@ -283,10 +299,10 @@ void cDisplay::setBGColorTable(int tileNumber)
 {
     int palette = (mVRAM[1][tileNumber] & 7) * 8;
 
-    BGPTable[0][0] = gbcColors[((BGColors[palette + 1]) << 8) | (BGColors[palette])];
-    BGPTable[0][1] = gbcColors[((BGColors[palette + 3]) << 8) | (BGColors[palette + 2])];
-    BGPTable[1][0] = gbcColors[((BGColors[palette + 5]) << 8) | (BGColors[palette + 4])];
-    BGPTable[1][1] = gbcColors[((BGColors[palette + 7]) << 8) | (BGColors[palette + 6])];
+    BGPTable[0][0] = gbcColors[((mBGPaletteMemory[palette + 1]) << 8) | (mBGPaletteMemory[palette])];
+    BGPTable[0][1] = gbcColors[((mBGPaletteMemory[palette + 3]) << 8) | (mBGPaletteMemory[palette + 2])];
+    BGPTable[1][0] = gbcColors[((mBGPaletteMemory[palette + 5]) << 8) | (mBGPaletteMemory[palette + 4])];
+    BGPTable[1][1] = gbcColors[((mBGPaletteMemory[palette + 7]) << 8) | (mBGPaletteMemory[palette + 6])];
 }
 
 void cDisplay::drawWindow()
@@ -317,10 +333,10 @@ void cDisplay::drawWindow()
                 mTilePrioritiesTable[i / 8] = (tileAttribute >> 7) != 0;
 
                 int palette = (tileAttribute & 7) * 8;
-                WPTable[0][0] = gbcColors[((BGColors[palette + 1]) << 8) | (BGColors[palette])];
-                WPTable[0][1] = gbcColors[((BGColors[palette + 3]) << 8) | (BGColors[palette + 2])];
-                WPTable[1][0] = gbcColors[((BGColors[palette + 5]) << 8) | (BGColors[palette + 4])];
-                WPTable[1][1] = gbcColors[((BGColors[palette + 7]) << 8) | (BGColors[palette + 6])];
+                WPTable[0][0] = gbcColors[((mBGPaletteMemory[palette + 1]) << 8) | (mBGPaletteMemory[palette])];
+                WPTable[0][1] = gbcColors[((mBGPaletteMemory[palette + 3]) << 8) | (mBGPaletteMemory[palette + 2])];
+                WPTable[1][0] = gbcColors[((mBGPaletteMemory[palette + 5]) << 8) | (mBGPaletteMemory[palette + 4])];
+                WPTable[1][1] = gbcColors[((mBGPaletteMemory[palette + 7]) << 8) | (mBGPaletteMemory[palette + 6])];
             }
             if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1)
                 tileOffset ^= 0x80;
@@ -398,7 +414,8 @@ void cDisplay::setSpriteColorTable(int a_paletteNumber)
 {
     for (int i = 0; i < 4; ++i)
     {
-        int colorIndex = ((OBJColors[a_paletteNumber + (i * 2) + 1]) << 8) | (OBJColors[a_paletteNumber + i * 2]);
+        int colorIndex = ((mOBJPaletteMemory[a_paletteNumber + (i * 2) + 1]) << 8) |
+                         (mOBJPaletteMemory[a_paletteNumber + i * 2]);
         mSpriteColorTable[i] = gbcColors[colorIndex];
     }
 }

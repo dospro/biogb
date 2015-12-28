@@ -27,6 +27,7 @@
 
 #ifndef BIOGB_INPUT
 #define BIOGB_INPUT
+
 #include<stdio.h>
 #include<SDL.h>
 
@@ -47,31 +48,40 @@
 #define GBK_RSHIFT SDLK_RSHIFT
 
 
+#define GB_UP        0
+#define GB_DOWN        1
+#define GB_LEFT        2
+#define GB_RIGHT    3
+#define GB_A        4
+#define GB_B        5
+#define GB_START    6
+#define GB_SELECT    7
 
-#define GB_UP		0
-#define GB_DOWN		1
-#define GB_LEFT		2
-#define GB_RIGHT	3
-#define GB_A		4
-#define GB_B		5
-#define GB_START	6
-#define GB_SELECT	7
+class cInput
+{
+public:
 
-class cInput {
-protected:
+    cInput();
+    ~cInput();
+    void setKey(int gbKey, int pKey);
+    void update();
+    bool isKeyPressed(int k);
+    bool isGbKeyPressed(int k);
+    bool isButtonPressed(int b);
+    int readRegister();
+    void writeRegister(int a_value);
 
+
+private:
+    int mButtons;
+    int mDirections;
+    int mP1Value;
     SDL_Event event;
     unsigned char *key; //keyboard
 
     int gbky[9]; //Gameboy keys
     unsigned int button; //joypad/joystick
-public:
-    void setKey(int gbKey, int pKey);
-    bool initInputSystem(void);
-    bool pollEvents(void);
-    bool isKeyPressed(int k);
-    bool isGbKeyPressed(int k);
-    bool isButtonPressed(int b);
+
 };
 
 #endif

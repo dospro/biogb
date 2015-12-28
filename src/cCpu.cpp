@@ -38,7 +38,7 @@
 cNet net;
 #endif
 
-u8 jpb, jpd; //Joy pad buttons and directions
+
 bool isColor;
 u32 currentSpeed;
 bool speedChange;
@@ -46,17 +46,14 @@ bool speedChange;
 /*###########################################*/
 cCpu::cCpu()
 {
-    memory = nullptr;
-    input = nullptr;
-    log = nullptr;
+    mMemory = nullptr;
+
 }
 
 cCpu::~cCpu()
 {
-    if (memory)
-        delete memory;
-    if (input)
-        delete input;
+    if (mMemory)
+        delete mMemory;
 }
 
 u8 cCpu::flags(void)
@@ -118,12 +115,12 @@ void cCpu::hl(u16 val)
 
 u8 cCpu::readNextByte(void)
 {
-    return memory->readByte(pc++);
+    return mMemory->readByte(pc++);
 }
 
 u16 cCpu::readNextWord(void)
 {
-    return (memory->readByte(pc++) | (memory->readByte(pc++) << 8));
+    return (mMemory->readByte(pc++) | (mMemory->readByte(pc++) << 8));
 }
 
 void cCpu::saveState(int number)
@@ -138,7 +135,7 @@ void cCpu::saveState(int number)
     fileName += number;
 #else
     fileName = "states/";
-    fileName += memory->info.name;
+    fileName += mMemory->info.name;
     fileName += ".st0";
 #endif
     stateFile.open(fileName.c_str(), std::ios::binary);
@@ -159,10 +156,10 @@ void cCpu::saveState(int number)
     stateFile.write((char *) &i, 1);
     stateFile.write((char *) &pc, 2);
     stateFile.write((char *) &sp, 2);
-    stateFile.write((char *) &memory->romBank, sizeof(int));
-    stateFile.write((char *) &memory->ramBank, sizeof(int));
-    stateFile.write((char *) &memory->wRamBank, sizeof(int));
-    stateFile.write((char *) &memory->vRamBank, sizeof(int));
+    stateFile.write((char *) &mMemory->romBank, sizeof(int));
+    stateFile.write((char *) &mMemory->ramBank, sizeof(int));
+    stateFile.write((char *) &mMemory->wRamBank, sizeof(int));
+    stateFile.write((char *) &mMemory->vRamBank, sizeof(int));
     stateFile.write((char *) &interruptsEnabled, sizeof(bool));
     stateFile.write((char *) &intStatus, sizeof(int));
     stateFile.write((char *) &timerCounter, sizeof(int));
@@ -173,14 +170,14 @@ void cCpu::saveState(int number)
     stateFile.write((char *) &currentSpeed, sizeof(int));
     stateFile.write((char *) &speedChange, sizeof(bool));
 
-    /*stateFile.write((char *) BGColors, sizeof(BGColors));
-    stateFile.write((char *) OBJColors, sizeof(OBJColors));
+    /*stateFile.write((char *) mBGPaletteMemory, sizeof(mBGPaletteMemory));
+    stateFile.write((char *) mOBJPaletteMemory, sizeof(mOBJPaletteMemory));
     stateFile.write((char *) BGPTable, sizeof(BGPTable));
     stateFile.write((char *) OBP0Table, sizeof(OBP0Table));
     stateFile.write((char *) OBP1Table, sizeof(OBP1Table));*/
 
 
-    stateFile.write((char *) memory->IOMap[0x8000], 0xFFFF00);
+    stateFile.write((char *) mMemory->IOMap[0x8000], 0xFFFF00);
     std::cout << "State " << number << " saved." << std::endl;
     stateFile.close();
 }
@@ -193,7 +190,7 @@ void cCpu::loadState(int number)
 #ifndef LINUX
     sprintf(fileName, "states\\%s.st%d", mem->info.name, number);
 #else
-    sprintf(fileName, "states/%s.st%d", memory->info.name, number);
+    sprintf(fileName, "states/%s.st%d", mMemory->info.name, number);
 #endif
     stateFile.open(fileName, std::ios::binary);
     if (stateFile.fail())
@@ -212,10 +209,10 @@ void cCpu::loadState(int number)
     flags(i & 0xFF);
     stateFile.read((char *) &pc, 2);
     stateFile.read((char *) &sp, 2);
-    stateFile.read((char *) &memory->romBank, sizeof(int));
-    stateFile.read((char *) &memory->ramBank, sizeof(int));
-    stateFile.read((char *) &memory->wRamBank, sizeof(int));
-    stateFile.read((char *) &memory->vRamBank, sizeof(int));
+    stateFile.read((char *) &mMemory->romBank, sizeof(int));
+    stateFile.read((char *) &mMemory->ramBank, sizeof(int));
+    stateFile.read((char *) &mMemory->wRamBank, sizeof(int));
+    stateFile.read((char *) &mMemory->vRamBank, sizeof(int));
     stateFile.read((char *) &interruptsEnabled, sizeof(bool));
     stateFile.read((char *) &intStatus, sizeof(int));
     stateFile.read((char *) &timerCounter, sizeof(int));
@@ -227,13 +224,13 @@ void cCpu::loadState(int number)
     stateFile.read((char *) &currentSpeed, sizeof(int));
     stateFile.read((char *) &speedChange, sizeof(bool));
 
-    /*stateFile.read((char *) BGColors, sizeof(BGColors));
-    stateFile.read((char *) OBJColors, sizeof(OBJColors));
+    /*stateFile.read((char *) mBGPaletteMemory, sizeof(mBGPaletteMemory));
+    stateFile.read((char *) mOBJPaletteMemory, sizeof(mOBJPaletteMemory));
     stateFile.read((char *) BGPTable, sizeof(BGPTable));
     stateFile.read((char *) OBP0Table, sizeof(OBP0Table));
     stateFile.read((char *) OBP1Table, sizeof(OBP1Table));*/
 
-    stateFile.read((char *) memory->IOMap[0x8000], 0xFFFF00);
+    stateFile.read((char *) mMemory->IOMap[0x8000], 0xFFFF00);
     stateFile.close();
     std::cout << "State " << number << " loades" << std::endl;
 }
@@ -256,8 +253,6 @@ bool cCpu::initCpu(const char *file)
     pc = 0x0100;
     sp = 0xFFFE;
 
-    jpd = 0;
-    jpb = 0;
     currentSpeed = 0;
     speedChange = false;
 
@@ -514,28 +509,14 @@ bool cCpu::initCpu(const char *file)
         opCycles[i] <<= 1;
 
 
-    std::cout << "Input...";
-    input = new cInput;
-    if (input == NULL)
-    {
-        std::cout << "Error" << std::endl;
-        return false;
-    }
-    if (!input->initInputSystem())
-    {
-        std::cout << "Error" << std::endl;
-        return false;
-    }
-    std::cout << "OK" << std::endl;
-
     std::cout << "Rom....";
-    memory = new cMemory;
-    if (memory == NULL)
+    mMemory = new cMemory;
+    if (mMemory == nullptr)
     {
         std::cout << "Failure Type A" << std::endl;
         return false;
     }
-    if (!memory->loadRom(file))
+    if (!mMemory->loadRom(file))
     {
         std::cout << "Failure Type B" << std::endl;
         return false;
@@ -553,38 +534,38 @@ bool cCpu::initCpu(const char *file)
     initRTCTimer();
 
 
-    memory->writeByte(0xFF05, 0x00);
-    memory->writeByte(0xFF06, 0x00);
-    memory->writeByte(0xFF07, 0x00);
-    memory->writeByte(0xFF10, 0x00);
-    memory->writeByte(0xFF11, 0xBF);
-    memory->writeByte(0xFF12, 0xF2);
-    memory->writeByte(0xFF14, 0xBF);
-    memory->writeByte(0xFF16, 0x3F);
-    memory->writeByte(0xFF17, 0x00);
-    memory->writeByte(0xFF19, 0xBF);
-    memory->writeByte(0xFF1A, 0x7F);
-    memory->writeByte(0xFF1B, 0xFF);
-    memory->writeByte(0xFF1C, 0x9F);
-    memory->writeByte(0xFF1E, 0xBF);
-    memory->writeByte(0xFF20, 0xFF);
-    memory->writeByte(0xFF21, 0x00);
-    memory->writeByte(0xFF22, 0x00);
-    memory->writeByte(0xFF23, 0xBF);
-    memory->writeByte(0xFF24, 0x77);
-    memory->writeByte(0xFF25, 0xF3);
-    memory->writeByte(0xFF26, 0xF1);
-    memory->writeByte(0xFF40, 0x91);
-    memory->writeByte(0xFF42, 0x00);
-    memory->writeByte(0xFF43, 0x00);
-    memory->writeByte(0xFF45, 0x00);
-    memory->writeByte(0xFF47, 0xFC);
-    memory->writeByte(0xFF48, 0xFF);
-    memory->writeByte(0xFF49, 0xFF);
-    memory->writeByte(0xFF4A, 0x00);
-    memory->writeByte(0xFF4B, 0x00);
-    memory->writeByte(0xFF4D, 0x00);
-    memory->writeByte(0xFFFF, 0x00);
+    mMemory->writeByte(0xFF05, 0x00);
+    mMemory->writeByte(0xFF06, 0x00);
+    mMemory->writeByte(0xFF07, 0x00);
+    mMemory->writeByte(0xFF10, 0x00);
+    mMemory->writeByte(0xFF11, 0xBF);
+    mMemory->writeByte(0xFF12, 0xF2);
+    mMemory->writeByte(0xFF14, 0xBF);
+    mMemory->writeByte(0xFF16, 0x3F);
+    mMemory->writeByte(0xFF17, 0x00);
+    mMemory->writeByte(0xFF19, 0xBF);
+    mMemory->writeByte(0xFF1A, 0x7F);
+    mMemory->writeByte(0xFF1B, 0xFF);
+    mMemory->writeByte(0xFF1C, 0x9F);
+    mMemory->writeByte(0xFF1E, 0xBF);
+    mMemory->writeByte(0xFF20, 0xFF);
+    mMemory->writeByte(0xFF21, 0x00);
+    mMemory->writeByte(0xFF22, 0x00);
+    mMemory->writeByte(0xFF23, 0xBF);
+    mMemory->writeByte(0xFF24, 0x77);
+    mMemory->writeByte(0xFF25, 0xF3);
+    mMemory->writeByte(0xFF26, 0xF1);
+    mMemory->writeByte(0xFF40, 0x91);
+    mMemory->writeByte(0xFF42, 0x00);
+    mMemory->writeByte(0xFF43, 0x00);
+    mMemory->writeByte(0xFF45, 0x00);
+    mMemory->writeByte(0xFF47, 0xFC);
+    mMemory->writeByte(0xFF48, 0xFF);
+    mMemory->writeByte(0xFF49, 0xFF);
+    mMemory->writeByte(0xFF4A, 0x00);
+    mMemory->writeByte(0xFF4B, 0x00);
+    mMemory->writeByte(0xFF4D, 0x00);
+    mMemory->writeByte(0xFFFF, 0x00);
     //log=fopen("log.txt", "w");
 
     time1 = SDL_GetTicks() + 16;
@@ -601,7 +582,7 @@ bool cCpu::initCpu(const char *file)
 void cCpu::setInterrupt(int interrupt)
 {
     ERROR(interrupt >= 4, "Interrups!!")
-    memory->IOMap[0xFF0F][0] |= (1 << interrupt);
+    mMemory->IOMap[0xFF0F][0] |= (1 << interrupt);
 }
 
 void cCpu::setMode(int mode)
@@ -609,19 +590,19 @@ void cCpu::setMode(int mode)
     switch (mode)
     {
         case 0:
-            memory->IOMap[0xFF41][0] &= 252;
+            mMemory->IOMap[0xFF41][0] &= 252;
             break;
         case 1:
-            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 1;
+            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 1;
             break;
         case 2:
-            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 2;
+            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 2;
             break;
         case 3:
-            memory->IOMap[0xFF41][0] = (memory->IOMap[0xFF41][0] & 252) | 3;
+            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 3;
             break;
         case 4:
-            memory->IOMap[0xFF41][0] |= 4;
+            mMemory->IOMap[0xFF41][0] |= 4;
             break;
     }
 }
@@ -629,43 +610,43 @@ void cCpu::setMode(int mode)
 void cCpu::checkInterrupts(void)
 {
     int interrupt;
-    interrupt = memory->IOMap[0xFF0F][0] & memory->IOMap[0xFFFF][0]; //Get all enabled interrupts
+    interrupt = mMemory->IOMap[0xFF0F][0] & mMemory->IOMap[0xFFFF][0]; //Get all enabled interrupts
     if (interruptsEnabled && interrupt > 0)
     {
         interruptsEnabled = false;
         if (interrupt & 1)//v-blank
         {
             call(true, 0x0040);
-            memory->IOMap[0xFF0F][0] &= 254; //Reset the flag
+            mMemory->IOMap[0xFF0F][0] &= 254; //Reset the flag
         }
         else if (interrupt & 2)//LCDC
         {
             call(true, 0x0048);
-            memory->IOMap[0xFF0F][0] &= 253; //Reset the flag
+            mMemory->IOMap[0xFF0F][0] &= 253; //Reset the flag
         }
         else if (interrupt & 4)//timer
         {
             call(true, 0x0050);
-            memory->IOMap[0xFF0F][0] &= 251; //Reset the flag
+            mMemory->IOMap[0xFF0F][0] &= 251; //Reset the flag
         }
         else if (interrupt & 8)//Serial Transfer
         {
             call(true, 0x0058);
-            memory->IOMap[0xFF0F][0] &= 247; //Reset the flag
+            mMemory->IOMap[0xFF0F][0] &= 247; //Reset the flag
         }
         else if (interrupt & 16)//P10-P13
         {
             call(true, 0x0060);
-            memory->IOMap[0xFF0F][0] &= 239; //Reset the flag
+            mMemory->IOMap[0xFF0F][0] &= 239; //Reset the flag
         }
     }
 }
 
 void cCpu::updateTimer(int cycles)
 {
-    int temp = memory->IOMap[0xFF07][0];
-    int tima = memory->IOMap[0xFF05][0];
-    int tma = memory->IOMap[0xFF06][0];
+    int temp = mMemory->IOMap[0xFF07][0];
+    int tima = mMemory->IOMap[0xFF05][0];
+    int tma = mMemory->IOMap[0xFF06][0];
     int freq = temp & 3;
     bool enable = (temp >> 2) & 1;
     if (enable)
@@ -707,7 +688,7 @@ void cCpu::updateTimer(int cycles)
             tima = tma;
             setInterrupt(2);
         }
-        memory->IOMap[0xFF05][0] = tima & 0xFF;
+        mMemory->IOMap[0xFF05][0] = tima & 0xFF;
     }
 }
 
@@ -720,15 +701,15 @@ void cCpu::initRTCTimer(void)
     currentTime = *localtime(&timer);
     //printf("%d:%d:%d\n", currentTime.tm_hour, currentTime.tm_min, currentTime.tm_sec);
 
-    memory->rtc.sec = currentTime.tm_sec;
-    memory->rtc.min = currentTime.tm_min;
-    memory->rtc.hr = currentTime.tm_hour - 10;
-    memory->rtc.dl = currentTime.tm_wday;
+    mMemory->rtc.sec = currentTime.tm_sec;
+    mMemory->rtc.min = currentTime.tm_min;
+    mMemory->rtc.hr = currentTime.tm_hour - 10;
+    mMemory->rtc.dl = currentTime.tm_wday;
 
-    memory->rtc2.sec = currentTime.tm_sec;
-    memory->rtc2.min = currentTime.tm_min;
-    memory->rtc2.hr = currentTime.tm_hour - 10;
-    memory->rtc2.dl = currentTime.tm_wday;
+    mMemory->rtc2.sec = currentTime.tm_sec;
+    mMemory->rtc2.min = currentTime.tm_min;
+    mMemory->rtc2.hr = currentTime.tm_hour - 10;
+    mMemory->rtc2.dl = currentTime.tm_wday;
 }
 
 void cCpu::doCycle(void)
@@ -742,26 +723,26 @@ void cCpu::doCycle(void)
     if (divideReg <= 0)
     {
         divideReg += 256;
-        memory->IOMap[0xFF04][0]++;
+        mMemory->IOMap[0xFF04][0]++;
     }
 
     if (rtcCount >= 4194304)
     {
         rtcCount -= 4194304;
-        memory->rtcCounter();
+        mMemory->rtcCounter();
     }
 }
 
 int cCpu::fetchOpcode()
 {
-    return memory->readByte(pc++);
+    return mMemory->readByte(pc++);
 }
 
 void cCpu::updateCycles(int a_opcode)
 {
     int cycles = opCycles[a_opcode];
     updateTimer(cycles);
-    memory->mSound->updateCycles(cycles >> currentSpeed);//In double speed this is slower.
+    mMemory->mSound->updateCycles(cycles >> currentSpeed);//In double speed this is slower.
     cyclesCount -= cycles;
     divideReg -= cycles;
     lyCycles -= cycles;
@@ -776,16 +757,16 @@ void cCpu::updateModes(void)
     if (lyCycles <= 0)
     {
         lyCycles += (456 << currentSpeed);
-        scanLine = ++memory->IOMap[0xFF44][0]; //Increment LY
-        if (scanLine > 153)
+        scanLine = ++mMemory->IOMap[0xFF44][0]; //Increment LY
+        if (scanLine == 153)
         {
             scanLine = 0;
-            memory->IOMap[0xFF44][0] = 0;
+            mMemory->IOMap[0xFF44][0] = 0;
         }
 
-        if (scanLine == memory->IOMap[0xFF45][0])//We have a LY==LYC interrupt
+        if (scanLine == mMemory->IOMap[0xFF45][0])//We have a LY==LYC interrupt
         {
-            if ((memory->IOMap[0xFF41][0] & 0x40) && memory->IOMap[0xFF40][0] & 0x80)
+            if ((mMemory->IOMap[0xFF41][0] & 0x40) && mMemory->IOMap[0xFF40][0] & 0x80)
                 setInterrupt(1);
             setMode(4); //Set LYC flag(no mode)
         }
@@ -800,24 +781,24 @@ void cCpu::updateModes(void)
                 nextMode = 2;
 
                 setMode(0);
-                memory->hBlankDraw();
-                if ((memory->IOMap[0xFF41][0] & 8) && (memory->IOMap[0xFF40][0] & 0x80))
+                mMemory->hBlankDraw();
+                if ((mMemory->IOMap[0xFF41][0] & 8) && (mMemory->IOMap[0xFF40][0] & 0x80))
                     setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
-                    memory->HBlankHDMA();
+                    mMemory->HBlankHDMA();
 
                 if (scanLine == 143)//If next scanline is 144 then go to V-Blank period
                     nextMode = 1;
                 break;
 
             case 1://Do Mode 1 actions
-                cyclesCount += (4560 << currentSpeed);
+                cyclesCount += ((4560 + 456) << currentSpeed);
                 nextMode = 4; //Full update
                 //display->updateScreen();
                 setMode(1);
-                if (memory->IOMap[0xFF40][0] & 0x80)
+                if (mMemory->IOMap[0xFF40][0] & 0x80)
                     setInterrupt(0);
-                if (memory->IOMap[0xFF41][0] & 0x10 && memory->IOMap[0xFF40][0] & 0x80)
+                if (mMemory->IOMap[0xFF41][0] & 0x10 && mMemory->IOMap[0xFF40][0] & 0x80)
                     setInterrupt(1); //Mode 1 V-Blank LCDC Interrupt
                 break;
 
@@ -825,7 +806,7 @@ void cCpu::updateModes(void)
                 cyclesCount += (80 << currentSpeed);
                 nextMode = 3;
                 setMode(2);
-                if (memory->IOMap[0xFF41][0] & 0x20 && memory->IOMap[0xFF40][0] >> 7 == 1)
+                if (mMemory->IOMap[0xFF41][0] & 0x20 && mMemory->IOMap[0xFF40][0] >> 7 == 1)
                     setInterrupt(1); //Mode 2 OAM LCDC Interrupt
                 break;
 
@@ -836,7 +817,7 @@ void cCpu::updateModes(void)
                 break;
             case 4://Full update after mode 1
                 nextMode = 2;
-                memory->updateScreen();
+                mMemory->updateScreen();
                 fullUpdate();
                 break;
         }
@@ -845,10 +826,10 @@ void cCpu::updateModes(void)
 
 void cCpu::fullUpdate(void)
 {
-    input->pollEvents();
-    if (input->isKeyPressed(GBK_ESCAPE))
+    mMemory->mInput->update();
+    if (mMemory->mInput->isKeyPressed(GBK_ESCAPE))
     {
-        memory->saveSram();
+        mMemory->saveSram();
         //TODO: Turn off sound
         //sound->turnOff();
 #ifdef USE_SDL_NET
@@ -856,32 +837,15 @@ void cCpu::fullUpdate(void)
 #endif
         isRunning = false;
     }
-    if (input->isKeyPressed(GBK_s))
+    if (mMemory->mInput->isKeyPressed(GBK_s))
     {
         saveState(0);
     }
-    if (input->isKeyPressed(GBK_l))
+    if (mMemory->mInput->isKeyPressed(GBK_l))
     {
         loadState(0);
     }
 
-    if (input->isGbKeyPressed(GB_UP)) jpd |= 4;
-    else jpd &= 251;
-    if (input->isGbKeyPressed(GB_DOWN)) jpd |= 8;
-    else jpd &= 247;
-    if (input->isGbKeyPressed(GB_LEFT)) jpd |= 2;
-    else jpd &= 253;
-    if (input->isGbKeyPressed(GB_RIGHT)) jpd |= 1;
-    else jpd &= 254;
-
-    if (input->isGbKeyPressed(GB_A)) jpb |= 1;
-    else jpb &= 254;
-    if (input->isGbKeyPressed(GB_B)) jpb |= 2;
-    else jpb &= 253;
-    if (input->isGbKeyPressed(GB_START)) jpb |= 8;
-    else jpb &= 247;
-    if (input->isGbKeyPressed(GB_SELECT)) jpb |= 4;
-    else jpb &= 251;
 
 
     /*if (time2 <= SDL_GetTicks()) {
@@ -891,13 +855,13 @@ void cCpu::fullUpdate(void)
     }
     fps++;*/
 
-    if (input->isKeyPressed(GBK_KP_PLUS)) if (fpsSpeed < 5)
+    if (mMemory->mInput->isKeyPressed(GBK_KP_PLUS)) if (fpsSpeed < 5)
         fpsSpeed++;
 
-    if (input->isKeyPressed(GBK_KP_MINUS)) if (fpsSpeed > 1)
+    if (mMemory->mInput->isKeyPressed(GBK_KP_MINUS)) if (fpsSpeed > 1)
         fpsSpeed--;
 
-    if (!input->isKeyPressed(GBK_SPACE))
+    if (!mMemory->mInput->isKeyPressed(GBK_SPACE))
     {
         if (time1 > SDL_GetTicks())
         {
@@ -954,7 +918,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x7D: a = l;
             break;
-        case 0x7E: a = memory->readByte(hl());
+        case 0x7E: a = mMemory->readByte(hl());
             break;
 
         case 0x40: b = b;
@@ -969,7 +933,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x45: b = l;
             break;
-        case 0x46: b = memory->readByte(hl());
+        case 0x46: b = mMemory->readByte(hl());
             break;
 
         case 0x48: c = b;
@@ -984,7 +948,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x4D: c = l;
             break;
-        case 0x4E: c = memory->readByte(hl());
+        case 0x4E: c = mMemory->readByte(hl());
             break;
 
         case 0x50: d = b;
@@ -999,7 +963,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x55: d = l;
             break;
-        case 0x56: d = memory->readByte(hl());
+        case 0x56: d = mMemory->readByte(hl());
             break;
 
         case 0x58: e = b;
@@ -1014,7 +978,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x5D: e = l;
             break;
-        case 0x5E: e = memory->readByte(hl());
+        case 0x5E: e = mMemory->readByte(hl());
             break;
 
         case 0x60: h = b;
@@ -1029,7 +993,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x65: h = l;
             break;
-        case 0x66: h = memory->readByte(hl());
+        case 0x66: h = mMemory->readByte(hl());
             break;
 
         case 0x68: l = b;
@@ -1044,29 +1008,29 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x6D: l = l;
             break;
-        case 0x6E: l = memory->readByte(hl());
+        case 0x6E: l = mMemory->readByte(hl());
             break;
 
-        case 0x70: memory->writeByte(hl(), b);
+        case 0x70: mMemory->writeByte(hl(), b);
             break;
-        case 0x71: memory->writeByte(hl(), c);
+        case 0x71: mMemory->writeByte(hl(), c);
             break;
-        case 0x72: memory->writeByte(hl(), d);
+        case 0x72: mMemory->writeByte(hl(), d);
             break;
-        case 0x73: memory->writeByte(hl(), e);
+        case 0x73: mMemory->writeByte(hl(), e);
             break;
-        case 0x74: memory->writeByte(hl(), h);
+        case 0x74: mMemory->writeByte(hl(), h);
             break;
-        case 0x75: memory->writeByte(hl(), l);
+        case 0x75: mMemory->writeByte(hl(), l);
             break;
-        case 0x36: memory->writeByte(hl(), readNextByte());
+        case 0x36: mMemory->writeByte(hl(), readNextByte());
             break;
 
-        case 0x0A: a = memory->readByte(bc());
+        case 0x0A: a = mMemory->readByte(bc());
             break;
-        case 0x1A: a = memory->readByte(de());
+        case 0x1A: a = mMemory->readByte(de());
             break;
-        case 0xFA: a = memory->readByte(readNextWord());
+        case 0xFA: a = mMemory->readByte(readNextWord());
             break;
         case 0x3E: a = readNextByte();
             break;
@@ -1083,36 +1047,36 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x6F: l = a;
             break;
-        case 0x02: memory->writeByte(bc(), a);
+        case 0x02: mMemory->writeByte(bc(), a);
             break;
-        case 0x12: memory->writeByte(de(), a);
+        case 0x12: mMemory->writeByte(de(), a);
             break;
-        case 0x77: memory->writeByte(hl(), a);
+        case 0x77: mMemory->writeByte(hl(), a);
             break;
-        case 0xEA: memory->writeByte(readNextWord(), a);
-            break;
-
-        case 0xF2: a = memory->readByte(0xFF00 | c);
-            break;
-        case 0xE2: memory->writeByte(0xFF00 | c, a);
+        case 0xEA: mMemory->writeByte(readNextWord(), a);
             break;
 
-        case 0x3A: a = memory->readByte(hl());
+        case 0xF2: a = mMemory->readByte(0xFF00 | c);
+            break;
+        case 0xE2: mMemory->writeByte(0xFF00 | c, a);
+            break;
+
+        case 0x3A: a = mMemory->readByte(hl());
             hl(hl() - 1);
             break;
-        case 0x32: memory->writeByte(hl(), a);
+        case 0x32: mMemory->writeByte(hl(), a);
             hl(hl() - 1);
             break;
-        case 0x2A: a = memory->readByte(hl());
+        case 0x2A: a = mMemory->readByte(hl());
             hl(hl() + 1);
             break;
-        case 0x22: memory->writeByte(hl(), a);
+        case 0x22: mMemory->writeByte(hl(), a);
             hl(hl() + 1);
             break;
 
-        case 0xE0: memory->writeByte(0xFF00 | readNextByte(), a);
+        case 0xE0: mMemory->writeByte(0xFF00 | readNextByte(), a);
             break;
-        case 0xF0: a = memory->readByte(0xFF00 | readNextByte());
+        case 0xF0: a = mMemory->readByte(0xFF00 | readNextByte());
             break;
 
         case 0x01: bc(readNextWord());
@@ -1163,7 +1127,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x85: add(l);
             break;
-        case 0x86: add(memory->readByte(hl()));
+        case 0x86: add(mMemory->readByte(hl()));
             break;
         case 0xC6: add(readNextByte());
             break;
@@ -1182,7 +1146,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x8D: adc(l);
             break;
-        case 0x8E: adc(memory->readByte(hl()));
+        case 0x8E: adc(mMemory->readByte(hl()));
             break;
         case 0xCE: adc(readNextByte());
             break;
@@ -1201,7 +1165,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x95: sub(l);
             break;
-        case 0x96: sub(memory->readByte(hl()));
+        case 0x96: sub(mMemory->readByte(hl()));
             break;
         case 0xD6: sub(readNextByte());
             break;
@@ -1220,7 +1184,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0x9D: sbc(l);
             break;
-        case 0x9E: sbc(memory->readByte(hl()));
+        case 0x9E: sbc(mMemory->readByte(hl()));
             break;
         case 0xDE: sbc(readNextByte());
             break;
@@ -1239,7 +1203,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0xA5: z8and(l);
             break;
-        case 0xA6: z8and(memory->readByte(hl()));
+        case 0xA6: z8and(mMemory->readByte(hl()));
             break;
         case 0xE6: z8and(readNextByte());
             break;
@@ -1258,7 +1222,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0xB5: z8or(l);
             break;
-        case 0xB6: z8or(memory->readByte(hl()));
+        case 0xB6: z8or(mMemory->readByte(hl()));
             break;
         case 0xF6: z8or(readNextByte());
             break;
@@ -1277,7 +1241,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0xAD: z8xor(l);
             break;
-        case 0xAE: z8xor(memory->readByte(hl()));
+        case 0xAE: z8xor(mMemory->readByte(hl()));
             break;
         case 0xEE: z8xor(readNextByte());
             break;
@@ -1296,7 +1260,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
         case 0xBD: cp(l);
             break;
-        case 0xBE: cp(memory->readByte(hl()));
+        case 0xBE: cp(mMemory->readByte(hl()));
             break;
         case 0xFE: cp(readNextByte());
             break;
@@ -1382,19 +1346,10 @@ void cCpu::executeOpcode(int a_opcode)
         case 0x00:
             break;
 
-        case 0x76:
-            if (interruptsEnabled)
-            {
-                if ((memory->readByte(0xFFFF) & memory->readByte(0xFF0F)) == 0)//If there is no interrupt to execute
-                    pc--;
-            }
-            else
-            {
-                if ((memory->readByte(0xFFFF) & memory->readByte(0xFF0F)) != 0)
-                    interruptsEnabled = true;
-            }
+        case 0x76: // HALT
+            if ((mMemory->readByte(0xFFFF) & mMemory->readByte(0xFF0F)) == 0)
+                pc--;
             break;
-
         case 0x10:
             if (speedChange && isColor)
             {
@@ -1404,7 +1359,7 @@ void cCpu::executeOpcode(int a_opcode)
                 else
                     currentSpeed = 0;
                 speedChange = false;
-                memory->IOMap[0xFF4D][0] = currentSpeed << 7;
+                mMemory->IOMap[0xFF4D][0] = currentSpeed << 7;
             }
             break;
         case 0xF3: intStatus = 2;
@@ -1422,7 +1377,7 @@ void cCpu::executeOpcode(int a_opcode)
             break;
 
         case 0xCB://CBOpcodes
-            cbOpcode = memory->readByte(pc++);
+            cbOpcode = mMemory->readByte(pc++);
             switch (cbOpcode)
             {
                 case 0x37: swap(a);
@@ -1578,7 +1533,7 @@ void cCpu::executeOpcode(int a_opcode)
                             break;
                         case 0x45: bit(cbOpcode & 0x38, l);
                             break;
-                        case 0x46: bit(cbOpcode & 0x38, memory->readByte(hl()));
+                        case 0x46: bit(cbOpcode & 0x38, mMemory->readByte(hl()));
                             break;
 
                         case 0xC7: set(cbOpcode & 0x38, a);
@@ -1806,9 +1761,9 @@ void cCpu::dec(u8 &r1, u8 &r2)
 void cCpu::dechl(void)
 {
     WARNING(hl() < 0x4000, "dechl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     dec(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::inc(u8 &reg)
@@ -1830,9 +1785,9 @@ void cCpu::inc(u8 &r1, u8 &r2)
 void cCpu::inchl(void)
 {
     WARNING(hl() < 0x4000, "inchl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     inc(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::jp(bool condition, u16 address)
@@ -1861,8 +1816,8 @@ void cCpu::ldhl(s8 val)
 
 void cCpu::ldnnsp(u16 val)
 {
-    memory->writeByte(val, sp & 0xFF);
-    memory->writeByte(val + 1, sp >> 8);
+    mMemory->writeByte(val, sp & 0xFF);
+    mMemory->writeByte(val + 1, sp >> 8);
 }
 
 void cCpu::z8or(u8 val)
@@ -1876,9 +1831,9 @@ void cCpu::z8or(u8 val)
 
 void cCpu::pop(u8 &r1, u8 &r2)
 {
-    r2 = memory->readByte(sp);
+    r2 = mMemory->readByte(sp);
     sp++;
-    r1 = memory->readByte(sp);
+    r1 = mMemory->readByte(sp);
     sp++;
 
 }
@@ -1893,9 +1848,9 @@ void cCpu::popaf(void)
 void cCpu::push(u16 regs)
 {
     sp--;
-    memory->writeByte(sp, regs >> 8);
+    mMemory->writeByte(sp, regs >> 8);
     sp--;
-    memory->writeByte(sp, regs & 0xFF);
+    mMemory->writeByte(sp, regs & 0xFF);
 }
 
 void cCpu::res(u8 bit, u8 &reg)
@@ -1906,9 +1861,9 @@ void cCpu::res(u8 bit, u8 &reg)
 void cCpu::reshl(u8 bit)
 {
     WARNING(hl() < 0x4000, "reshl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     res(bit, temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::ret(bool condition)
@@ -1942,9 +1897,9 @@ void cCpu::rlca(void)
 void cCpu::rlchl(void)
 {
     WARNING(hl() < 0x4000, "rlchl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     rlc(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::rl(u8 &reg)
@@ -1970,9 +1925,9 @@ void cCpu::rla(void)
 void cCpu::rlhl(void)
 {
     WARNING(hl() < 0x4000, "rlhl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     rl(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::rrc(u8 &reg)
@@ -1996,9 +1951,9 @@ void cCpu::rrca(void)
 void cCpu::rrchl(void)
 {
     WARNING(hl() < 0x4000, "rrchl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     rrc(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::rr(u8 &reg)
@@ -2024,9 +1979,9 @@ void cCpu::rra(void)
 void cCpu::rrhl(void)
 {
     WARNING(hl() < 0x4000, "rrhl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     rr(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::rst(u8 val)
@@ -2054,9 +2009,9 @@ void cCpu::set(u8 bit, u8 &reg)
 void cCpu::sethl(u8 bit)
 {
     WARNING(hl() < 0x4000, "sethl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     set(bit, temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::sla(u8 &reg)
@@ -2071,9 +2026,9 @@ void cCpu::sla(u8 &reg)
 void cCpu::slahl(void)
 {
     WARNING(hl() < 0x4000, "slahl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     sla(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::sra(u8 &reg)
@@ -2088,9 +2043,9 @@ void cCpu::sra(u8 &reg)
 void cCpu::srahl(void)
 {
     WARNING(hl() < 0x4000, "srahl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     sra(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::srl(u8 &reg)
@@ -2105,9 +2060,9 @@ void cCpu::srl(u8 &reg)
 void cCpu::srlhl(void)
 {
     WARNING(hl() < 0x4000, "srlhl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     srl(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::sub(u8 val)
@@ -2131,9 +2086,9 @@ void cCpu::swap(u8 &reg)
 void cCpu::swaphl(void)
 {
     WARNING(hl() < 0x4000, "swaphl??");
-    u8 temp = memory->readByte(hl());
+    u8 temp = mMemory->readByte(hl());
     swap(temp);
-    memory->writeByte(hl(), temp);
+    mMemory->writeByte(hl(), temp);
 }
 
 void cCpu::z8xor(u8 val)
