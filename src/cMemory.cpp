@@ -12,14 +12,14 @@
 
 
 extern bool isColor;
-extern bool speedChange;
-extern u32 currentSpeed;
 
-cMemory::cMemory()
+cMemory::cMemory() : mCurrentSpeed{0}
 {
     mDisplay = nullptr;
     mSound = nullptr;
     mInput = nullptr;
+    mInterrupts = nullptr;
+    mTimer = nullptr;
 }
 
 cMemory::~cMemory()
@@ -31,6 +31,8 @@ cMemory::~cMemory()
     }
     delete (mSound);
     delete (mInput);
+    delete (mInterrupts);
+    delete (mTimer);
 }
 
 bool cMemory::loadRom(const char *fileName)
@@ -57,6 +59,7 @@ bool cMemory::loadRom(const char *fileName)
     file.read((char *) (&info.color), 1);
     file.seekg(0x147);
     file.read((char *) &info.mbc, 1);
+    std::cout << "MBC: " << std::hex << static_cast<int>(info.mbc) << std::hex << "\n";
     file.seekg(0x148);
     file.read((char *) &info.romSize, 1);
     file.seekg(0x149);
@@ -68,6 +71,7 @@ bool cMemory::loadRom(const char *fileName)
         {
             size = romSizeList[i].size;
             banks = romSizeList[i].banks;
+            std::cout << "Rom banks: " << banks << "\n";
             break;
         }
     }
@@ -76,8 +80,7 @@ bool cMemory::loadRom(const char *fileName)
         file.seekg(0, std::ios::end);
         size = file.tellg();
         banks = size / 0x4000;
-        std::cout << "WARNING: Unknown chip found. Trying generic emulation."
-        << std::endl;
+        std::cout << "WARNING: Unknown chip found. Trying generic emulation." << std::endl;
     }
 
     file.seekg(0);
@@ -92,6 +95,7 @@ bool cMemory::loadRom(const char *fileName)
 
     file.close();
 
+    banks = 0;
     for (int i = 0; i < 5; i++)
     {
         if (ramSizeList[i].id == info.ramSize)
@@ -125,7 +129,6 @@ bool cMemory::loadRom(const char *fileName)
     loadSram();
     romBank = 1;
     ramBank = 0;
-    vRamBank = 0;
     wRamBank = 1;
     mm = 0;
     hi = lo = 0;
@@ -168,6 +171,8 @@ bool cMemory::loadRom(const char *fileName)
     std::cout << "Input...";
     mInput = new cInput;
     std::cout << "OK" << std::endl;
+    mInterrupts = new cInterrupts;
+    mTimer = new cTimer(mInterrupts);
 
     return true;
 }
@@ -200,7 +205,7 @@ u8 cMemory::readByte(u16 address)
     else if (address < 0xFFFE)
         return mHRam[address - 0xFF80];
     else
-        return IOMap[address][0];
+        return readIO(address);
 }
 
 int cMemory::readIO(int a_address)
@@ -208,12 +213,21 @@ int cMemory::readIO(int a_address)
     switch (a_address)
     {
         case 0xFF04:
-            return mDividerRegister >> 8;
+        case 0xFF05:
+        case 0xFF06:
+        case 0xFF07:
+            return mTimer->readRegister(a_address);
+        case 0xFF0F:
+            return mInterrupts->readRegister(a_address);
+        case 0xFF4D:
+            return (static_cast<int>(mPrepareSpeedChange)) | (mCurrentSpeed << 7);
         case 0xFF68:
         case 0xFF69:
         case 0xFF6A:
         case 0xFF6B:
             return mDisplay->readFromDisplay(a_address);
+        case 0xFFFF:
+            return mInterrupts->readRegister(a_address);
         default:
             return IOMap[a_address][0];
     }
@@ -496,8 +510,14 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
                 }
             }
             break;
-        case 0xFF04://DIV-Divider Register
-            mDividerRegister = 0;
+        case 0xFF04: // DIV-Divider Register
+        case 0xFF05: // TIMA Register
+        case 0xFF06: // TMA Register
+        case 0xFF07: // TAC Register
+            mTimer->writeRegister(a_address, a_value);
+            break;
+        case 0xFF0F: // IF Register
+            mInterrupts->writeRegister(a_address, a_value);
             break;
         case 0xFF41:
             IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
@@ -517,8 +537,7 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
             IOMap[a_address][0] = a_value;
             break;
         case 0xFF4D:
-            speedChange = a_value & 1;
-            IOMap[a_address][0] = ((int) speedChange) | (currentSpeed << 7);
+            mPrepareSpeedChange = (a_value & 1) == 1;
             break;
         case 0xFF55://HDMA Transfer
             hdma.mode = ((a_value >> 7) & 1) != 0;
@@ -570,6 +589,9 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
                     wRamBank++;
             }
             break;
+        case 0xFFFF:
+            mInterrupts->writeRegister(a_address, a_value);
+            break;
         default:
             IOMap[a_address][0] = a_value;
     }
@@ -577,9 +599,8 @@ void cMemory::writeIO(u16 a_address, u8 a_value)
 
 void cMemory::DMATransfer(u8 address)
 {
-    int i;
     int temp = (address << 8);
-    for (i = 0xFE00; i < 0xFEA0; i++)
+    for (int i = 0xFE00; i < 0xFEA0; i++)
     {
         IOMap[i][0] = readByte(temp);
         mDisplay->writeToDisplay(i, IOMap[i][0]);
@@ -664,16 +685,6 @@ void cMemory::rtcCounter(void)
             rtc.dl = 0;
         }
     }
-}
-
-void cMemory::hBlankDraw()
-{
-    mDisplay->hBlankDraw();
-}
-
-void cMemory::updateScreen()
-{
-    mDisplay->updateScreen();
 }
 
 void cMemory::saveSram()
@@ -772,8 +783,21 @@ void cMemory::loadSram()
     }
 }
 
-void cMemory::updateIO(int a_cycles, int a_speedShift)
+void cMemory::updateIO(int a_cycles)
 {
-    mSound->updateCycles(a_cycles >> a_speedShift);
-    mDividerRegister = (mDividerRegister + a_cycles) & 0xFFFF;
+    mSound->updateCycles(a_cycles >> mCurrentSpeed);
+    mTimer->update(a_cycles >> mCurrentSpeed);
+}
+
+int cMemory::changeSpeed()
+{
+    if (mPrepareSpeedChange)
+    {
+        if (mCurrentSpeed == 0)
+            mCurrentSpeed = 1;
+        else
+            mCurrentSpeed = 0;
+        mPrepareSpeedChange = false;
+    }
+    return mCurrentSpeed;
 }

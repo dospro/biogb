@@ -31,19 +31,20 @@
 
 #include<portaudio.h>
 #include<string.h>
-#include"../../cSound.h"
+#include"../../sound/cSound.h"
 
-int outputAudio(const void *in, void *out, unsigned long len, const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void *data);
+int outputAudio(const void *in, void *out, unsigned long len, const PaStreamCallbackTimeInfo *timeInfo,
+                PaStreamCallbackFlags statusFlags, void *data);
 
-class cPortAudio : public cSound {
+class cPortAudio : public cSound
+{
 private:
     PaStream *stream;
-
-    friend int outputAudio(const void *in, void *out, unsigned long len, const PaStreamCallbackTimeInfo* timeInfo, PaStreamCallbackFlags statusFlags, void *data);
+    friend int outputAudio(const void *in, void *out, unsigned long len, const PaStreamCallbackTimeInfo *timeInfo,
+                           PaStreamCallbackFlags statusFlags, void *data);
 public:
     cPortAudio();
     virtual ~cPortAudio();
-
     virtual bool init(u32 freq, u32 size, u32 bSize);
     virtual void turnOn(void);
     virtual void turnOff(void);

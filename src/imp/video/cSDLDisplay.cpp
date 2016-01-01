@@ -28,12 +28,10 @@
 
 #include"cSDLDisplay.h"
 
-#define XRES 160*3
-#define YRES 144*3
-
 cSDLDisplay::cSDLDisplay(bool a_isColor) :
-        screen{nullptr},
-        back{nullptr},
+        mScreen{nullptr},
+        mRenderer{nullptr},
+        mTexture{nullptr},
         cDisplay(a_isColor)
 {
     if (SDL_WasInit(SDL_INIT_VIDEO) == 0)
@@ -45,66 +43,42 @@ cSDLDisplay::cSDLDisplay(bool a_isColor) :
         }
     }
 
-    screen = SDL_SetVideoMode(XRES, YRES, 32, SDL_SWSURFACE);
-    if (screen == NULL)
+    mScreen = SDL_CreateWindow("BioGB v5.0", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mScreenWidth * 3,
+                               mScreenHeight * 3, 0);
+    if (!mScreen)
     {
         puts("SDL: Error creating screen");
         return;
     }
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
-    back = SDL_CreateRGBSurface(SDL_SWSURFACE, XRES, YRES, 32, 0xFF0000, 0xFF00, 0xFF, 0);
-    if (back == NULL)
-    {
-        puts("SDL: Error creating backbuffer");
-        return;
-    }
+    mRenderer = SDL_CreateRenderer(mScreen, -1, 0);
+    mTexture = SDL_CreateTexture(mRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, mScreenWidth,
+                                 mScreenHeight);
+    mWindowSize = {0, 0, mScreenWidth * 3, mScreenHeight * 3};
 }
 
 cSDLDisplay::~cSDLDisplay()
 {
-    if (back != NULL)
+    if (mTexture != nullptr)
     {
-        SDL_FreeSurface(back);
-        back = NULL;
+        SDL_DestroyTexture(mTexture);
+    }
+    if (mRenderer != nullptr)
+    {
+        SDL_DestroyRenderer(mRenderer);
+    }
+    if (mScreen != nullptr)
+    {
+        SDL_DestroyWindow(mScreen);
     }
     if (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO)
         SDL_Quit();
 }
 
-void cSDLDisplay::putPixel(int x, int y, u32 color)
-{
-    u8 *p = (u8 *) back->pixels + y * back->pitch + x * 4;
-    *(Uint32 *) p = color;
-}
-
 void cSDLDisplay::updateScreen(void)
 {
-    u8 *p;
-    int x, y;
-    int pixel;
-    SDL_LockSurface(back);
-
-    for (x = 0; x < 160; ++x)
-    {
-        for (y = 0; y < 144; ++y)
-        {
-            pixel = videoBuffer[x][y];
-
-            putPixel(x * 3, y * 3, pixel);
-            putPixel(x * 3 + 1, y * 3, pixel);
-            putPixel(x * 3 + 2, y * 3, pixel);
-            putPixel(x * 3, y * 3 + 1, pixel);
-            putPixel(x * 3 + 1, y * 3 + 1, pixel);
-            putPixel(x * 3 + 2, y * 3 + 1, pixel);
-            putPixel(x * 3, y * 3 + 2, pixel);
-            putPixel(x * 3 + 1, y * 3 + 2, pixel);
-            putPixel(x * 3 + 2, y * 3 + 2, pixel);
-
-        }
-    }
-
-    SDL_UnlockSurface(back);
-
-    SDL_BlitSurface(back, NULL, screen, NULL);
-    SDL_UpdateRect(screen, 0, 0, 0, 0);
+    SDL_UpdateTexture(mTexture, nullptr, videoBuffer, mScreenWidth * sizeof(unsigned int));
+    SDL_RenderCopy(mRenderer, mTexture, nullptr, &mWindowSize);
+    SDL_RenderPresent(mRenderer);
 }

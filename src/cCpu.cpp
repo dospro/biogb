@@ -31,8 +31,6 @@
 #include <cstring>
 #include"cCpu.h"
 
-#include"imp/audio/cPortAudio.h"
-
 
 #ifdef USE_SDL_NET
 cNet net;
@@ -40,14 +38,52 @@ cNet net;
 
 
 bool isColor;
-u32 currentSpeed;
-bool speedChange;
 
-/*###########################################*/
-cCpu::cCpu()
+cCpu::cCpu() : mCyclesSum{0}, mCurrentSpeed{0}
 {
     mMemory = nullptr;
+    mOpcodeCyclesTable = {1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1,
+                          0, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1,
+                          2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1,
+                          2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+                          2, 3, 3, 3, 3, 4, 2, 4, 2, 4, 3, 0, 3, 3, 2, 4,
+                          2, 3, 3, 0, 3, 4, 2, 4, 2, 4, 3, 0, 3, 0, 2, 4,
+                          3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4,
+                          3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4};
+    for (int &i : mOpcodeCyclesTable)
+    {
+        i <<= 2;
+    }
 
+
+    mCBOpcodeCyclesTable = {2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+                            2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+                            2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+                            2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+                            2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2};
+    for (int &i : mCBOpcodeCyclesTable)
+    {
+        i <<= 2;
+    }
 }
 
 cCpu::~cCpu()
@@ -56,7 +92,7 @@ cCpu::~cCpu()
         delete mMemory;
 }
 
-u8 cCpu::flags(void)
+u8 cCpu::flags()
 {
     return ((zf << 7) | (nf << 6) | (hf << 5) | (cf << 4));
 }
@@ -69,7 +105,7 @@ void cCpu::flags(u8 val)
     cf = ((val >> 4) & 1);
 }
 
-u16 cCpu::af(void)
+u16 cCpu::af()
 {
     return (a << 8) | flags();
 }
@@ -80,7 +116,7 @@ void cCpu::af(u16 val)
     flags(val & 0xFF);
 }
 
-u16 cCpu::bc(void)
+u16 cCpu::bc()
 {
     return ((b << 8) | c);
 }
@@ -91,7 +127,7 @@ void cCpu::bc(u16 val)
     c = val & 0xFF;
 }
 
-u16 cCpu::de(void)
+u16 cCpu::de()
 {
     return ((d << 8) | e);
 }
@@ -102,7 +138,7 @@ void cCpu::de(u16 val)
     e = val & 0xFF;
 }
 
-u16 cCpu::hl(void)
+u16 cCpu::hl()
 {
     return ((h << 8) | l);
 }
@@ -113,136 +149,33 @@ void cCpu::hl(u16 val)
     l = val & 0xFF;
 }
 
-u8 cCpu::readNextByte(void)
+u8 cCpu::readNextByte()
 {
     return mMemory->readByte(pc++);
 }
 
-u16 cCpu::readNextWord(void)
+u16 cCpu::readNextWord()
 {
     return (mMemory->readByte(pc++) | (mMemory->readByte(pc++) << 8));
 }
 
 void cCpu::saveState(int number)
 {
-    std::string fileName;
-    std::ofstream stateFile;
-    u8 i;
-#ifndef LINUX
-    fileName = "states\\";
-    fileName += mem->info.name;
-    fileName += ".st";
-    fileName += number;
-#else
-    fileName = "states/";
-    fileName += mMemory->info.name;
-    fileName += ".st0";
-#endif
-    stateFile.open(fileName.c_str(), std::ios::binary);
 
-    if (stateFile.fail())
-    {
-        std::cout << "WARNING: Couldn't save current state" << std::endl;
-        return;
-    }
-    stateFile.write((char *) &a, 1);
-    stateFile.write((char *) &b, 1);
-    stateFile.write((char *) &c, 1);
-    stateFile.write((char *) &d, 1);
-    stateFile.write((char *) &e, 1);
-    stateFile.write((char *) &h, 1);
-    stateFile.write((char *) &l, 1);
-    i = flags();
-    stateFile.write((char *) &i, 1);
-    stateFile.write((char *) &pc, 2);
-    stateFile.write((char *) &sp, 2);
-    stateFile.write((char *) &mMemory->romBank, sizeof(int));
-    stateFile.write((char *) &mMemory->ramBank, sizeof(int));
-    stateFile.write((char *) &mMemory->wRamBank, sizeof(int));
-    stateFile.write((char *) &mMemory->vRamBank, sizeof(int));
-    stateFile.write((char *) &interruptsEnabled, sizeof(bool));
-    stateFile.write((char *) &intStatus, sizeof(int));
-    stateFile.write((char *) &timerCounter, sizeof(int));
-    stateFile.write((char *) &cyclesCount, sizeof(int));
-
-
-    stateFile.write((char *) &isColor, sizeof(bool));
-    stateFile.write((char *) &currentSpeed, sizeof(int));
-    stateFile.write((char *) &speedChange, sizeof(bool));
-
-    /*stateFile.write((char *) mBGPaletteMemory, sizeof(mBGPaletteMemory));
-    stateFile.write((char *) mOBJPaletteMemory, sizeof(mOBJPaletteMemory));
-    stateFile.write((char *) BGPTable, sizeof(BGPTable));
-    stateFile.write((char *) OBP0Table, sizeof(OBP0Table));
-    stateFile.write((char *) OBP1Table, sizeof(OBP1Table));*/
-
-
-    stateFile.write((char *) mMemory->IOMap[0x8000], 0xFFFF00);
-    std::cout << "State " << number << " saved." << std::endl;
-    stateFile.close();
 }
 
 void cCpu::loadState(int number)
 {
-    char fileName[64];
-    std::ifstream stateFile;
-    int i;
-#ifndef LINUX
-    sprintf(fileName, "states\\%s.st%d", mem->info.name, number);
-#else
-    sprintf(fileName, "states/%s.st%d", mMemory->info.name, number);
-#endif
-    stateFile.open(fileName, std::ios::binary);
-    if (stateFile.fail())
-    {
-        std::cout << "WARNING: Couldn't open saved state" << std::endl;
-        return;
-    }
-    stateFile.read((char *) &a, 1);
-    stateFile.read((char *) &b, 1);
-    stateFile.read((char *) &c, 1);
-    stateFile.read((char *) &d, 1);
-    stateFile.read((char *) &e, 1);
-    stateFile.read((char *) &h, 1);
-    stateFile.read((char *) &l, 1);
-    stateFile.read((char *) &i, 1);
-    flags(i & 0xFF);
-    stateFile.read((char *) &pc, 2);
-    stateFile.read((char *) &sp, 2);
-    stateFile.read((char *) &mMemory->romBank, sizeof(int));
-    stateFile.read((char *) &mMemory->ramBank, sizeof(int));
-    stateFile.read((char *) &mMemory->wRamBank, sizeof(int));
-    stateFile.read((char *) &mMemory->vRamBank, sizeof(int));
-    stateFile.read((char *) &interruptsEnabled, sizeof(bool));
-    stateFile.read((char *) &intStatus, sizeof(int));
-    stateFile.read((char *) &timerCounter, sizeof(int));
-    stateFile.read((char *) &cyclesCount, sizeof(int));
 
-
-    stateFile.read((char *) &isColor, sizeof(bool));
-    stateFile.read((char *) &currentSpeed, sizeof(int));
-    stateFile.read((char *) &speedChange, sizeof(bool));
-
-    /*stateFile.read((char *) mBGPaletteMemory, sizeof(mBGPaletteMemory));
-    stateFile.read((char *) mOBJPaletteMemory, sizeof(mOBJPaletteMemory));
-    stateFile.read((char *) BGPTable, sizeof(BGPTable));
-    stateFile.read((char *) OBP0Table, sizeof(OBP0Table));
-    stateFile.read((char *) OBP1Table, sizeof(OBP1Table));*/
-
-    stateFile.read((char *) mMemory->IOMap[0x8000], 0xFFFF00);
-    stateFile.close();
-    std::cout << "State " << number << " loades" << std::endl;
 }
 
 bool cCpu::initCpu(const char *file)
 {
-    int i;
     cyclesCount = 0;
     nextMode = 3;
     lyCycles = 456;
     scanLine = 0;
 
-    timerCounter = 0;
 
     af(0x11B0);
     bc(0x0013);
@@ -251,10 +184,7 @@ bool cCpu::initCpu(const char *file)
     pc = 0x0100;
     sp = 0xFFFE;
 
-    currentSpeed = 0;
-    speedChange = false;
-
-    for (i = 0; i < 256; i++)
+    /*for (int i = 0; i < 256; i++)
         opCycles[i] = 0;
 
     opCycles[0] = 2;
@@ -503,8 +433,8 @@ bool cCpu::initCpu(const char *file)
     opCycles[0xF3] = 2;
     opCycles[0xBD] = 2;
     opCycles[0xD8] = 4;
-    for (i = 0; i < 256; i++)
-        opCycles[i] <<= 1;
+    for (int i = 0; i < 256; i++)
+        opCycles[i] <<= 1;*/
 
 
     std::cout << "Rom....";
@@ -564,7 +494,7 @@ bool cCpu::initCpu(const char *file)
     mMemory->writeByte(0xFF4B, 0x00);
     mMemory->writeByte(0xFF4D, 0x00);
     mMemory->writeByte(0xFFFF, 0x00);
-    //log=fopen("log.txt", "w");
+
 
     time1 = SDL_GetTicks() + 16;
     time2 = SDL_GetTicks() + 1000;
@@ -575,12 +505,6 @@ bool cCpu::initCpu(const char *file)
 
     std::cout << "Everything Done!!" << std::endl;
     return true;
-}
-
-void cCpu::setInterrupt(int interrupt)
-{
-    ERROR(interrupt >= 4, "Interrups!!")
-    mMemory->IOMap[0xFF0F][0] |= (1 << interrupt);
 }
 
 void cCpu::setMode(int mode)
@@ -605,92 +529,47 @@ void cCpu::setMode(int mode)
     }
 }
 
-void cCpu::checkInterrupts(void)
+void cCpu::checkInterrupts()
 {
     int interrupt;
-    interrupt = mMemory->IOMap[0xFF0F][0] & mMemory->IOMap[0xFFFF][0]; //Get all enabled interrupts
+    interrupt = mMemory->mInterrupts->getReadyInterrupts();
     if (interruptsEnabled && interrupt > 0)
     {
         interruptsEnabled = false;
         if (interrupt & 1)//v-blank
         {
             call(true, 0x0040);
-            mMemory->IOMap[0xFF0F][0] &= 254; //Reset the flag
+            mMemory->mInterrupts->resetInterrupt(cInterrupts::VBLANK);
+            mCyclesSum += 20;
         }
         else if (interrupt & 2)//LCDC
         {
             call(true, 0x0048);
-            mMemory->IOMap[0xFF0F][0] &= 253; //Reset the flag
+            mMemory->mInterrupts->resetInterrupt(cInterrupts::LCDC);
+            mCyclesSum += 20;
         }
         else if (interrupt & 4)//timer
         {
             call(true, 0x0050);
-            mMemory->IOMap[0xFF0F][0] &= 251; //Reset the flag
+            mMemory->mInterrupts->resetInterrupt(cInterrupts::TIMER);
+            mCyclesSum += 20;
         }
         else if (interrupt & 8)//Serial Transfer
         {
             call(true, 0x0058);
-            mMemory->IOMap[0xFF0F][0] &= 247; //Reset the flag
+            mMemory->mInterrupts->resetInterrupt(cInterrupts::SERIAL);
+            mCyclesSum += 20;
         }
         else if (interrupt & 16)//P10-P13
         {
             call(true, 0x0060);
-            mMemory->IOMap[0xFF0F][0] &= 239; //Reset the flag
+            mMemory->mInterrupts->resetInterrupt(cInterrupts::JOYPAD);
+            mCyclesSum += 20;
         }
     }
 }
 
-void cCpu::updateTimer(int cycles)
-{
-    int temp = mMemory->IOMap[0xFF07][0];
-    int tima = mMemory->IOMap[0xFF05][0];
-    int tma = mMemory->IOMap[0xFF06][0];
-    int freq = temp & 3;
-    bool enable = (temp >> 2) & 1;
-    if (enable)
-    {
-        timerCounter += cycles;
-        switch (freq)
-        {
-            case 0://We have a freq of 4096Hz
-                if (timerCounter > 1024)//4194204hz/4096hz=1024
-                {
-                    timerCounter -= 1024;
-                    tima++;
-                }
-                break;
-            case 1://We have 262144hz
-                if (timerCounter > 16)
-                {
-                    timerCounter -= 16;
-                    tima++;
-                }
-                break;
-            case 2://We have 65536hz
-                if (timerCounter > 64)
-                {
-                    timerCounter -= 64;
-                    tima++;
-                }
-                break;
-            case 3://16384hz
-                if (timerCounter > 256)
-                {
-                    timerCounter -= 256;
-                    tima++;
-                }
-                break;
-        }
-        if (tima > 0xFF)//This means we will have an overflow
-        {
-            tima = tma;
-            setInterrupt(2);
-        }
-        mMemory->IOMap[0xFF05][0] = tima & 0xFF;
-    }
-}
-
-void cCpu::initRTCTimer(void)
+void cCpu::initRTCTimer()
 {
     struct tm currentTime;
     time_t timer;
@@ -733,23 +612,21 @@ int cCpu::fetchOpcode()
 
 void cCpu::updateCycles(int a_opcode)
 {
-    int cycles = opCycles[a_opcode];
-    updateTimer(cycles);
-    mMemory->updateIO(cycles, currentSpeed);
-    cyclesCount -= cycles;
-
-    lyCycles -= cycles;
-    rtcCount += cycles;
+    mMemory->updateIO(mCyclesSum);
+    cyclesCount -= mCyclesSum;
+    lyCycles -= mCyclesSum;
+    rtcCount += mCyclesSum;
+    mCyclesSum = 0;
 }
 
-void cCpu::updateModes(void)
+void cCpu::updateModes()
 {
     //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
     //This means those take double clock cycles to finish(because those are
     // slower than the other parts).
     if (lyCycles <= 0)
     {
-        lyCycles += (456 << currentSpeed);
+        lyCycles += (456 << mCurrentSpeed);
         scanLine = ++mMemory->IOMap[0xFF44][0]; //Increment LY
         if (scanLine == 153)
         {
@@ -760,7 +637,7 @@ void cCpu::updateModes(void)
         if (scanLine == mMemory->IOMap[0xFF45][0])//We have a LY==LYC interrupt
         {
             if ((mMemory->IOMap[0xFF41][0] & 0x40) && mMemory->IOMap[0xFF40][0] & 0x80)
-                setInterrupt(1);
+                mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);
             setMode(4); //Set LYC flag(no mode)
         }
     }
@@ -770,13 +647,13 @@ void cCpu::updateModes(void)
         switch (nextMode)
         {
             case 0://Do Mode 0 actions.
-                cyclesCount += (204 << currentSpeed); //Number of cycles this mode needs
+                cyclesCount += (204 << mCurrentSpeed); //Number of cycles this mode needs
                 nextMode = 2;
 
                 setMode(0);
-                mMemory->hBlankDraw();
+                mMemory->mDisplay->hBlankDraw();
                 if ((mMemory->IOMap[0xFF41][0] & 8) && (mMemory->IOMap[0xFF40][0] & 0x80))
-                    setInterrupt(1); //Mode 0 H-Blank LCDC Interrupt
+                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 0 H-Blank LCDC Interrupt
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
                     mMemory->HBlankHDMA();
 
@@ -785,46 +662,46 @@ void cCpu::updateModes(void)
                 break;
 
             case 1://Do Mode 1 actions
-                cyclesCount += ((4560 + 456) << currentSpeed);
+                cyclesCount += (4560 << mCurrentSpeed);
                 nextMode = 4; //Full update
                 //display->updateScreen();
                 setMode(1);
                 if (mMemory->IOMap[0xFF40][0] & 0x80)
-                    setInterrupt(0);
+                    mMemory->mInterrupts->setInterrupt(cInterrupts::VBLANK);
                 if (mMemory->IOMap[0xFF41][0] & 0x10 && mMemory->IOMap[0xFF40][0] & 0x80)
-                    setInterrupt(1); //Mode 1 V-Blank LCDC Interrupt
+                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 1 V-Blank LCDC Interrupt
                 break;
 
             case 2://Do Mode 2 actions
-                cyclesCount += (80 << currentSpeed);
+                cyclesCount += (80 << mCurrentSpeed);
                 nextMode = 3;
                 setMode(2);
                 if (mMemory->IOMap[0xFF41][0] & 0x20 && mMemory->IOMap[0xFF40][0] >> 7 == 1)
-                    setInterrupt(1); //Mode 2 OAM LCDC Interrupt
+                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 2 OAM LCDC Interrupt
                 break;
 
             case 3://Do Mode 3 actions
-                cyclesCount += (172 << currentSpeed);
+                cyclesCount += (172 << mCurrentSpeed);
                 nextMode = 0;
                 setMode(3);
                 break;
             case 4://Full update after mode 1
                 nextMode = 2;
-                mMemory->updateScreen();
+                mMemory->mDisplay->updateScreen();
                 fullUpdate();
                 break;
         }
     }
 }
 
-void cCpu::fullUpdate(void)
+void cCpu::fullUpdate()
 {
     mMemory->mInput->update();
     if (mMemory->mInput->isKeyPressed(GBK_ESCAPE))
     {
         mMemory->saveSram();
-        //TODO: Turn off sound
-        //sound->turnOff();
+        mMemory->mSound->turnOff();
+
 #ifdef USE_SDL_NET
         net.finish();
 #endif
@@ -840,10 +717,10 @@ void cCpu::fullUpdate(void)
     }
 
 
-
-    /*if (time2 <= SDL_GetTicks()) {
+    /*if (time2 <= SDL_GetTicks())
+    {
         time2 = SDL_GetTicks() + 1000;
-        printf("%d          \t", fps);
+        std::cout << "\rFPS: " << fps << std::flush;
         fps = 0;
     }
     fps++;*/
@@ -867,6 +744,7 @@ void cCpu::fullUpdate(void)
 void cCpu::executeOpcode(int a_opcode)
 {
     int cbOpcode;
+    mCyclesSum += mOpcodeCyclesTable[a_opcode];
     if (intStatus == 3)//Turn on interrupts
     {
         interruptsEnabled = true;
@@ -1340,20 +1218,12 @@ void cCpu::executeOpcode(int a_opcode)
             break;
 
         case 0x76: // HALT
-            if ((mMemory->readByte(0xFFFF) & mMemory->readByte(0xFF0F)) == 0)
+            if (mMemory->mInterrupts->getReadyInterrupts() == 0)
                 pc--;
             break;
         case 0x10:
-            if (speedChange && isColor)
-            {
-                if (currentSpeed == 0)
-                    currentSpeed = 1;
-
-                else
-                    currentSpeed = 0;
-                speedChange = false;
-                mMemory->IOMap[0xFF4D][0] = currentSpeed << 7;
-            }
+            if (isColor)
+                mCurrentSpeed = mMemory->changeSpeed();
             break;
         case 0xF3: intStatus = 2;
             break;
@@ -1371,6 +1241,7 @@ void cCpu::executeOpcode(int a_opcode)
 
         case 0xCB://CBOpcodes
             cbOpcode = mMemory->readByte(pc++);
+            mCyclesSum += mCBOpcodeCyclesTable[cbOpcode];
             switch (cbOpcode)
             {
                 case 0x37: swap(a);
@@ -1702,6 +1573,7 @@ void cCpu::call(bool condition, u16 address)
     {
         push(pc);
         pc = address;
+        mCyclesSum += 12;
     }
 }
 
@@ -1786,7 +1658,10 @@ void cCpu::inchl(void)
 void cCpu::jp(bool condition, u16 address)
 {
     if (condition)
+    {
         pc = address;
+        mCyclesSum += 4;
+    }
 }
 
 void cCpu::jr(bool condition, s8 val)
@@ -1794,6 +1669,7 @@ void cCpu::jr(bool condition, s8 val)
     if (condition)
     {
         pc += val;
+        mCyclesSum += 20;
     }
 }
 

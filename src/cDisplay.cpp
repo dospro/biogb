@@ -230,7 +230,7 @@ void cDisplay::drawEmptyBG()
 {
     for (int i = 0; i < 160; ++i)
     {
-        videoBuffer[i][ly] = 0xFFFFFF;
+        videoBuffer[ly][i] = 0xFFFFFF;
     }
 }
 
@@ -283,7 +283,7 @@ void cDisplay::drawTileLine(int firstByte, int secondByte, int xPosition, bool h
         int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
 
         if (isTileVisible(xOffset))
-            videoBuffer[xOffset][ly] = BGPTable[firstByte & 1][secondByte & 1];
+            videoBuffer[ly][xOffset] = BGPTable[firstByte & 1][secondByte & 1];
 
         firstByte >>= 1;
         secondByte >>= 1;
@@ -349,7 +349,7 @@ void cDisplay::drawWindow()
             {
                 int p{horizontalFlip ? i + (7 - j) : i + j};
                 if (p < 160 && p >= 0 && p >= wx)
-                    videoBuffer[p][ly] = WPTable[firstByte & 1][secondByte & 1];
+                    videoBuffer[ly][p] = WPTable[firstByte & 1][secondByte & 1];
                 firstByte >>= 1;
                 secondByte >>= 1;
             }
@@ -445,18 +445,18 @@ void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, 
         if (mFinalPriority == SPRITE_ABOVE_BG)
         {
             if (isSpritePixelVisible(spriteX, colorIndex, p))
-                videoBuffer[spriteX + p][ly] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                videoBuffer[ly][spriteX + p] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         }
         else if (mFinalPriority == OAM_SPRITE_ABOVE_BG)
         {
             if (!mTilePrioritiesTable[(spriteX + p) / 8] && isSpritePixelVisible(spriteX, colorIndex, p))
-                videoBuffer[spriteX + p][ly] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                videoBuffer[ly][spriteX + p] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         }
         else if (mFinalPriority == BG_ABOVE_SPRITE)
         {
             if (isSpritePixelVisible(spriteX, colorIndex, p) &&
-                (videoBuffer[spriteX + p][ly] == BGPTable[0][0] || videoBuffer[spriteX + p][ly] == WPTable[0][0]))
-                videoBuffer[spriteX + p][ly] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                (videoBuffer[ly][spriteX + p] == BGPTable[0][0] || videoBuffer[ly][spriteX + p] == WPTable[0][0]))
+                videoBuffer[ly][spriteX + p] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         }
         else
         { ;

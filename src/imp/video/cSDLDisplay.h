@@ -41,10 +41,10 @@ public:
     virtual void updateScreen(void);
 
 private:
-    SDL_Surface *screen, *back;
-
-    void putPixel(int x, int y, u32 color);
-
+    SDL_Window *mScreen;
+    SDL_Renderer *mRenderer;
+    SDL_Texture *mTexture;
+    SDL_Rect mWindowSize;
 };
 
 #endif

@@ -32,20 +32,20 @@
 #include<SDL.h>
 
 
-#define GBK_ESCAPE SDLK_ESCAPE
-#define GBK_SPACE SDLK_SPACE
-#define GBK_KP_MINUS SDLK_KP_MINUS
-#define GBK_KP_PLUS SDLK_KP_PLUS
-#define GBK_s SDLK_s
-#define GBK_l SDLK_l
-#define GBK_x SDLK_x
-#define GBK_z SDLK_z
-#define GBK_UP SDLK_UP
-#define GBK_DOWN SDLK_DOWN
-#define GBK_LEFT SDLK_LEFT
-#define GBK_RIGHT SDLK_RIGHT
-#define GBK_RETURN SDLK_RETURN
-#define GBK_RSHIFT SDLK_RSHIFT
+#define GBK_ESCAPE SDL_SCANCODE_ESCAPE
+#define GBK_SPACE SDL_SCANCODE_SPACE
+#define GBK_KP_MINUS SDL_SCANCODE_KP_MINUS
+#define GBK_KP_PLUS SDL_SCANCODE_KP_PLUS
+#define GBK_s SDL_SCANCODE_S
+#define GBK_l SDL_SCANCODE_L
+#define GBK_x SDL_SCANCODE_X
+#define GBK_z SDL_SCANCODE_Z
+#define GBK_UP SDL_SCANCODE_UP
+#define GBK_DOWN SDL_SCANCODE_DOWN
+#define GBK_LEFT SDL_SCANCODE_LEFT
+#define GBK_RIGHT SDL_SCANCODE_RIGHT
+#define GBK_RETURN SDL_SCANCODE_RETURN
+#define GBK_RSHIFT SDL_SCANCODE_RSHIFT
 
 
 #define GB_UP        0
@@ -77,7 +77,7 @@ private:
     int mDirections;
     int mP1Value;
     SDL_Event event;
-    unsigned char *key; //keyboard
+    const unsigned char *key; //keyboard
 
     int gbky[9]; //Gameboy keys
     unsigned int button; //joypad/joystick

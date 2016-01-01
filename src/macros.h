@@ -23,8 +23,5 @@ using s32 = int;
 	#define LOG(mensaje)
 #endif
 
-#define AUDIO_MONO 1
-#define AUDIO_STEREO 2
-
 #endif
 

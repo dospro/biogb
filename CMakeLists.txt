@@ -1,8 +1,12 @@
 cmake_minimum_required(VERSION 3.3)
 project(biogb)
-find_package(SDL REQUIRED)
-include_directories(${SDL_INCLUDE_DIR})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -lportaudio")
+
+include(FindPkgConfig)
+pkg_search_module(SDL2 REQUIRED sdl2)
+include_directories(${SDL2_INCLUDE_DIRS})
+
+
 add_definitions(-DLINUX)
 set(GRAPHICS_IMPLEMENTATION src/imp/video/cSDLDisplay.h src/imp/video/cSDLDisplay.cpp)
 set(AUDIO_IMPLEMENTATION src/imp/audio/cPortAudio.h src/imp/audio/cPortAudio.cpp)
@@ -18,16 +22,25 @@ set(SOURCE_FILES
         src/cDisplay.cpp
         src/cInput.h
         src/cInput.cpp
-        src/cSound.h
-        src/cSound.cpp
-        src/cSoundChannel.cpp
-        src/cSoundChannel.h
-        src/cSoundChannel1.cpp
-        src/cSoundChannel1.h
-        src/cSoundChannel3.cpp
-        src/cSoundChannel3.h
+        src/sound/cSound.h
+        src/sound/cSound.cpp
+        src/sound/cSoundChannel.cpp
+        src/sound/cSoundChannel.h
+        src/sound/cSoundChannel1.cpp
+        src/sound/cSoundChannel1.h
+        src/sound/cSoundChannel3.cpp
+        src/sound/cSoundChannel3.h
+        src/sound/cSoundChannel2.cpp
+        src/sound/cSoundChannel2.h
+        src/sound/cSoundChannel4.cpp
+        src/sound/cSoundChannel4.h
+        src/cTimer.cpp
+        src/cTimer.h
+        src/cInterrupts.cpp
+        src/cInterrupts.h
         ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION} src/cSoundChannel2.cpp src/cSoundChannel2.h src/cSoundChannel4.cpp src/cSoundChannel4.h)
+        ${AUDIO_IMPLEMENTATION})
 add_executable(biogb ${SOURCE_FILES})
-target_link_libraries(biogb ${SDL_LIBRARY})
+target_link_libraries(biogb ${SDL2_LIBRARIES})
+
 #-fsanitize=address -fstack-protector-all -g -ggdb

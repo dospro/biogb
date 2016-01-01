@@ -33,7 +33,7 @@
 #include "cMemory.h"
 #include"cInput.h"
 #include"cDisplay.h"
-#include"cSound.h"
+#include"sound/cSound.h"
 #include"macros.h"
 
 #ifdef USE_SDL_NET
@@ -61,36 +61,39 @@ public:
 private:
 
     cMemory *mMemory;
+    std::array<int, 0x100> mOpcodeCyclesTable;
+    std::array<int, 0x100> opCycles;
+    std::array<int, 0x100> mCBOpcodeCyclesTable;
     u8 a, b, c, d, e, h, l;
     bool zf, nf, hf, cf;
     u16 pc, sp;
     bool interruptsEnabled;
     u32 intStatus;
-    u32 timerCounter;
-    u8 opCycles[256];
     s32 cyclesCount;
+    int mCyclesSum;
     u8 nextMode;
     u8 scanLine;
     s32 lyCycles;
     s32 rtcCount;
+    int mCurrentSpeed;
     bool isRunning;
     u32 fps, fpsCounter;
     u32 time1, time2;
     bool SpeedkeyChange;
     u32 fpsSpeed;
     //Help routines
-    inline u8 flags(void);
+    inline u8 flags();
     inline void flags(u8);
-    inline u16 af(void);
+    inline u16 af();
     inline void af(u16);
-    inline u16 bc(void);
+    inline u16 bc();
     inline void bc(u16);
-    inline u16 de(void);
+    inline u16 de();
     inline void de(u16);
-    inline u16 hl(void);
+    inline u16 hl();
     inline void hl(u16);
-    inline u8 readNextByte(void);
-    inline u16 readNextWord(void);
+    inline u8 readNextByte();
+    inline u16 readNextWord();
     //Cpu instructions routines
     inline void adc(u8 val);
     inline void add(u8 val);
@@ -145,13 +148,11 @@ private:
     inline void swaphl(void);
     inline void z8xor(u8 val);
     void setMode(int mode);
-    void setInterrupt(int interrupt);
     void executeOpcode(int a_opcode);
-    void checkInterrupts(void);
-    void updateModes(void);
-    void updateTimer(int cycles);
-    void initRTCTimer(void);
-    void fullUpdate(void);
+    void checkInterrupts();
+    void updateModes();
+    void initRTCTimer();
+    void fullUpdate();
 };
 
 #endif

@@ -70,7 +70,9 @@ public:
     void hBlankDraw(void);
 
 protected:
-    u32 videoBuffer[160][144];
+    const int mScreenWidth = 160;
+    const int mScreenHeight = 144;
+    int videoBuffer[144][160];
 
 private:
     const int TOTAL_OAM_BLOCKS = 40;

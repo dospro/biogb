@@ -71,7 +71,7 @@ bool cInput::isGbKeyPressed(int k)
 void cInput::update()
 {
     SDL_PumpEvents();
-    key = SDL_GetKeyState(NULL);
+    key = SDL_GetKeyboardState(nullptr);
 
     if (isGbKeyPressed(GB_UP)) mDirections |= 4;
     else mDirections &= 251;

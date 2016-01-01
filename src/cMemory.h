@@ -9,37 +9,39 @@
 #include <array>
 #include "macros.h"
 #include "cDisplay.h"
-#include "cSound.h"
+#include "sound/cSound.h"
 #include "cInput.h"
+#include "cInterrupts.h"
+#include "cTimer.h"
 
-struct gbHeader{
+struct gbHeader
+{
     char name[16];
     u8 color;
     u8 mbc;
     u8 romSize;
     u8 ramSize;
 };
-
-struct HDMA {
+struct HDMA
+{
     u8 hs, ls;
     u8 hd, ld;
     int length;
     bool mode, active;
 };
-
-struct RTC_Regs{
+struct RTC_Regs
+{
     u8 rtcRegSelect;
     bool areRtcRegsSelected;
     bool latch;
-
     u8 sec;
     u8 min;
     u8 hr;
     u8 dl;
     u8 dh;
 };
-
-struct SerialTransfer{
+struct SerialTransfer
+{
     bool start;
     bool cType;
     bool speed;
@@ -52,15 +54,15 @@ public:
     cDisplay *mDisplay;
     cSound *mSound;
     cInput *mInput;
+    cInterrupts *mInterrupts;
+    cTimer *mTimer;
     gbHeader info;
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
-    u16 romBank, ramBank, wRamBank, vRamBank;
+    u16 romBank, ramBank, wRamBank;
     u8 IOMap[0x10000][1];
-
     cMemory();
     ~cMemory();
-
     void rtcCounter(void);
     bool loadRom(const char *file);
     u8 readByte(u16);
@@ -68,12 +70,8 @@ public:
     void HBlankHDMA();
     void saveSram();
     void loadSram();
-    void updateIO(int a_cycles, int a_speedShift);
-
-    //TODO: Esto no va aqui. Paso intermedio para refactorizar.
-    void hBlankDraw();
-    void updateScreen();
-
+    void updateIO(int a_cycles);
+    int changeSpeed();
 
 private:
     std::vector<std::array<u8, 0x4000>> mRom;
@@ -85,8 +83,8 @@ private:
     u8 mm;
     u8 hi, lo;
     int dest, source;
-    int mDividerRegister;
-
+    int mCurrentSpeed;
+    bool mPrepareSpeedChange;
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
     u8 readRom(u16 a_address) const noexcept;
