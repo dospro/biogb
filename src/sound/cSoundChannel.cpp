@@ -63,3 +63,13 @@ void cSoundChannel::setOutputTerminal(bool a_left, bool a_right)
     outputTerminal1 = a_left;
     outputTerminal2 = a_right;
 }
+
+bool cSoundChannel::isLeftSound()
+{
+    return outputTerminal1;
+}
+
+bool cSoundChannel::isRightSound()
+{
+    return outputTerminal2;
+}

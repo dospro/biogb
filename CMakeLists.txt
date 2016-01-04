@@ -9,7 +9,8 @@ include_directories(${SDL2_INCLUDE_DIRS})
 
 add_definitions(-DLINUX)
 set(GRAPHICS_IMPLEMENTATION src/imp/video/cSDLDisplay.h src/imp/video/cSDLDisplay.cpp)
-set(AUDIO_IMPLEMENTATION src/imp/audio/cPortAudio.h src/imp/audio/cPortAudio.cpp)
+#set(AUDIO_IMPLEMENTATION src/imp/audio/cPortAudio.h src/imp/audio/cPortAudio.cpp)
+set(AUDIO_IMPLEMENTATION src/imp/audio/cSDLSound.h src/imp/audio/cSDLSound.cpp)
 set(SOURCE_FILES
         src/main.cpp
         src/tables.h

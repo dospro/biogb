@@ -19,6 +19,8 @@ public:
     virtual void update(int a_cycles) = 0;
     virtual int getOnOffBit() = 0;
     virtual void setOutputTerminal(bool a_left, bool a_right);
+    virtual bool isLeftSound();
+    virtual bool isRightSound();
     virtual bool isOn();
 
 
@@ -32,3 +34,4 @@ protected:
 };
 
 #endif //BIOGB_CSOUNDCHANNEL_H
+

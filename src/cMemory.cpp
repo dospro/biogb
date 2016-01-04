@@ -8,7 +8,8 @@
 #include "cMemory.h"
 #include "tables.h"
 #include "imp/video/cSDLDisplay.h"
-#include "imp/audio/cPortAudio.h"
+//#include "imp/audio/cPortAudio.h"
+#include "imp/audio/cSDLSound.h"
 
 
 extern bool isColor;
@@ -153,15 +154,10 @@ bool cMemory::loadRom(const char *fileName)
     mDisplay->getMemoryPointer(this);
 
     std::cout << "Sound...";
-    mSound = new cPortAudio;
+    mSound = new cSDLSound(44100, 512);
     if (!mSound)
     {
         std::cout << "No mMemory for Sound object" << std::endl;
-        return false;
-    }
-    if (!mSound->init(44100, 8, 512))
-    {
-        std::cout << "Sound was not inited." << std::endl;
         return false;
     }
     std::cout << "OK" << std::endl;

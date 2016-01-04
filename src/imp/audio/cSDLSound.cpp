@@ -26,73 +26,46 @@
  */
 
 
+#include <iostream>
 #include"cSDLSound.h"
 
-void outputAudio(void *data, u8 *stream, s32 len)
+void outputAudio(void *data, u8 *a_internalBuffer, s32 a_bufferSize)
 {
-	cSDLSound *tmp=(cSDLSound *)data;
-	tmp->fillBuffer();
-	memcpy(stream, tmp->buffer, len);
+    reinterpret_cast<cSDLSound *>(data)->fillBuffer(a_internalBuffer, a_bufferSize);
 }
 
-cSDLSound::cSDLSound()
+cSDLSound::cSDLSound(int a_generalFrequency, int a_bufferSize) : cSound(a_generalFrequency)
 {
-	desire=NULL;
-	device=NULL;
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0)
+        throw std::runtime_error("Can't init audio system: " + std::string(SDL_GetError()) + "\n");
+    SDL_AudioSpec request;
+    SDL_memset(&request, 0, sizeof(request));
+
+    request.freq = a_generalFrequency;
+    request.format = AUDIO_U8;
+    request.channels = static_cast<Uint8>(NUMBER_OF_CHANNELS);
+    request.samples = static_cast<Uint16>(a_bufferSize);
+    request.callback = outputAudio;
+    request.userdata = this;
+
+    SDL_AudioSpec result;
+    mDevice = SDL_OpenAudioDevice(nullptr, 0, &request, &result, 0);
+    if (mDevice == 0)
+        throw std::runtime_error("Can't open audio device: " + std::string(SDL_GetError()) + "\n");
 }
 
 cSDLSound::~cSDLSound()
 {
-	if(desire!=NULL)
-	{
-		delete desire;
-		desire=NULL;
-	}
-	if(device!=NULL)
-	{
-		SDL_CloseAudio();
-		delete device;
-		device=NULL;
-	}
+    SDL_CloseAudioDevice(mDevice);
 }
 
-bool cSDLSound::init(u32 freq, u32 size, u32 bSize)
+void cSDLSound::turnOn()
 {
-	printf("SDLSound: Iniciando\n");
-	desire=new SDL_AudioSpec;
-	if(!desire)
-		return false;
-	device=new SDL_AudioSpec;
-	if(!device)
-		return false;
-
-	desire->freq=freq;
-	desire->format=AUDIO_U8;
-	desire->channels=AUDIO_MONO;
-	desire->samples=bSize;
-	desire->callback=outputAudio;
-	desire->userdata=this;
-	
-	if(SDL_OpenAudio(desire, device)<0)
-	{
-		delete desire;
-		delete device;
-		return false;
-	}	
-	delete desire;
-	
-    //Call the parent init function
-    return cSound::init(freq, size, bSize);
-
+    SDL_PauseAudioDevice(mDevice, 0);
 }
 
-void cSDLSound::turnOn(void)
+void cSDLSound::turnOff()
 {
-	SDL_PauseAudio(0);	
-}
-
-void cSDLSound::turnOff(void)
-{
-	SDL_PauseAudio(1);
+    SDL_PauseAudioDevice(mDevice, 1);
 }
 

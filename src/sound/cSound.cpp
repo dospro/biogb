@@ -28,38 +28,23 @@
 
 #include"cSound.h"
 
-cSound::cSound()
+cSound::cSound(int a_generalFrequency) :
+        GENERAL_FREQUENCY{a_generalFrequency},
+        NUMBER_OF_CHANNELS{2}
 {
-    buffer = NULL;
+    mChannel1 = std::unique_ptr<cSoundChannel1>(new cSoundChannel1(GENERAL_FREQUENCY));
+    mChannel2 = std::unique_ptr<cSoundChannel2>(new cSoundChannel2(GENERAL_FREQUENCY));
+    mChannel3 = std::unique_ptr<cSoundChannel3>(new cSoundChannel3(GENERAL_FREQUENCY));
+    mChannel4 = std::unique_ptr<cSoundChannel4>(new cSoundChannel4(GENERAL_FREQUENCY));
+
+    soundActive = true;
 }
 
 cSound::~cSound()
 {
-    if (buffer != NULL)
-    {
-        delete buffer;
-        buffer = NULL;
-    }
 }
 
-bool cSound::init(u32 a_frequency, u32 size, u32 bSize)
-{
-    soundActive = true;
-
-    mChannel1 = new cSoundChannel1(a_frequency);
-    mChannel2 = new cSoundChannel2(a_frequency);
-    mChannel3 = new cSoundChannel3(a_frequency);
-    mChannel4 = new cSoundChannel4(a_frequency);
-
-    bufferSize = bSize;
-    buffer = new u8[bufferSize];
-    if (!buffer)
-        return false;
-
-    return true;
-}
-
-u8 cSound::readFromSound(u16 a_address)
+int cSound::readFromSound(int a_address)
 {
     if (a_address < 0xFF16)
         return mChannel1->readRegister(a_address);
@@ -84,6 +69,8 @@ u8 cSound::readFromSound(u16 a_address)
                                        | mChannel4->getOnOffBit()
                                        | (soundActive << 7)
                                        | 0x70);
+            default:
+                return 0xFF;
         }
     }
     else
@@ -127,7 +114,7 @@ void cSound::writeToSound(u16 address, u8 value)
             NR51 = value;
             break;
         case 0xFF26: //NR 52
-            soundActive = (value >> 7) & 1;
+            soundActive = ((value & 0x80) != 0);
             break;
         default:
             if (address >= 0xFF30 && address < 0xFF40)
@@ -138,12 +125,13 @@ void cSound::writeToSound(u16 address, u8 value)
     }
 }
 
-void cSound::fillBuffer(void)
+void cSound::fillBuffer(u8 *a_internalBuffer, int a_bufferSize)
 {
     int sample1, sample2, sample3, sample4;
-    int finalSample;
+    int leftFinalSample;
+    int rightFinalSample;
 
-    for (int i = 0; i < bufferSize; ++i)
+    for (int i = 0; i < a_bufferSize / NUMBER_OF_CHANNELS; ++i)
     {
         sample1 = 0;
         sample2 = 0;
@@ -165,10 +153,31 @@ void cSound::fillBuffer(void)
         sample3 -= 128;
         sample4 -= 128;
 
-        finalSample = (sample1 + sample2 + sample3 + sample4) >> 4;
+        leftFinalSample = 0;
+        if (mChannel1->isLeftSound())
+            leftFinalSample += sample1;
+        if (mChannel2->isLeftSound())
+            leftFinalSample += sample2;
+        if (mChannel3->isLeftSound())
+            leftFinalSample += sample3;
+        if (mChannel4->isLeftSound())
+            leftFinalSample += sample4;
+        leftFinalSample >>= 4;
 
-        buffer[i] = (finalSample + 128) & 0xFF;
+        rightFinalSample = 0;
+        if (mChannel1->isRightSound())
+            rightFinalSample += sample1;
+        if (mChannel2->isRightSound())
+            rightFinalSample += sample2;
+        if (mChannel3->isRightSound())
+            rightFinalSample += sample3;
+        if (mChannel4->isRightSound())
+            rightFinalSample += sample4;
+        rightFinalSample >>= 4;
 
+
+        a_internalBuffer[i * 2] = static_cast<u8>((leftFinalSample + 128) & 0xFF);
+        a_internalBuffer[i * 2 + 1] = static_cast<u8>((rightFinalSample + 128) & 0xFF);
     }
 }
 

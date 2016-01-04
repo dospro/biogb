@@ -32,6 +32,8 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include <memory>
+#include <vector>
 #include"../macros.h"
 #include "cSoundChannel.h"
 #include "cSoundChannel1.h"
@@ -43,23 +45,22 @@
 class cSound
 {
 public:
-    cSound();
+    cSound(int a_generalFrequency);
     virtual ~cSound();
-    virtual bool init(u32 a_frequency, u32 size, u32 bSize);
-    virtual void turnOn(void) = 0;
-    virtual void turnOff(void) = 0;
-    u8 readFromSound(u16 a_address);
+    virtual void turnOn() = 0;
+    virtual void turnOff() = 0;
+    int readFromSound(int a_address);
     void writeToSound(u16 address, u8 value);
-    void fillBuffer(void);
+    void fillBuffer(u8 *a_internalBuffer, int a_bufferSize);
     void updateCycles(s32 cycles);
 protected:
-    cSoundChannel1 *mChannel1;
-    cSoundChannel2 *mChannel2;
-    cSoundChannel3 *mChannel3;
-    cSoundChannel4 *mChannel4;
+    std::unique_ptr<cSoundChannel1> mChannel1;
+    std::unique_ptr<cSoundChannel2> mChannel2;
+    std::unique_ptr<cSoundChannel3> mChannel3;
+    std::unique_ptr<cSoundChannel4> mChannel4;
+    const int GENERAL_FREQUENCY;
+    const int NUMBER_OF_CHANNELS;
     bool soundActive;
-    u8 *buffer;
-    u32 bufferSize;
     int NR50;
     int NR51;
 

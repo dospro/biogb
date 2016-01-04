@@ -31,21 +31,21 @@
 
 #include<SDL.h>
 #include<string.h>
-#include"../../cSound.h"
+#include "../../sound/cSound.h"
 
-void outputAudio(void *data, u8 *stream, s32 len);
+
+void outputAudio(void *data, u8 *a_internalBuffer, s32 a_bufferSize);
 
 class cSDLSound : public cSound
 {
 public:
-    cSDLSound();
+    cSDLSound(int a_generalFrequency, int a_bufferSize);
     virtual ~cSDLSound();
-    virtual bool init(u32 freq, u32 size, u32 bSize);
-    virtual void turnOn(void);
-    virtual void turnOff(void);
+    virtual void turnOn();
+    virtual void turnOff();
 private:
-    SDL_AudioSpec *desire, *device;
-    friend void outputAudio(void *data, u8 *stream, s32 len);
+    SDL_AudioDeviceID mDevice;
+    friend void outputAudio(void *data, u8 *a_internalBuffer, s32 a_bufferSize);
 };
 
 #endif
