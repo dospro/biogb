@@ -2,7 +2,6 @@
 // Created by dospro on 28/12/15.
 //
 
-#include <iostream>
 #include "cInterrupts.h"
 
 cInterrupts::cInterrupts() : mIERegister{0}, mIFRegister{0}

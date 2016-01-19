@@ -2,7 +2,7 @@
 // Created by dospro on 28/12/15.
 //
 
-#include <iostream>
+
 #include "cTimer.h"
 
 cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}

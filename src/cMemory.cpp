@@ -8,7 +8,6 @@
 #include "cMemory.h"
 #include "tables.h"
 #include "imp/video/cSDLDisplay.h"
-//#include "imp/audio/cPortAudio.h"
 #include "imp/audio/cSDLSound.h"
 
 

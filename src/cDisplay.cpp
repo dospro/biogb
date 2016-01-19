@@ -26,7 +26,6 @@
  */
 
 
-#include <iostream>
 #include"cDisplay.h"
 #include"cCpu.h"
 
@@ -47,6 +46,8 @@ cDisplay::cDisplay(bool a_isColor) :
                 {GB_DARK_GRAY, GB_BLACK}},
         BWColors{{BG_WHITE,     BG_LIGHT_GRAY},
                  {GB_DARK_GRAY, GB_BLACK}},
+        mBGPaletteMemory{},
+        mOBJPaletteMemory{},
         memory{nullptr},
         mMasterPriority{false},
         mIsColor{a_isColor},
@@ -171,7 +172,7 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value)
                 break;
             default:
                 //TODO: Raise exception/
-                std::cout << "Falta: " << a_address << "\n";
+                //std::cout << "Falta: " << a_address << "\n";
                 break;
         }
     }

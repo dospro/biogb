@@ -29,9 +29,6 @@
 #ifndef BIOGB_GFX
 #define BIOGB_GFX
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
 #include <array>
 #include <vector>
 #include"macros.h"

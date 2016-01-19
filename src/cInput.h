@@ -28,7 +28,7 @@
 #ifndef BIOGB_INPUT
 #define BIOGB_INPUT
 
-#include<stdio.h>
+
 #include<SDL.h>
 
 

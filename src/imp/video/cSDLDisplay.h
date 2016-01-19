@@ -28,7 +28,6 @@
 #ifndef BIOGB_DISPLAY
 #define BIOGB_DISPLAY
 
-#include<stdlib.h>
 #include<SDL.h>
 #include"../../cDisplay.h"
 

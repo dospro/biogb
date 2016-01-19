@@ -30,7 +30,6 @@
 #define BIOGB_PORTAUDIO
 
 #include<SDL.h>
-#include<string.h>
 #include "../../sound/cSound.h"
 
 
