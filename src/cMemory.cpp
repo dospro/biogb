@@ -130,7 +130,7 @@ bool cMemory::loadRom(const char *fileName)
     romBank = 1;
     ramBank = 0;
     wRamBank = 1;
-    mm = 0;
+    mRomMode = 0;
     hi = lo = 0;
     source = 0;
     dest = 0;
@@ -331,22 +331,22 @@ void cMemory::sendMBC1Command(u16 a_address, u8 a_value)
 {
     if (a_address >= 0x2000 && a_address < 0x4000)
     {
-        if (mm == 1)
-        {
+        //if (mRomMode)
+        //{
             romBank = a_value & 0x1F;
             if (romBank == 0)
                 romBank++;
-        }
+        /*}
         else
         {
             romBank = (romBank & 0xE0) | (a_value & 0x1F);
             if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60)
                 romBank++;
-        }
+        }*/
     }
     else if (a_address >= 0x4000 && a_address < 0x6000)
     {
-        if (mm == 1)
+        if (mRomMode)
         {
             romBank = (romBank & 0x1F) | ((a_value & 3) << 5);
             if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60)
@@ -358,7 +358,7 @@ void cMemory::sendMBC1Command(u16 a_address, u8 a_value)
         }
     }
     else if (a_address >= 0x6000 && a_address < 0x8000)
-        mm = a_value & 1;
+        mRomMode = (a_value & 1) == 0;
 }
 
 void cMemory::sendMBC2Command(u16 a_address, u8 a_value)

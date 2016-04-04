@@ -80,7 +80,7 @@ private:
     std::array<u8, 0x80> mHRam;
     std::string mRomFilename;
     HDMA hdma;
-    u8 mm;
+    bool mRomMode;
     u8 hi, lo;
     int dest, source;
     int mCurrentSpeed;
