@@ -1,24 +1,13 @@
-//
-// Created by dospro on 28/12/15.
-//
-
-
 #include "cTimer.h"
 
-cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}
-{
+cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0} {
     mInterrupts = a_interruptPointer;
 }
 
-cTimer::~cTimer()
-{
+cTimer::~cTimer() = default;
 
-}
-
-int cTimer::readRegister(int a_address)
-{
-    switch (a_address)
-    {
+int cTimer::readRegister(int a_address) {
+    switch (a_address) {
         case 0xFF04:
             return mDIV >> 8;
         case 0xFF05:
@@ -32,10 +21,8 @@ int cTimer::readRegister(int a_address)
     }
 }
 
-void cTimer::writeRegister(int a_address, int a_value)
-{
-    switch (a_address)
-    {
+void cTimer::writeRegister(int a_address, int a_value) {
+    switch (a_address) {
         case 0xFF04:
             mDIV = 0;
             break;
@@ -52,15 +39,13 @@ void cTimer::writeRegister(int a_address, int a_value)
     }
 }
 
-void cTimer::update(int a_cycles)
-{
+void cTimer::update(int a_cycles) {
     int newDiv = (mDIV + a_cycles) & 0xFFFF;
-    int carryBits = mDIV ^ newDiv;
+    int carryBits = mDIV ^newDiv;
     int freq{mTAC & 3};
     int enable{(mTAC >> 2) & 1};
 
-    switch (freq)
-    {
+    switch (freq) {
         case 0:
             carryBits >>= 9;
             break;
@@ -76,8 +61,7 @@ void cTimer::update(int a_cycles)
         default:
             break;
     }
-    if (enable != 0)
-    {
+    if (enable != 0) {
         if (carryBits != 0)
             mTIMA++;
     }

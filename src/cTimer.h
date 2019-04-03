@@ -1,7 +1,3 @@
-//
-// Created by dospro on 28/12/15.
-//
-
 #ifndef BIOGB_CTIMER_H
 #define BIOGB_CTIMER_H
 

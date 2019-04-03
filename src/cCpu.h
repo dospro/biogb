@@ -1,38 +1,10 @@
-/*
- *     Proyect: BioGB
- *    Filename: cCpu.h
- *     Version: v4.0
- * Description: Gameboy Color Emulator
- *     License: GPLv2
- *
- *      Author: Copyright (C) Rubén Daniel Gutiérrrez Cruz <dospro@gmail.com>
- *        Date: 07-1-2007
- *
- *
- *	This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details. 
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-
 #ifndef BIOGB_CPU
 #define BIOGB_CPU
 
 #include<stdio.h>
 #include<stdlib.h>
-#include "cMemory.h"
+#include "MemoryMap.h"
 #include"cInput.h"
-#include"cDisplay.h"
 #include"sound/cSound.h"
 #include"macros.h"
 
@@ -47,12 +19,12 @@ public:
 
     cCpu();
     ~cCpu();
-    bool initCpu(const char *fileName);
+    bool init_cpu(std::string file_name);
 
-    bool isCpuRunning(void)
+    bool isCpuRunning()
     { return isRunning; }
 
-    void doCycle(void);
+    void doCycle();
     void saveState(int number);
     void loadState(int number);
     int fetchOpcode();
@@ -60,7 +32,7 @@ public:
 
 private:
 
-    cMemory *mMemory;
+    MemoryMap *mMemory;
     std::array<int, 0x100> mOpcodeCyclesTable;
     std::array<int, 0x100> opCycles;
     std::array<int, 0x100> mCBOpcodeCyclesTable;

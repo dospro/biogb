@@ -6,7 +6,7 @@ SOURCES = ${SRCDIR}/main.cpp \
 	${SRCDIR}/cNet.cpp \
 	${SRCDIR}/cSound.cpp \
 	${SRCDIR}/cCpu.cpp \
-	${SRCDIR}/cMemory.cpp \
+	${SRCDIR}/MemoryMap.cpp \
 	${SRCDIR}/imp/audio/cPortAudio.cpp
 	
 OBJS    = ${SOURCES:.c=.o}

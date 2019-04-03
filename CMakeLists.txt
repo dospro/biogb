@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.3)
 project(biogb)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
@@ -9,11 +9,12 @@ add_definitions(-DLINUX)
 set(GRAPHICS_IMPLEMENTATION src/imp/video/cSDLDisplay.h src/imp/video/cSDLDisplay.cpp)
 set(AUDIO_IMPLEMENTATION src/imp/audio/cSDLSound.h src/imp/audio/cSDLSound.cpp)
 set(SOURCE_FILES
+        ${GRAPHICS_IMPLEMENTATION}
+        ${AUDIO_IMPLEMENTATION}
         src/main.cpp
-        src/tables.h
         src/macros.h
-        src/cMemory.h
-        src/cMemory.cpp
+        src/MemoryMap.h
+        src/MemoryMap.cpp
         src/cCpu.h
         src/cCpu.cpp
         src/cDisplay.h
@@ -36,8 +37,9 @@ set(SOURCE_FILES
         src/cTimer.h
         src/cInterrupts.cpp
         src/cInterrupts.h
-        ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION})
+        #src/Memory/Rom.cpp src/Memory/Rom.h src/Memory/Ram.cpp src/Memory/Ram.h src/Memory/MemoryController.cpp src/Memory/MemoryController.h src/Memory/MBC1.cpp src/Memory/MBC1.h src/Memory/RomOnly.cpp src/Memory/RomOnly.h src/Memory/MBC5.cpp src/Memory/MBC5.h)
+        src/Memory/RomLoader.cpp
+        src/Memory/RomLoader.h src/Exceptions.h)
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL2_LIBRARY})
 

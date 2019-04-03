@@ -1,31 +1,3 @@
-/*
- *     Proyect: BioGB
- *    Filename: cGfx.h
- *     Version: v4.0
- * Description: Gameboy Color Emulator
- *     License: GPLv2
- *
- *      Author: Copyright (C) Rub� Daniel Guti�rez Cruz <dospro@gmail.com>
- *        Date: 07-1-2007
- *
- *
- *	This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details. 
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-
-
 #ifndef BIOGB_GFX
 #define BIOGB_GFX
 
@@ -39,7 +11,7 @@
 #define OBPD 0xFF6B
 
 
-class cMemory;
+class MemoryMap;
 
 struct LCDC
 {
@@ -62,7 +34,7 @@ public:
     void writeToDisplay(u16 a_address, u8 a_value);
     void setVRAMBank(int a_bank);
 
-    void getMemoryPointer(cMemory *a_memory)
+    void getMemoryPointer(MemoryMap *a_memory)
     { memory = a_memory; };
     void hBlankDraw(void);
 
@@ -80,7 +52,7 @@ private:
     const int TILE_PATTERN_TABLE_1 = 0x0800; //0x8800 - 0x8000;
     const int TILE_MAP_TABLE_0 = 0x1800; // 0x9800 - 0x8000
     const int TILE_MAP_TABLE_1 = 0x1C00; // 0x9C00 - 0x8000
-    cMemory *memory;
+    MemoryMap *memory;
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
     std::array<u32, 8> mSpriteColorTable;

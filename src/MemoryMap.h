@@ -1,27 +1,18 @@
-//
-// Created by dospro on 25/11/15.
-//
+#ifndef BIOGB_MEMORYMAP_H
+#define BIOGB_MEMORYMAP_H
 
-#ifndef BIOGB_CMEMORY_H
-#define BIOGB_CMEMORY_H
-
+#include <iostream>
 #include <vector>
 #include <array>
+#include <string>
 #include "macros.h"
 #include "cDisplay.h"
 #include "sound/cSound.h"
 #include "cInput.h"
 #include "cInterrupts.h"
 #include "cTimer.h"
+#include "Memory/RomLoader.h"
 
-struct gbHeader
-{
-    char name[16];
-    u8 color;
-    u8 mbc;
-    u8 romSize;
-    u8 ramSize;
-};
 struct HDMA
 {
     u8 hs, ls;
@@ -48,28 +39,27 @@ struct SerialTransfer
     u8 rec, trans;
 };
 
-class cMemory
+class MemoryMap
 {
 public:
-    cDisplay *mDisplay;
-    cSound *mSound;
-    cInput *mInput;
-    cInterrupts *mInterrupts;
-    cTimer *mTimer;
-    gbHeader info;
+    std::unique_ptr<cDisplay> mDisplay;
+    std::unique_ptr<cSound> mSound;
+    std::unique_ptr<cInput> mInput;
+    std::unique_ptr<cInterrupts> mInterrupts;
+    std::unique_ptr<cTimer> mTimer;
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
     u16 romBank, ramBank, wRamBank;
     u8 IOMap[0x10000][1];
-    cMemory();
-    ~cMemory();
+    MemoryMap();
+    ~MemoryMap();
     void rtcCounter(void);
-    bool loadRom(const char *file);
+    bool load_rom(const std::string& file_name);
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA();
-    void saveSram();
-    void loadSram();
+    void save_sram();
+    void load_sram();
     void updateIO(int a_cycles);
     int changeSpeed();
 
@@ -85,14 +75,15 @@ private:
     int dest, source;
     int mCurrentSpeed;
     bool mPrepareSpeedChange;
+    MBCTypes mbc_type;
+    void init_ram(int ram_banks);
+    void init_wram(bool is_color);
+    void init_sub_systems();
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
     u8 readRom(u16 a_address) const noexcept;
     u8 readRam(u16 address) const;
-    bool isMBC1(gbHeader a_header) const;
-    bool isMBC2(gbHeader a_header) const;
-    bool isMBC3(gbHeader a_header) const;
-    bool isMBC5(gbHeader a_header) const;
+    virtual void send_command(u16 address, u8 value);
     void sendMBC1Command(u16 a_address, u8 a_value);
     void sendMBC2Command(u16 a_address, u8 a_value);
     void sendMBC3Command(u16 a_address, u8 a_value);
@@ -103,4 +94,4 @@ private:
 };
 
 
-#endif //BIOGB_CMEMORY_H
+#endif //BIOGB_MEMORYMAP_H

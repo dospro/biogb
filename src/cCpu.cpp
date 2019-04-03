@@ -1,31 +1,3 @@
-/*
- *     Proyect: BioGB
- *    Filename: cCpu.cpp
- *     Version: v4.0
- * Description: Game Boy Color Emulator
- *     License: GPLv2
- *
- *      Author: Copyright (C) Rubén Daniel Gutiérrez Cruz <dospro@gmail.com>
- *        Date: 07-1-2007
- *
- *
- *	This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-
-
 #include <iostream>
 #include <fstream>
 #include <cstring>
@@ -169,7 +141,7 @@ void cCpu::loadState(int number)
 
 }
 
-bool cCpu::initCpu(const char *file)
+bool cCpu::init_cpu(std::string file_name)
 {
     cyclesCount = 0;
     nextMode = 3;
@@ -184,267 +156,15 @@ bool cCpu::initCpu(const char *file)
     pc = 0x0100;
     sp = 0xFFFE;
 
-    /*for (int i = 0; i < 256; i++)
-        opCycles[i] = 0;
-
-    opCycles[0] = 2;
-    opCycles[0x1] = 6;
-    opCycles[0x1C] = 2;
-    opCycles[0x37] = 2;
-    opCycles[0x52] = 2;
-    opCycles[0x6D] = 2;
-    opCycles[0x88] = 2;
-    opCycles[0x2] = 4;
-    opCycles[0x1D] = 2;
-    opCycles[0x38] = 4;
-    opCycles[0x53] = 2;
-    opCycles[0x6E] = 4;
-    opCycles[0x89] = 2;
-    opCycles[0x3] = 4;
-    opCycles[0x1E] = 4;
-    opCycles[0x39] = 4;
-    opCycles[0x54] = 2;
-    opCycles[0x6F] = 2;
-    opCycles[0x8A] = 2;
-    opCycles[0x4] = 2;
-    opCycles[0x1F] = 2;
-    opCycles[0x3A] = 4;
-    opCycles[0x55] = 2;
-    opCycles[0x70] = 4;
-    opCycles[0x8B] = 2;
-    opCycles[0x5] = 2;
-    opCycles[0x20] = 4;
-    opCycles[0x3B] = 4;
-    opCycles[0x56] = 4;
-    opCycles[0x71] = 4;
-    opCycles[0x8C] = 2;
-    opCycles[0x6] = 4;
-    opCycles[0x21] = 6;
-    opCycles[0x3C] = 2;
-    opCycles[0x57] = 2;
-    opCycles[0x72] = 4;
-    opCycles[0x8D] = 2;
-    opCycles[0x7] = 2;
-    opCycles[0x22] = 4;
-    opCycles[0x3D] = 2;
-    opCycles[0x3E] = 4;
-    opCycles[0x58] = 2;
-    opCycles[0x73] = 4;
-    opCycles[0x8E] = 4;
-    opCycles[0x8] = 10;
-    opCycles[0x23] = 4;
-    opCycles[0x59] = 2;
-    opCycles[0x74] = 4;
-    opCycles[0x8F] = 2;
-    opCycles[0x9] = 4;
-    opCycles[0x24] = 2;
-    opCycles[0x3F] = 2;
-    opCycles[0x5A] = 2;
-    opCycles[0x75] = 4;
-    opCycles[0x90] = 2;
-    opCycles[0xA] = 4;
-    opCycles[0x25] = 2;
-    opCycles[0x40] = 2;
-    opCycles[0x5B] = 2;
-    opCycles[0x76] = 2;
-    opCycles[0x91] = 2;
-    opCycles[0xB] = 4;
-    opCycles[0x26] = 4;
-    opCycles[0x41] = 2;
-    opCycles[0x5C] = 2;
-    opCycles[0x77] = 4;
-    opCycles[0x92] = 2;
-    opCycles[0xC] = 2;
-    opCycles[0x27] = 2;
-    opCycles[0x42] = 2;
-    opCycles[0x5D] = 2;
-    opCycles[0x78] = 2;
-    opCycles[0x93] = 2;
-    opCycles[0xD] = 2;
-    opCycles[0x28] = 4;
-    opCycles[0x43] = 2;
-    opCycles[0x5E] = 4;
-    opCycles[0x5F] = 2;
-    opCycles[0x79] = 2;
-    opCycles[0x94] = 2;
-    opCycles[0xE] = 4;
-    opCycles[0x29] = 4;
-    opCycles[0x44] = 2;
-    opCycles[0x7A] = 2;
-    opCycles[0x95] = 2;
-    opCycles[0xF] = 2;
-    opCycles[0x2A] = 4;
-    opCycles[0x45] = 2;
-    opCycles[0x60] = 2;
-    opCycles[0x7B] = 2;
-    opCycles[0x96] = 4;
-    opCycles[0x10] = 2;
-    opCycles[0x2B] = 4;
-    opCycles[0x46] = 4;
-    opCycles[0x61] = 2;
-    opCycles[0x7C] = 2;
-    opCycles[0x97] = 2;
-    opCycles[0x11] = 6;
-    opCycles[0x2C] = 2;
-    opCycles[0x47] = 2;
-    opCycles[0x62] = 2;
-    opCycles[0x7D] = 2;
-    opCycles[0x98] = 2;
-    opCycles[0x12] = 4;
-    opCycles[0x2D] = 2;
-    opCycles[0x48] = 2;
-    opCycles[0x63] = 2;
-    opCycles[0x7E] = 4;
-    opCycles[0x99] = 2;
-    opCycles[0x13] = 4;
-    opCycles[0x2E] = 4;
-    opCycles[0x49] = 2;
-    opCycles[0x64] = 2;
-    opCycles[0x7F] = 2;
-    opCycles[0x9A] = 2;
-    opCycles[0x14] = 2;
-    opCycles[0x2F] = 2;
-    opCycles[0x4A] = 2;
-    opCycles[0x65] = 2;
-    opCycles[0x80] = 2;
-    opCycles[0x9B] = 2;
-    opCycles[0x15] = 2;
-    opCycles[0x30] = 4;
-    opCycles[0x4B] = 2;
-    opCycles[0x66] = 4;
-    opCycles[0x81] = 2;
-    opCycles[0x9C] = 2;
-    opCycles[0x16] = 4;
-    opCycles[0x31] = 6;
-    opCycles[0x4C] = 2;
-    opCycles[0x67] = 2;
-    opCycles[0x82] = 2;
-    opCycles[0x9D] = 2;
-    opCycles[0x17] = 2;
-    opCycles[0x32] = 4;
-    opCycles[0x4D] = 2;
-    opCycles[0x68] = 2;
-    opCycles[0x83] = 2;
-    opCycles[0x9E] = 4;
-    opCycles[0x18] = 4;
-    opCycles[0x33] = 4;
-    opCycles[0x4E] = 4;
-    opCycles[0x69] = 2;
-    opCycles[0x84] = 2;
-    opCycles[0x9F] = 2;
-    opCycles[0x19] = 4;
-    opCycles[0x34] = 6;
-    opCycles[0x4F] = 2;
-    opCycles[0x6A] = 2;
-    opCycles[0x85] = 2;
-    opCycles[0xA0] = 2;
-    opCycles[0x1A] = 4;
-    opCycles[0x35] = 6;
-    opCycles[0x50] = 2;
-    opCycles[0x6B] = 2;
-    opCycles[0x86] = 4;
-    opCycles[0xA1] = 2;
-    opCycles[0x1B] = 4;
-    opCycles[0x36] = 6;
-    opCycles[0x51] = 2;
-    opCycles[0x6C] = 2;
-    opCycles[0x87] = 2;
-    opCycles[0xA2] = 2;
-
-    opCycles[0xA3] = 2;
-    opCycles[0xBE] = 4;
-    opCycles[0xD9] = 4;
-    opCycles[0xF5] = 8;
-    opCycles[0xA4] = 2;
-    opCycles[0xBF] = 2;
-    opCycles[0xDA] = 6;
-    opCycles[0xF6] = 4;
-    opCycles[0xA5] = 2;
-    opCycles[0xC0] = 4;
-    opCycles[0xF7] = 16;
-    opCycles[0xDE] = 4;
-    opCycles[0xA6] = 4;
-    opCycles[0xA7] = 2;
-    opCycles[0xC1] = 6;
-    opCycles[0xDC] = 6;
-    opCycles[0xF8] = 6;
-    opCycles[0xC2] = 6;
-    opCycles[0xF9] = 4;
-    opCycles[0xA8] = 2;
-    opCycles[0xC3] = 6;
-    opCycles[0xDF] = 16;
-    opCycles[0xFA] = 8;
-    opCycles[0xA9] = 2;
-    opCycles[0xC4] = 6;
-    opCycles[0xE0] = 6;
-    opCycles[0xFB] = 2;
-    opCycles[0xAA] = 2;
-    opCycles[0xC5] = 8;
-    opCycles[0xE1] = 6;
-    opCycles[0xAB] = 2;
-    opCycles[0xC6] = 4;
-    opCycles[0xE2] = 4;
-    opCycles[0xAC] = 2;
-    opCycles[0xC7] = 16;
-    opCycles[0xFE] = 4;
-    opCycles[0xAD] = 2;
-    opCycles[0xC8] = 4;
-    opCycles[0xFF] = 16;
-    opCycles[0xAE] = 4;
-    opCycles[0xC9] = 4;
-    opCycles[0xE5] = 8;
-    opCycles[0xAF] = 2;
-    opCycles[0xCA] = 6;
-    opCycles[0xE6] = 4;
-    opCycles[0xB0] = 2;
-    opCycles[0xCB] = 12;
-    opCycles[0xE7] = 16;
-    opCycles[0xB1] = 2;
-    opCycles[0xCC] = 6;
-    opCycles[0xE8] = 8;
-    opCycles[0xB2] = 2;
-    opCycles[0xCD] = 6;
-    opCycles[0xE9] = 2;
-    opCycles[0xB3] = 2;
-    opCycles[0xCE] = 4;
-    opCycles[0xEA] = 8;
-    opCycles[0xB4] = 2;
-    opCycles[0xCF] = 16;
-    opCycles[0xB5] = 2;
-    opCycles[0xD0] = 4;
-    opCycles[0xB6] = 4;
-    opCycles[0xD1] = 6;
-    opCycles[0xD2] = 6;
-    opCycles[0xEE] = 4;
-    opCycles[0xB7] = 2;
-    opCycles[0xB8] = 2;
-    opCycles[0xEF] = 16;
-    opCycles[0xB9] = 2;
-    opCycles[0xD4] = 6;
-    opCycles[0xF0] = 6;
-    opCycles[0xBA] = 2;
-    opCycles[0xD5] = 8;
-    opCycles[0xF1] = 6;
-    opCycles[0xBB] = 2;
-    opCycles[0xD6] = 4;
-    opCycles[0xF2] = 4;
-    opCycles[0xBC] = 2;
-    opCycles[0xD7] = 16;
-    opCycles[0xF3] = 2;
-    opCycles[0xBD] = 2;
-    opCycles[0xD8] = 4;
-    for (int i = 0; i < 256; i++)
-        opCycles[i] <<= 1;*/
-
 
     std::cout << "Rom....";
-    mMemory = new cMemory;
+    mMemory = new MemoryMap;
     if (mMemory == nullptr)
     {
         std::cout << "Failure Type A" << std::endl;
         return false;
     }
-    if (!mMemory->loadRom(file))
+    if (!mMemory->load_rom(file_name))
     {
         std::cout << "Failure Type B" << std::endl;
         return false;
@@ -589,7 +309,7 @@ void cCpu::initRTCTimer()
     mMemory->rtc2.dl = currentTime.tm_wday;
 }
 
-void cCpu::doCycle(void)
+void cCpu::doCycle()
 {
     int opcode = fetchOpcode();
     executeOpcode(opcode);
@@ -699,12 +419,8 @@ void cCpu::fullUpdate()
     mMemory->mInput->update();
     if (mMemory->mInput->isKeyPressed(GBK_ESCAPE))
     {
-        mMemory->saveSram();
+        mMemory->save_sram();
         mMemory->mSound->turnOff();
-
-#ifdef USE_SDL_NET
-        net.finish();
-#endif
         isRunning = false;
     }
     if (mMemory->mInput->isKeyPressed(GBK_s))
@@ -715,15 +431,6 @@ void cCpu::fullUpdate()
     {
         loadState(0);
     }
-
-
-    /*if (time2 <= SDL_GetTicks())
-    {
-        time2 = SDL_GetTicks() + 1000;
-        std::cout << "\rFPS: " << fps << std::flush;
-        fps = 0;
-    }
-    fps++;*/
 
     if (mMemory->mInput->isKeyPressed(GBK_KP_PLUS)) if (fpsSpeed < 5)
         fpsSpeed++;
