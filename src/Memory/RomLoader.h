@@ -32,12 +32,14 @@ public:
     RomLoader(const std::string &file_name);
     std::vector<std::array<u8, 0x4000>> get_rom();
     bool is_color();
+    bool has_timer();
     int get_ram_banks();
     MBCTypes get_mbc_type();
 
 private:
     void read_header();
     static MBCTypes calculate_mbc_type(u8 mbc_id);
+    static bool has_mbc_timer(u8 mbc_id);
     int calculate_rom_banks(u8 rom_size_id);
     int calculate_ram_banks(u8 ram_size_id);
     void load_rom(int banks);
@@ -45,6 +47,7 @@ private:
     std::ifstream file;
     std::string name;
     bool color;
+    bool with_timer;
     MBCTypes mbc;
     int rom_banks;
     int ram_banks;

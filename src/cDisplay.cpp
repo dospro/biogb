@@ -1,31 +1,3 @@
-/*
- *     Proyect: BioGB
- *    Filename: cGfx.cpp
- *     Version: v4.0
- * Description: Gameboy Color Emulator
- *     License: GPLv2
- *
- *      Author: Copyright (C) Rubén Daniel Gutiérrez Cruz <dospro@gmail.com>
- *        Date: 07-1-2007
- *
- *
- *	This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details. 
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
-
-
 #include"cDisplay.h"
 #include"cCpu.h"
 
@@ -52,13 +24,11 @@ cDisplay::cDisplay(bool a_isColor) :
         mMasterPriority{false},
         mIsColor{a_isColor},
         mVRAMBank{0},
-        mTilePrioritiesTable{}
-{
+        mTilePrioritiesTable{} {
     mSpriteColorTable = {
             BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK,
             BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK};
-    for (int color = 0; color < 0x10000; ++color)
-    {
+    for (int color = 0; color < 0x10000; ++color) {
         int red{((color & 0x1F) << 8) >> 5};
         int green{(((color >> 5) & 0x1F) << 8) >> 5};
         int blue{(((color >> 10) & 0x1F) << 8) >> 5};
@@ -78,15 +48,12 @@ cDisplay::cDisplay(bool a_isColor) :
         gbcColors[color] = static_cast<unsigned int>((red << 16) | (green << 8) | blue);
     }
     mVRAM.push_back(std::array<u8, 0x2000>{});
-    if (a_isColor)
-    {
+    if (a_isColor) {
         mVRAM.push_back(std::array<u8, 0x2000>{});
     }
 }
 
-cDisplay::~cDisplay()
-{
-}
+cDisplay::~cDisplay() {}
 
 u8 cDisplay::readFromDisplay(u16 a_address)
 {

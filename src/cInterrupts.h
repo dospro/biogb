@@ -1,16 +1,10 @@
-//
-// Created by dospro on 28/12/15.
-//
-
 #ifndef BIOGB_CINTERRUPTS_H
 #define BIOGB_CINTERRUPTS_H
 
 
-class cInterrupts
-{
+class cInterrupts {
 public:
-    enum
-    {
+    enum {
         VBLANK = 1,
         LCDC = 2,
         TIMER = 4,

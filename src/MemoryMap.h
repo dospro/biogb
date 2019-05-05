@@ -50,7 +50,7 @@ public:
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
     u16 romBank, ramBank, wRamBank;
-    u8 IOMap[0x10000][1];
+    u8 IOMap[0x10000][1]{};
     MemoryMap();
     ~MemoryMap();
     void rtcCounter(void);
@@ -67,15 +67,16 @@ private:
     std::vector<std::array<u8, 0x4000>> mRom;
     std::vector<std::array<u8, 0x2000>> mRam;
     std::vector<std::array<u8, 0x1000>> mWRam;
-    std::array<u8, 0x80> mHRam;
+    std::array<u8, 0x80> mHRam{};
     std::string mRomFilename;
     HDMA hdma;
     bool mRomMode;
     u8 hi, lo;
     int dest, source;
     int mCurrentSpeed;
-    bool mPrepareSpeedChange;
+    bool mPrepareSpeedChange{};
     MBCTypes mbc_type;
+    bool with_timer{};
     void init_ram(int ram_banks);
     void init_wram(bool is_color);
     void init_sub_systems();

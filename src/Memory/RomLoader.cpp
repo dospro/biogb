@@ -74,6 +74,10 @@ bool RomLoader::is_color() {
     return color;
 }
 
+bool RomLoader::has_timer() {
+    return with_timer;
+}
+
 int RomLoader::get_ram_banks() {
     return ram_banks;
 }
@@ -97,6 +101,7 @@ void RomLoader::read_header() {
     u8 mbc_id{};
     file.read(reinterpret_cast<char *>(&mbc_id), 1);
     mbc = calculate_mbc_type(mbc_id);
+    with_timer = has_mbc_timer(mbc_id);
 
     file.seekg(0x148);
     u8 rom_size_id{};
@@ -170,6 +175,10 @@ int RomLoader::calculate_ram_banks(u8 ram_size_id) {
             [ram_size_id](auto ram_size_item) { return ram_size_item.id == ram_size_id; }
     );
     return ram_size_info->banks;
+}
+
+bool RomLoader::has_mbc_timer(u8 mbc_id) {
+    return (mbc_id == 0x0F || mbc_id == 0x10);
 }
 
 void RomLoader::load_rom(int banks) {

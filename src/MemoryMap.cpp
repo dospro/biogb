@@ -8,7 +8,25 @@
 
 extern bool isColor;
 
-MemoryMap::MemoryMap() : mCurrentSpeed{0}, mDisplay{}, mSound{}, mInput{}, mInterrupts{}, mTimer{} {}
+MemoryMap::MemoryMap() :
+        mCurrentSpeed{0},
+        mDisplay{},
+        mSound{},
+        mInput{},
+        mInterrupts{},
+        mTimer{},
+        romBank{1},
+        ramBank{},
+        wRamBank{1},
+        mRomMode{},
+        hi{},
+        lo{},
+        source{},
+        dest{},
+        hdma{},
+        rtc{},
+        rtc2{},
+        ST{} {}
 
 MemoryMap::~MemoryMap() = default;
 
@@ -19,20 +37,10 @@ bool MemoryMap::load_rom(const std::string& file_name)
     mRom = loader.get_rom();
     isColor = loader.is_color();
     mbc_type = loader.get_mbc_type();
+    with_timer = loader.has_timer();
     init_ram(loader.get_ram_banks());
     init_wram(loader.is_color());
     load_sram();
-    romBank = 1;
-    ramBank = 0;
-    wRamBank = 1;
-    mRomMode = 0;
-    hi = lo = 0;
-    source = 0;
-    dest = 0;
-    hdma = {};
-    rtc = {};
-    rtc = {};
-    ST = {};
     init_sub_systems();
     return true;
 }
@@ -571,7 +579,7 @@ void MemoryMap::save_sram() {
         save_file.write(reinterpret_cast<char *> (&ram_bank[0]), ram_bank.size());
     save_file.close();
 
-    if (mbc_type == MBCTypes::MBC3) {
+    if (with_timer) {
         auto rtc_filename = "savs/" + filename + ".rtc";
         rtc_file.open(filename, std::ios::binary);
         if (rtc_file.fail()) {
@@ -606,7 +614,7 @@ void MemoryMap::load_sram() {
         save_file.read(reinterpret_cast<char *>(&ram_bank[0]), ram_bank.size());
     save_file.close();
 
-    if (mbc_type == MBCTypes::MBC3) {
+    if (with_timer) {
         auto rtc_filename = "savs/" + filename + ".rtc";
         rtc_file.open(rtc_filename, std::ios::binary);
         if (rtc_file.fail()) {
