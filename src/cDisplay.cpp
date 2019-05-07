@@ -249,9 +249,10 @@ void cDisplay::drawTileLine(int firstByte, int secondByte, int xPosition, bool h
     for (int j = 0; j < 8; j++)
     {
         int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
+        if (isTileVisible(xOffset)) {
+            videoBuffer[ly][xOffset] = BGPTable[firstByte & 1u][secondByte & 1u];
+        }
 
-        if (isTileVisible(xOffset))
-            videoBuffer[ly][xOffset] = BGPTable[firstByte & 1][secondByte & 1];
 
         firstByte >>= 1;
         secondByte >>= 1;
@@ -260,7 +261,7 @@ void cDisplay::drawTileLine(int firstByte, int secondByte, int xPosition, bool h
 
 bool cDisplay::isTileVisible(int a_xPosition) const
 {
-    return a_xPosition < 160 && a_xPosition >= 0;
+    return a_xPosition < 160 && a_xPosition >= 0 && ly >= 0 && ly < 144;
 }
 
 void cDisplay::setBGColorTable(int tileNumber)

@@ -64,71 +64,61 @@ cCpu::~cCpu()
         delete mMemory;
 }
 
-u8 cCpu::flags()
-{
-    return ((zf << 7) | (nf << 6) | (hf << 5) | (cf << 4));
+u8 cCpu::flags() {
+    return (u8)(z_flag << 7u) | (u8)(n_flag << 6u) | (u8)(h_flag << 5u) | (u8)(c_flag << 4u);
 }
 
-void cCpu::flags(u8 val)
-{
-    zf = ((val >> 7) & 1);
-    nf = ((val >> 6) & 1);
-    hf = ((val >> 5) & 1);
-    cf = ((val >> 4) & 1);
+void cCpu::flags(u8 value) {
+    z_flag = (u8)(value >> 7u) & 1u;
+    n_flag = (u8)(value >> 6u) & 1u;
+    h_flag = (u8)(value >> 5u) & 1u;
+    c_flag = (u8)(value >> 4u) & 1u;
 }
 
-u16 cCpu::af()
-{
-    return (a << 8) | flags();
+u16 cCpu::af() {
+    return (u16)(a << 8u) | flags();
 }
 
-void cCpu::af(u16 val)
-{
-    a = val >> 8;
-    flags(val & 0xFF);
+void cCpu::af(u16 value) {
+    a = value >> 8u;
+    flags(value & 0xFFu);
 }
 
-u16 cCpu::bc()
-{
-    return ((b << 8) | c);
+u16 cCpu::bc() {
+    return (u16)(b << 8u) | c;
 }
 
-void cCpu::bc(u16 val)
-{
-    b = val >> 8;
-    c = val & 0xFF;
+void cCpu::bc(u16 value) {
+    b = value >> 8u;
+    c = value & 0xFFu;
 }
 
-u16 cCpu::de()
-{
-    return ((d << 8) | e);
+u16 cCpu::de() {
+    return (u16)(d << 8u) | e;
 }
 
-void cCpu::de(u16 val)
-{
-    d = val >> 8;
-    e = val & 0xFF;
+void cCpu::de(u16 value) {
+    d = value >> 8u;
+    e = value & 0xFFu;
 }
 
-u16 cCpu::hl()
-{
-    return ((h << 8) | l);
+u16 cCpu::hl() {
+    return (u16)(h << 8u) | l;
 }
 
-void cCpu::hl(u16 val)
-{
-    h = val >> 8;
-    l = val & 0xFF;
+void cCpu::hl(u16 value) {
+    h = value >> 8u;
+    l = value & 0xFFu;
 }
 
-u8 cCpu::readNextByte()
-{
+u8 cCpu::readNextByte() {
     return mMemory->readByte(pc++);
 }
 
-u16 cCpu::readNextWord()
-{
-    return (mMemory->readByte(pc++) | (mMemory->readByte(pc++) << 8));
+u16 cCpu::readNextWord() {
+    u16 result = (mMemory->readByte(pc) | (mMemory->readByte(pc + 1) << 8));
+    pc += 2;
+    return result;
 }
 
 void cCpu::saveState(int number)
@@ -909,16 +899,16 @@ void cCpu::executeOpcode(int a_opcode)
         case 0x27: daa();
             break;
         case 0x2F: a = ~a;
-            nf = true;
-            hf = true;
+            n_flag = true;
+            h_flag = true;
             break;
-        case 0x3F: cf = (cf == false);
-            nf = false;
-            hf = false;
+        case 0x3F: c_flag = (c_flag == false);
+            n_flag = false;
+            h_flag = false;
             break;
-        case 0x37: cf = true;
-            nf = false;
-            hf = false;
+        case 0x37: c_flag = true;
+            n_flag = false;
+            h_flag = false;
             break;
 
         case 0x00:
@@ -1148,37 +1138,37 @@ void cCpu::executeOpcode(int a_opcode)
 
         case 0xC3: pc = readNextWord();
             break;
-        case 0xC2: jp(zf == false, readNextWord());
+        case 0xC2: jp(z_flag == false, readNextWord());
             break;
-        case 0xCA: jp(zf == true, readNextWord());
+        case 0xCA: jp(z_flag == true, readNextWord());
             break;
-        case 0xD2: jp(cf == false, readNextWord());
+        case 0xD2: jp(c_flag == false, readNextWord());
             break;
-        case 0xDA: jp(cf == true, readNextWord());
+        case 0xDA: jp(c_flag == true, readNextWord());
             break;
         case 0xE9: pc = hl();
             break;
 
         case 0x18: jr(true, readNextByte());
             break;
-        case 0x20: jr(zf == false, readNextByte());
+        case 0x20: jr(z_flag == false, readNextByte());
             break;
-        case 0x28: jr(zf == true, readNextByte());
+        case 0x28: jr(z_flag == true, readNextByte());
             break;
-        case 0x30: jr(cf == false, readNextByte());
+        case 0x30: jr(c_flag == false, readNextByte());
             break;
-        case 0x38: jr(cf == true, readNextByte());
+        case 0x38: jr(c_flag == true, readNextByte());
             break;
 
         case 0xCD: call(true, readNextWord());
             break;
-        case 0xC4: call(zf == false, readNextWord());
+        case 0xC4: call(z_flag == false, readNextWord());
             break;
-        case 0xCC: call(zf == true, readNextWord());
+        case 0xCC: call(z_flag == true, readNextWord());
             break;
-        case 0xD4: call(cf == false, readNextWord());
+        case 0xD4: call(c_flag == false, readNextWord());
             break;
-        case 0xDC: call(cf == true, readNextWord());
+        case 0xDC: call(c_flag == true, readNextWord());
             break;
 
         case 0xC7: rst(0x00);
@@ -1200,13 +1190,13 @@ void cCpu::executeOpcode(int a_opcode)
 
         case 0xC9: ret(true);
             break;
-        case 0xC0: ret(zf == false);
+        case 0xC0: ret(z_flag == false);
             break;
-        case 0xC8: ret(zf == true);
+        case 0xC8: ret(z_flag == true);
             break;
-        case 0xD0: ret(cf == false);
+        case 0xD0: ret(c_flag == false);
             break;
-        case 0xD8: ret(cf == true);
+        case 0xD8: ret(c_flag == true);
             break;
 
         case 0xD9: ret(true);
@@ -1218,460 +1208,389 @@ void cCpu::executeOpcode(int a_opcode)
     }
 }
 
-void cCpu::adc(u8 val)
-{
-    u8 t = a + val + (u8) cf;
-    zf = ((t & 0xFF) == 0);
-    nf = false;
-    hf = (((a & 0xF) + (val & 0xF) + (u8) cf) > 0xF);
-    cf = ((a + val + (u8) cf) > 0xFF);
-    a = t;
+void cCpu::adc(u8 value) {
+    u8 result = a + value + (u8) c_flag;
+    z_flag = (result & 0xFFu) == 0;
+    n_flag = false;
+    h_flag = ((a & 0xFu) + (value & 0xFu) + (u8) c_flag) > 0xFu;
+    c_flag = (a + value + (u8) c_flag) > 0xFFu;
+    a = result;
 }
 
-void cCpu::add(u8 val)
-{
-    zf = (((a + val) & 0xFF) == 0);
-    nf = false;
-    hf = ((a & 0xF) + (val & 0xF) > 0xF);
-    cf = ((a + val) > 0xFF);
-    a += val;
+void cCpu::add(u8 value) {
+    z_flag = ((a + value) & 0xFFu) == 0;
+    n_flag = false;
+    h_flag = (a & 0xFu) + (value & 0xFu) > 0xFu;
+    c_flag = (a + value) > 0xFFu;
+    a += value;
 }
 
-void cCpu::addhl(u16 val)
-{
-    u16 temp = hl();
-    nf = false;
-    hf = ((temp & 0xFFF) + (val & 0xFFF)) > 0xFFF;
-    //hf=((temp>>8)+(val>>8))>0xFF;
-    cf = (temp + val) > 0xFFFF;
-    hl(temp + val);
+void cCpu::addhl(u16 value) {
+    u16 hl_value = hl();
+    n_flag = false;
+    h_flag = ((hl_value & 0xFFFu) + (value & 0xFFFu)) > 0xFFFu;
+    //h_flag=((hl_value>>8)+(value>>8))>0xFF;
+    c_flag = (hl_value + value) > 0xFFFFu;
+    hl(hl_value + value);
 }
 
-void cCpu::addsp(s8 val)
-{
-    cf = ((sp & 0xFF) + (u8) val) > 0xFF;
-    hf = ((sp & 0xF) + ((u8) val & 0xF)) > 0xF;
-    sp += val;
-    zf = false;
-    nf = false;
+void cCpu::addsp(s8 value) {
+    c_flag = ((sp & 0xFFu) + (u8) value) > 0xFFu;
+    h_flag = ((sp & 0xFu) + ((u8) value & 0xFu)) > 0xFu;
+    sp += value;
+    z_flag = false;
+    n_flag = false;
 }
 
-void cCpu::z8and(u8 val)
+void cCpu::z8and(u8 value)
 {
-    a &= val;
-    zf = (a == 0);
-    nf = false;
-    hf = true;
-    cf = false;
+    a &= value;
+    z_flag = (a == 0);
+    n_flag = false;
+    h_flag = true;
+    c_flag = false;
 }
 
-void cCpu::bit(u8 bit, u8 reg)
-{
-    bit >>= 3;
-    WARNING(bit > 7, "Bit es mayor a 7");
-    zf = (reg & (1 << bit)) == 0;
-    nf = false;
-    hf = true;
+void cCpu::bit(u8 bit_number, u8 register_value) {
+    bit_number >>= 3u;
+    z_flag = (register_value & (1u << bit_number)) == 0;
+    n_flag = false;
+    h_flag = true;
 }
 
-void cCpu::call(bool condition, u16 address)
-{
-    if (condition)
-    {
+void cCpu::call(bool condition, u16 address) {
+    if (condition) {
         push(pc);
         pc = address;
         mCyclesSum += 12;
     }
 }
 
-void cCpu::cp(u8 val)
-{
-    zf = (a == val);
-    nf = true;
-    hf = (a & 0xF) < (val & 0xF);
-    cf = a < val;
+void cCpu::cp(u8 val) {
+    z_flag = (a == val);
+    n_flag = true;
+    h_flag = (a & 0xFu) < (val & 0xFu);
+    c_flag = a < val;
 }
 
-void cCpu::daa(void)
-{
-    int temp = a;
-    if (nf)
-    {
-        if (hf) temp = (temp - 6) & 0xFF;
-        if (cf) temp -= 0x60;
-    }
-    else
-    {
-        if (hf || (temp & 0xF) > 9) temp += 6;
-        if (cf || temp > 0x9F) temp += 0x60;
+void cCpu::daa() {
+    int result = a;
+    if (n_flag) {
+        if (h_flag) result = (result - 6) & 0xFF;
+        if (c_flag) result -= 0x60;
+    } else {
+        if (h_flag || (result & 0xF) > 9) result += 6;
+        if (c_flag || result > 0x9F) result += 0x60;
 
     }
 
-    if ((temp & 0x100) == 0x100)
-        cf = true;
-    a = temp & 0xFF;
-    zf = (a == 0);
-    hf = false;
+    if ((result & 0x100) == 0x100)
+        c_flag = true;
+    a = result & 0xFF;
+    z_flag = (a == 0);
+    h_flag = false;
 }
 
-void cCpu::dec(u8 &reg)
-{
-    zf = (reg == 1);
-    nf = true;
-    hf = (reg & 0xF) == 0;
+void cCpu::dec(u8 &reg) {
+    z_flag = (reg == 1);
+    n_flag = true;
+    h_flag = (reg & 0xFu) == 0;
     reg -= 1;
 }
 
-void cCpu::dec(u8 &r1, u8 &r2)
-{
-    u16 reg = (r1 << 8) | r2;
-    reg -= 1;
-    r1 = reg >> 8;
-    r2 = reg & 0xFF;
+void cCpu::dec(u8 &high_register, u8 &low_register) {
+    u16 result = (high_register << 8u) | low_register;
+    result -= 1;
+    high_register = result >> 8u;
+    low_register = result & 0xFFu;
 }
 
-void cCpu::dechl(void)
-{
-    WARNING(hl() < 0x4000, "dechl??");
-    u8 temp = mMemory->readByte(hl());
-    dec(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::dechl() {
+    u8 result = mMemory->readByte(hl());
+    dec(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::inc(u8 &reg)
-{
-    zf = (reg == 0xFF);
-    nf = false;
-    hf = (reg & 0xF) == 0xF;
+void cCpu::inc(u8 &reg) {
+    z_flag = (reg == 0xFF);
+    n_flag = false;
+    h_flag = (reg & 0xFu) == 0xF;
     reg += 1;
 }
 
-void cCpu::inc(u8 &r1, u8 &r2)
-{
-    u16 reg = (r1 << 8) | r2;
-    reg += 1;
-    r1 = reg >> 8;
-    r2 = reg & 0xFF;
+void cCpu::inc(u8 &high_register, u8 &low_register) {
+    u16 result = (high_register << 8) | low_register;
+    result += 1;
+    high_register = result >> 8;
+    low_register = result & 0xFF;
 }
 
-void cCpu::inchl(void)
-{
-    WARNING(hl() < 0x4000, "inchl??");
-    u8 temp = mMemory->readByte(hl());
-    inc(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::inchl() {
+    u8 result = mMemory->readByte(hl());
+    inc(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::jp(bool condition, u16 address)
-{
-    if (condition)
-    {
+void cCpu::jp(bool condition, u16 address) {
+    if (condition) {
         pc = address;
         mCyclesSum += 4;
     }
 }
 
-void cCpu::jr(bool condition, s8 val)
-{
-    if (condition)
-    {
-        pc += val;
+void cCpu::jr(bool condition, s8 value) {
+    if (condition) {
+        pc += value;
         mCyclesSum += 20;
     }
 }
 
-void cCpu::ldhl(s8 val)
-{
+void cCpu::ldhl(s8 value) {
 
-    cf = ((sp & 0xFF) + (u8) val > 0xFF);
-    hf = ((sp & 0xF) + ((u8) val & 0xF) > 0xF);
-    zf = false;
-    nf = false;
-    hl(sp + val);
+    c_flag = ((sp & 0xFFu) + (u8) value > 0xFFu);
+    h_flag = ((sp & 0xFu) + ((u8) value & 0xFu) > 0xFu);
+    z_flag = false;
+    n_flag = false;
+    hl(sp + value);
 }
 
-void cCpu::ldnnsp(u16 val)
-{
-    mMemory->writeByte(val, sp & 0xFF);
-    mMemory->writeByte(val + 1, sp >> 8);
+void cCpu::ldnnsp(u16 value) {
+    mMemory->writeByte(value, sp & 0xFFu);
+    mMemory->writeByte(value + 1, sp >> 8u);
 }
 
-void cCpu::z8or(u8 val)
-{
-    a |= val;
-    zf = (a == 0);
-    nf = false;
-    hf = false;
-    cf = false;
+void cCpu::z8or(u8 value) {
+    a |= value;
+    z_flag = (a == 0);
+    n_flag = false;
+    h_flag = false;
+    c_flag = false;
 }
 
-void cCpu::pop(u8 &r1, u8 &r2)
-{
-    r2 = mMemory->readByte(sp);
+void cCpu::pop(u8 &high_register, u8 &low_register) {
+    low_register = mMemory->readByte(sp);
     sp++;
-    r1 = mMemory->readByte(sp);
+    high_register = mMemory->readByte(sp);
     sp++;
 
 }
 
-void cCpu::popaf(void)
-{
-    u8 temp;
-    pop(a, temp);
-    flags(temp);
+void cCpu::popaf() {
+    u8 flags_value;
+    pop(a, flags_value);
+    flags(flags_value);
 }
 
-void cCpu::push(u16 regs)
-{
+void cCpu::push(u16 regs) {
     sp--;
     mMemory->writeByte(sp, regs >> 8);
     sp--;
     mMemory->writeByte(sp, regs & 0xFF);
 }
 
-void cCpu::res(u8 bit, u8 &reg)
-{
-    reg &= ~(1 << (bit >> 3));
+void cCpu::res(u8 bit_number, u8 &reg) {
+    reg &= ~(1u << (bit_number >> 3u));
 }
 
-void cCpu::reshl(u8 bit)
-{
-    WARNING(hl() < 0x4000, "reshl??");
-    u8 temp = mMemory->readByte(hl());
-    res(bit, temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::reshl(u8 bit_number) {
+    u8 result = mMemory->readByte(hl());
+    res(bit_number, result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::ret(bool condition)
-{
-    u8 t1, t2;
-    if (condition)
-    {
-        pop(t1, t2);
-        pc = (t1 << 8) | t2;
+void cCpu::ret(bool condition) {
+    u8 high_byte, low_byte;
+    if (condition) {
+        pop(high_byte, low_byte);
+        pc = (high_byte << 8) | low_byte;
     }
 }
 
-void cCpu::rlc(u8 &reg)
-{
-    cf = (reg >> 7) & 1;
-    reg = (reg << 1) | cf;
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::rlc(u8 &reg) {
+    c_flag = (reg >> 7) & 1;
+    reg = (reg << 1) | c_flag;
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rlca(void)
-{
-    cf = (a >> 7) & 1;
-    a = (a << 1) | cf;
-    zf = false;
-    nf = false;
-    hf = false;
+void cCpu::rlca() {
+    c_flag = (a >> 7) & 1;
+    a = (a << 1) | c_flag;
+    z_flag = false;
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rlchl(void)
-{
-    WARNING(hl() < 0x4000, "rlchl??");
-    u8 temp = mMemory->readByte(hl());
-    rlc(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::rlchl() {
+    u8 result = mMemory->readByte(hl());
+    rlc(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::rl(u8 &reg)
-{
-    u8 temp = (u8) cf;
-    cf = (reg >> 7) & 1;
-    reg = (reg << 1) | temp;
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::rl(u8 &reg) {
+    u8 carry_flag_bit = (u8) c_flag;
+    c_flag = (reg >> 7u) & 1u;
+    reg = (reg << 1u) | carry_flag_bit;
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rla(void)
-{
-    u8 temp = a >> 7;
-    a = (a << 1) | cf;
-    zf = false;
-    cf = temp & 1;
-    nf = false;
-    hf = false;
+void cCpu::rla() {
+    u8 result = a >> 7;
+    a = (a << 1) | c_flag;
+    z_flag = false;
+    c_flag = result & 1;
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rlhl(void)
-{
-    WARNING(hl() < 0x4000, "rlhl??");
-    u8 temp = mMemory->readByte(hl());
-    rl(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::rlhl() {
+    u8 result = mMemory->readByte(hl());
+    rl(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::rrc(u8 &reg)
-{
-    cf = reg & 1;
-    reg = (reg >> 1) | (cf << 7);
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::rrc(u8 &reg) {
+    c_flag = reg & 1u;
+    reg = (reg >> 1u) | (c_flag << 7u);
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rrca(void)
-{
-    cf = a & 1;
-    a = (a >> 1) | (cf << 7);
-    zf = false;
-    nf = false;
-    hf = false;
+void cCpu::rrca() {
+    c_flag = a & 1u;
+    a = (a >> 1u) | (c_flag << 7u);
+    z_flag = false;
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rrchl(void)
-{
-    WARNING(hl() < 0x4000, "rrchl??");
-    u8 temp = mMemory->readByte(hl());
-    rrc(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::rrchl() {
+    u8 result = mMemory->readByte(hl());
+    rrc(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::rr(u8 &reg)
-{
-    bool temp = reg & 1; //Keep the first bit
-    reg = (reg >> 1) | (cf << 7); //Shift n right and put carry at the top
-    cf = temp; //Put the kept n bit into carry
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::rr(u8 &reg) {
+    bool new_carry_flag = reg & 1u; //Keep the first bit
+    reg = (reg >> 1u) | (c_flag << 7u); //Shift n right and put carry at the top
+    c_flag = new_carry_flag; //Put the kept n bit into carry
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rra(void)
-{
-    bool temp = a & 1; //Keep the first bit
-    a = (a >> 1) | (cf << 7); //Shift n right and put carry at the top
-    cf = temp; //Put the kept n bit into carry
-    zf = false;
-    nf = false;
-    hf = false;
+void cCpu::rra() {
+    bool result = a & 1u; //Keep the first bit
+    a = (a >> 1u) | (c_flag << 7u); //Shift n right and put carry at the top
+    c_flag = result; //Put the kept n bit into carry
+    z_flag = false;
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::rrhl(void)
-{
-    WARNING(hl() < 0x4000, "rrhl??");
-    u8 temp = mMemory->readByte(hl());
-    rr(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::rrhl() {
+    u8 result = mMemory->readByte(hl());
+    rr(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::rst(u8 val)
-{
-    call(true, val);
+void cCpu::rst(u8 address) {
+    call(true, address);
 }
 
-void cCpu::sbc(u8 val)
-{
-    u16 temp = a - val - cf;
-    nf = true;
-    //hf = (temp & 0xF) > (a & 0xF);
-    cf = (temp > a);
-    hf = ((a ^ val ^ (temp & 0xFF)) & 0x10 ? true : false);
+void cCpu::sbc(u8 value) {
+    u16 result = a - value - c_flag;
+    n_flag = true;
+    //h_flag = (result & 0xF) > (a & 0xF);
+    c_flag = (result > a);
+    h_flag = ((a ^ value ^ (result & 0xFFu)) & 0x10u) != 0;
 
-    a = temp & 0xFF;
-    zf = (a == 0);
+    a = result & 0xFFu;
+    z_flag = (a == 0);
 }
 
-void cCpu::set(u8 bit, u8 &reg)
-{
-    reg |= (1 << (bit >> 3));
+void cCpu::set(u8 bit, u8 &reg) {
+    reg |= (1u << (bit >> 3u));
 }
 
-void cCpu::sethl(u8 bit)
-{
-    WARNING(hl() < 0x4000, "sethl??");
-    u8 temp = mMemory->readByte(hl());
-    set(bit, temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::sethl(u8 bit_number) {
+    u8 result = mMemory->readByte(hl());
+    set(bit_number, result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::sla(u8 &reg)
-{
-    cf = (reg >> 7) & 1;
-    reg <<= 1;
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::sla(u8 &reg) {
+    c_flag = (reg >> 7u) & 1u;
+    reg <<= 1u;
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::slahl(void)
-{
-    WARNING(hl() < 0x4000, "slahl??");
-    u8 temp = mMemory->readByte(hl());
-    sla(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::slahl() {
+    u8 result = mMemory->readByte(hl());
+    sla(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::sra(u8 &reg)
-{
-    cf = reg & 1;
-    reg = (reg >> 1) | (reg & 0x80);
-    zf = (reg == 0);
-    hf = false;
-    nf = false;
+void cCpu::sra(u8 &reg) {
+    c_flag = reg & 1u;
+    reg = (reg >> 1u) | (reg & 0x80u);
+    z_flag = (reg == 0);
+    h_flag = false;
+    n_flag = false;
 }
 
-void cCpu::srahl(void)
-{
-    WARNING(hl() < 0x4000, "srahl??");
-    u8 temp = mMemory->readByte(hl());
-    sra(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::srahl() {
+    u8 result = mMemory->readByte(hl());
+    sra(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::srl(u8 &reg)
-{
-    cf = reg & 1;
-    reg >>= 1;
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
+void cCpu::srl(u8 &reg) {
+    c_flag = reg & 1u;
+    reg >>= 1u;
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
 }
 
-void cCpu::srlhl(void)
-{
-    WARNING(hl() < 0x4000, "srlhl??");
-    u8 temp = mMemory->readByte(hl());
-    srl(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::srlhl() {
+    u8 result = mMemory->readByte(hl());
+    srl(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::sub(u8 val)
-{
-    zf = (a == val);
-    nf = true;
-    hf = (val & 0xF) > (a & 0xF);
-    cf = (val > a);
-    a -= val;
+void cCpu::sub(u8 value) {
+    z_flag = (a == value);
+    n_flag = true;
+    h_flag = (value & 0xFu) > (a & 0xFu);
+    c_flag = (value > a);
+    a -= value;
 }
 
-void cCpu::swap(u8 &reg)
-{
-    reg = ((reg & 0xF) << 4) | (reg >> 4);
-    zf = (reg == 0);
-    nf = false;
-    hf = false;
-    cf = false;
+void cCpu::swap(u8 &reg) {
+    reg = ((reg & 0xFu) << 4u) | (reg >> 4u);
+    z_flag = (reg == 0);
+    n_flag = false;
+    h_flag = false;
+    c_flag = false;
 }
 
-void cCpu::swaphl(void)
-{
-    WARNING(hl() < 0x4000, "swaphl??");
-    u8 temp = mMemory->readByte(hl());
-    swap(temp);
-    mMemory->writeByte(hl(), temp);
+void cCpu::swaphl() {
+    u8 result = mMemory->readByte(hl());
+    swap(result);
+    mMemory->writeByte(hl(), result);
 }
 
-void cCpu::z8xor(u8 val)
-{
+void cCpu::z8xor(u8 val) {
     a ^= val;
-    zf = (a == 0);
-    nf = false;
-    hf = false;
-    cf = false;
+    z_flag = (a == 0);
+    n_flag = false;
+    h_flag = false;
+    c_flag = false;
 }
