@@ -13,30 +13,42 @@
 
 class MemoryMap;
 
-struct LCDC
-{
+struct LCDC {
+    u8 value;
     bool lcdcActive;
-    int wndMap;
-    bool wndActive;
+    int windowTileMap;
+    bool windowEnabled;
     int tileDataAddress;
     int BGMapAddress;
-    bool spActive;
+    int spriteSize;
+    bool spriteEnabled;
     bool bgWndActive;
 };
 
-class cDisplay
-{
+struct STAT {
+    bool LYCInterrupt;
+    bool mode2Interrupt;
+    bool mode1Interrupt;
+    bool mode0Interrupt;
+    bool coincidenceFlag;
+    unsigned int mode;
+};
+
+
+class cDisplay {
 public:
-    cDisplay(bool a_isColor);
+    explicit cDisplay(bool a_isColor);
     virtual ~cDisplay();
-    virtual void updateScreen(void) = 0;
+    virtual void updateScreen() = 0;
     u8 readFromDisplay(u16 a_address);
     void writeToDisplay(u16 a_address, u8 a_value);
     void setVRAMBank(int a_bank);
 
-    void getMemoryPointer(MemoryMap *a_memory)
-    { memory = a_memory; };
-    void hBlankDraw(void);
+    void getMemoryPointer(MemoryMap *a_memory) { memory = a_memory; };
+    void hBlankDraw();
+
+    bool mVBlankInterruptRequest;
+    bool mLCDInterruptRequest;
 
 protected:
     const int mScreenWidth = 160;
@@ -65,12 +77,21 @@ private:
     u32 mBGPaletteMemory[64];
     u32 mOBJPaletteMemory[64];
     LCDC lcdc;
-    s32 ly;
+    STAT stat;
+    u8 LYRegister;
+    u8 LYCRegister;
+    u8 SCXRegister;
+    u8 SCYRegister;
+    u8 WXRegister;
+    u8 WYRegister;
+    u32 LYCyclesCounter;
     int mFinalPriority;
     int mBGPI;
     int mOBPI;
     bool mIsColor;
     bool mMasterPriority, mOAMPriority;
+    void setMode(int mode);
+    void updateModes();
     void drawBackGround();
     void drawEmptyBG();
     void drawWindow();

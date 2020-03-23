@@ -342,19 +342,19 @@ void cCpu::updateModes()
     //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
     //This means those take double clock cycles to finish(because those are
     // slower than the other parts).
-    if (lyCycles <= 0)
-    {
+    auto LCDC = mMemory->readByte(0xFF40);
+    if (lyCycles <= 0) {
         lyCycles += (456 << mCurrentSpeed);
         scanLine = ++mMemory->IOMap[0xFF44][0]; //Increment LY
-        if (scanLine == 153)
-        {
+        if (scanLine == 153) {
             scanLine = 0;
             mMemory->IOMap[0xFF44][0] = 0;
         }
 
-        if (scanLine == mMemory->IOMap[0xFF45][0])//We have a LY==LYC interrupt
-        {
-            if ((mMemory->IOMap[0xFF41][0] & 0x40) && mMemory->IOMap[0xFF40][0] & 0x80)
+        auto LYC = mMemory->readByte(0xFF45);
+        if (scanLine == LYC) {
+            // We have a LY==LYC interrupt
+            if ((mMemory->IOMap[0xFF41][0] & 0x40) && LCDC & 0x80)
                 mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);
             setMode(4); //Set LYC flag(no mode)
         }
@@ -370,7 +370,7 @@ void cCpu::updateModes()
 
                 setMode(0);
                 mMemory->mDisplay->hBlankDraw();
-                if ((mMemory->IOMap[0xFF41][0] & 8) && (mMemory->IOMap[0xFF40][0] & 0x80))
+                if ((mMemory->IOMap[0xFF41][0] & 8) && (LCDC & 0x80))
                     mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 0 H-Blank LCDC Interrupt
                 if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
                     mMemory->HBlankHDMA();
@@ -384,9 +384,9 @@ void cCpu::updateModes()
                 nextMode = 4; //Full update
                 //display->updateScreen();
                 setMode(1);
-                if (mMemory->IOMap[0xFF40][0] & 0x80)
+                if (LCDC & 0x80)
                     mMemory->mInterrupts->setInterrupt(cInterrupts::VBLANK);
-                if (mMemory->IOMap[0xFF41][0] & 0x10 && mMemory->IOMap[0xFF40][0] & 0x80)
+                if (mMemory->IOMap[0xFF41][0] & 0x10 && LCDC & 0x80)
                     mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 1 V-Blank LCDC Interrupt
                 break;
 
@@ -394,7 +394,7 @@ void cCpu::updateModes()
                 cyclesCount += (80 << mCurrentSpeed);
                 nextMode = 3;
                 setMode(2);
-                if (mMemory->IOMap[0xFF41][0] & 0x20 && mMemory->IOMap[0xFF40][0] >> 7 == 1)
+                if (mMemory->IOMap[0xFF41][0] & 0x20 && LCDC >> 7 == 1)
                     mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 2 OAM LCDC Interrupt
                 break;
 

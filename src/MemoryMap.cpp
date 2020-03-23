@@ -127,6 +127,12 @@ int MemoryMap::readIO(int a_address)
             return mInterrupts->readRegister(a_address);
         case 0xFF4D:
             return (static_cast<int>(mPrepareSpeedChange)) | (mCurrentSpeed << 7);
+        case 0xFF40:  // LCDC
+        case 0xFF42:
+        case 0xFF43:
+        case 0xFF45:  // LYC
+        case 0xFF4A:
+        case 0xFF4B:
         case 0xFF68:
         case 0xFF69:
         case 0xFF6A:
@@ -397,14 +403,22 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
         case 0xFF44://LY
             IOMap[a_address][0] = 0;
             break;
+
         case 0xFF46://DMA
             DMATransfer(a_value);
             IOMap[a_address][0] = a_value;
             break;
-        case 0xFF47://BGP
-        case 0xFF48://OBP0
-        case 0xFF49://OBP1
-        case 0xFF4F:// VRAM bank
+        case 0xFF40: //LCDC
+//        case 0xFF44: //LY
+        case 0xFF42:  // SCY
+        case 0xFF43:  // SCX
+        case 0xFF45:  // LYC
+        case 0xFF47:  // BGP
+        case 0xFF48:  // OBP0
+        case 0xFF49:  // OBP1
+        case 0xFF4A:  // WY
+        case 0xFF4B:  // WX
+        case 0xFF4F:  // VRAM bank
             mDisplay->writeToDisplay(a_address, a_value);
             IOMap[a_address][0] = a_value;
             break;
