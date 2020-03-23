@@ -42,15 +42,6 @@ struct SerialTransfer
 class MemoryMap
 {
 public:
-    std::unique_ptr<cDisplay> mDisplay;
-    std::unique_ptr<cSound> mSound;
-    std::unique_ptr<cInput> mInput;
-    std::unique_ptr<cInterrupts> mInterrupts;
-    std::unique_ptr<cTimer> mTimer;
-    RTC_Regs rtc, rtc2;
-    SerialTransfer ST;
-    u16 romBank, ramBank, wRamBank;
-    u8 IOMap[0x10000][1]{};
     MemoryMap();
     ~MemoryMap();
     void rtcCounter(void);
@@ -62,6 +53,16 @@ public:
     void load_sram();
     void updateIO(int a_cycles);
     int changeSpeed();
+
+    std::unique_ptr<cDisplay> mDisplay;
+    std::unique_ptr<cSound> mSound;
+    std::unique_ptr<cInput> mInput;
+    std::unique_ptr<cInterrupts> mInterrupts;
+    std::unique_ptr<cTimer> mTimer;
+    RTC_Regs rtc, rtc2;
+    SerialTransfer ST;
+    u16 romBank, ramBank, wRamBank;
+    u8 IOMap[0x10000][1]{};
 
 private:
     std::vector<std::array<u8, 0x4000>> mRom;

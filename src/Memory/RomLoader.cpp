@@ -66,7 +66,7 @@ RomLoader::RomLoader(const std::string &file_name) {
     file.close();
 }
 
-std::vector<std::array<u8, 0x4000>> RomLoader::get_rom() {
+std::vector<RomBank> RomLoader::get_rom() {
     return rom;
 }
 
@@ -183,7 +183,7 @@ bool RomLoader::has_mbc_timer(u8 mbc_id) {
 
 void RomLoader::load_rom(int banks) {
     for (int i = 0; i < banks; ++i) {
-        rom.push_back(std::array<u8, 0x4000>{});
+        rom.push_back(RomBank{});
         file.read(reinterpret_cast<char *>(&rom[i][0]), 0x4000);
     }
 }

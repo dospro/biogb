@@ -7,6 +7,8 @@
 #include <fstream>
 #include "../macros.h"
 
+using RomBank = std::array<u8, 0x4000>;
+
 struct RomType {
     int id;
     char name[128];
@@ -30,7 +32,7 @@ enum class MBCTypes {
 class RomLoader {
 public:
     RomLoader(const std::string &file_name);
-    std::vector<std::array<u8, 0x4000>> get_rom();
+    std::vector<RomBank> get_rom();
     bool is_color();
     bool has_timer();
     int get_ram_banks();
@@ -43,7 +45,7 @@ private:
     int calculate_rom_banks(u8 rom_size_id);
     int calculate_ram_banks(u8 ram_size_id);
     void load_rom(int banks);
-    std::vector<std::array<u8, 0x4000>> rom;
+    std::vector<RomBank> rom;
     std::ifstream file;
     std::string name;
     bool color;
