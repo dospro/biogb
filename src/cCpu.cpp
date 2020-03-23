@@ -217,28 +217,6 @@ bool cCpu::init_cpu(std::string file_name)
     return true;
 }
 
-void cCpu::setMode(int mode)
-{
-    switch (mode)
-    {
-        case 0:
-            mMemory->IOMap[0xFF41][0] &= 252;
-            break;
-        case 1:
-            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 1;
-            break;
-        case 2:
-            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 2;
-            break;
-        case 3:
-            mMemory->IOMap[0xFF41][0] = (mMemory->IOMap[0xFF41][0] & 252) | 3;
-            break;
-        case 4:
-            mMemory->IOMap[0xFF41][0] |= 4;
-            break;
-    }
-}
-
 void cCpu::checkInterrupts()
 {
     int interrupt;
@@ -343,6 +321,8 @@ void cCpu::updateModes()
     //This means those take double clock cycles to finish(because those are
     // slower than the other parts).
     auto LCDC = mMemory->readByte(0xFF40);
+    auto STAT = mMemory->readByte(0xFF41);
+    auto mode = STAT & 3;
     if (lyCycles <= 0) {
         lyCycles += (456 << mCurrentSpeed);
         scanLine = ++mMemory->IOMap[0xFF44][0]; //Increment LY
@@ -354,54 +334,51 @@ void cCpu::updateModes()
         auto LYC = mMemory->readByte(0xFF45);
         if (scanLine == LYC) {
             // We have a LY==LYC interrupt
-            if ((mMemory->IOMap[0xFF41][0] & 0x40) && LCDC & 0x80)
+            if ((STAT & 0x40) && LCDC & 0x80)
                 mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);
-            setMode(4); //Set LYC flag(no mode)
+            mode = 4;  // Set LYC flag(no mode)
         }
     }
 
-    if (cyclesCount <= 0)//If the current mode has finished, change mode
-    {
-        switch (nextMode)
-        {
+    if (cyclesCount <= 0) {  // If the current mode has finished, change mode
+        switch (nextMode) {
             case 0://Do Mode 0 actions.
                 cyclesCount += (204 << mCurrentSpeed); //Number of cycles this mode needs
                 nextMode = 2;
 
-                setMode(0);
+                mode = 0;
                 mMemory->mDisplay->hBlankDraw();
-                if ((mMemory->IOMap[0xFF41][0] & 8) && (LCDC & 0x80))
+                if ((STAT & 8) && (LCDC & 0x80))
                     mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 0 H-Blank LCDC Interrupt
-                if (isColor)//In Gameboy Color it must be checked if we need to do hdma transfers
+                if (isColor)  // In Gameboy Color it must be checked if we need to do hdma transfers
                     mMemory->HBlankHDMA();
 
-                if (scanLine == 143)//If next scanline is 144 then go to V-Blank period
+                if (scanLine == 143)  // If next scanline is 144 then go to V-Blank period
                     nextMode = 1;
                 break;
 
-            case 1://Do Mode 1 actions
+            case 1:  // Do Mode 1 actions
                 cyclesCount += (4560 << mCurrentSpeed);
                 nextMode = 4; //Full update
-                //display->updateScreen();
-                setMode(1);
+                mode = 1;
                 if (LCDC & 0x80)
                     mMemory->mInterrupts->setInterrupt(cInterrupts::VBLANK);
-                if (mMemory->IOMap[0xFF41][0] & 0x10 && LCDC & 0x80)
-                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 1 V-Blank LCDC Interrupt
+                if (STAT & 0x10 && LCDC & 0x80)
+                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);  // Mode 1 V-Blank LCDC Interrupt
                 break;
 
-            case 2://Do Mode 2 actions
+            case 2:  // Do Mode 2 actions
                 cyclesCount += (80 << mCurrentSpeed);
                 nextMode = 3;
-                setMode(2);
-                if (mMemory->IOMap[0xFF41][0] & 0x20 && LCDC >> 7 == 1)
+                mode = 2;
+                if (STAT & 0x20 && LCDC >> 7 == 1)
                     mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 2 OAM LCDC Interrupt
                 break;
 
             case 3://Do Mode 3 actions
                 cyclesCount += (172 << mCurrentSpeed);
                 nextMode = 0;
-                setMode(3);
+                mode = 3;
                 break;
             case 4://Full update after mode 1
                 nextMode = 2;
@@ -410,6 +387,7 @@ void cCpu::updateModes()
                 break;
         }
     }
+    mMemory->mDisplay->setMode(mode);
 }
 
 void cCpu::fullUpdate()

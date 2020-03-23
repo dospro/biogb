@@ -128,6 +128,7 @@ int MemoryMap::readIO(int a_address)
         case 0xFF4D:
             return (static_cast<int>(mPrepareSpeedChange)) | (mCurrentSpeed << 7);
         case 0xFF40:  // LCDC
+        case 0xFF41:  // STAT
         case 0xFF42:
         case 0xFF43:
         case 0xFF45:  // LYC
@@ -397,9 +398,9 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
         case 0xFF0F: // IF Register
             mInterrupts->writeRegister(a_address, a_value);
             break;
-        case 0xFF41:
-            IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
-            break;
+//        case 0xFF41:
+//            IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
+//            break;
         case 0xFF44://LY
             IOMap[a_address][0] = 0;
             break;
@@ -410,6 +411,7 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
             break;
         case 0xFF40: //LCDC
 //        case 0xFF44: //LY
+        case 0xFF41:  // STAT
         case 0xFF42:  // SCY
         case 0xFF43:  // SCX
         case 0xFF45:  // LYC

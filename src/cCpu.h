@@ -119,7 +119,6 @@ private:
     inline void swap(u8 &reg);
     inline void swaphl();
     inline void z8xor(u8 val);
-    void setMode(int mode);
     void updateIMEFlag();
     void executeOpCode(int a_opCode);
     void executeCBOpCode(u8 a_cbOpCode);

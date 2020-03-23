@@ -46,6 +46,7 @@ public:
 
     void getMemoryPointer(MemoryMap *a_memory) { memory = a_memory; };
     void hBlankDraw();
+    void setMode(int mode);
 
     bool mVBlankInterruptRequest;
     bool mLCDInterruptRequest;
@@ -90,7 +91,6 @@ private:
     int mOBPI;
     bool mIsColor;
     bool mMasterPriority, mOAMPriority;
-    void setMode(int mode);
     void updateModes();
     void drawBackGround();
     void drawEmptyBG();

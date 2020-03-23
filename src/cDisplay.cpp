@@ -65,6 +65,13 @@ u8 cDisplay::readFromDisplay(u16 a_address) {
     } else {
         switch (a_address) {
             case 0xFF40: return lcdc.value;
+            case 0xFF41:
+                return (stat.LYCInterrupt << 6) |
+                       (stat.mode2Interrupt << 5) |
+                       (stat.mode1Interrupt << 4) |
+                       (stat.mode0Interrupt << 3) |
+                       (stat.coincidenceFlag << 2) |
+                       stat.mode;
             case 0xFF42: return SCYRegister;
             case 0xFF43: return SCXRegister;
             case 0xFF45: return LYCRegister;
