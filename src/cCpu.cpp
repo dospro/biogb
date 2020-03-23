@@ -301,9 +301,17 @@ void cCpu::initRTCTimer()
 
 void cCpu::doCycle()
 {
-    int opcode = fetchOpcode();
-    executeOpcode(opcode);
-    updateCycles(opcode);
+    u8 opCode = fetchOpCode();
+    updateIMEFlag();
+    if(opCode == 0xCB) {
+        u8 cbOpCode = fetchOpCode();
+        executeCBOpCode(cbOpCode);
+        mCyclesSum += mCBOpcodeCyclesTable[cbOpCode];
+    } else {
+        executeOpCode(opCode);
+        mCyclesSum += mOpcodeCyclesTable[opCode];
+    }
+    updateCycles();
     checkInterrupts();
     updateModes();
 
@@ -315,12 +323,12 @@ void cCpu::doCycle()
     }
 }
 
-int cCpu::fetchOpcode()
+int cCpu::fetchOpCode()
 {
     return mMemory->readByte(pc++);
 }
 
-void cCpu::updateCycles(int a_opcode)
+void cCpu::updateCycles()
 {
     mMemory->updateIO(mCyclesSum);
     cyclesCount -= mCyclesSum;
@@ -438,17 +446,14 @@ void cCpu::fullUpdate()
     }
 }
 
-void cCpu::executeOpcode(int a_opcode)
-{
-    int cbOpcode;
-    mCyclesSum += mOpcodeCyclesTable[a_opcode];
-    if (intStatus == 3)//Turn on interrupts
-    {
+void cCpu::updateIMEFlag() {
+    if (intStatus == 3) {
+        //Turn on interrupts
         interruptsEnabled = true;
         intStatus = 0;
     }
-    if (intStatus == 4)//Turn off interrupts
-    {
+    if (intStatus == 4) {
+        //Turn off interrupts
         interruptsEnabled = false;
         intStatus = 0;
     }
@@ -456,9 +461,10 @@ void cCpu::executeOpcode(int a_opcode)
         intStatus = 3;
     if (intStatus == 2)//Turn off in the next opcode
         intStatus = 4;
+}
 
-    switch (a_opcode)
-    {
+void cCpu::executeOpCode(int a_opCode) {
+    switch (a_opCode) {
         case 0x06: b = readNextByte();
             break;
         case 0x0E: c = readNextByte();
@@ -936,206 +942,6 @@ void cCpu::executeOpcode(int a_opcode)
         case 0x0F: rrca();
             break;
 
-        case 0xCB://CBOpcodes
-            cbOpcode = mMemory->readByte(pc++);
-            mCyclesSum += mCBOpcodeCyclesTable[cbOpcode];
-            switch (cbOpcode)
-            {
-                case 0x37: swap(a);
-                    break;
-                case 0x30: swap(b);
-                    break;
-                case 0x31: swap(c);
-                    break;
-                case 0x32: swap(d);
-                    break;
-                case 0x33: swap(e);
-                    break;
-                case 0x34: swap(h);
-                    break;
-                case 0x35: swap(l);
-                    break;
-                case 0x36: swaphl();
-                    break;
-
-                case 0x07: rlc(a);
-                    break;
-                case 0x00: rlc(b);
-                    break;
-                case 0x01: rlc(c);
-                    break;
-                case 0x02: rlc(d);
-                    break;
-                case 0x03: rlc(e);
-                    break;
-                case 0x04: rlc(h);
-                    break;
-                case 0x05: rlc(l);
-                    break;
-                case 0x06: rlchl();
-                    break;
-
-                case 0x17: rl(a);
-                    break;
-                case 0x10: rl(b);
-                    break;
-                case 0x11: rl(c);
-                    break;
-                case 0x12: rl(d);
-                    break;
-                case 0x13: rl(e);
-                    break;
-                case 0x14: rl(h);
-                    break;
-                case 0x15: rl(l);
-                    break;
-                case 0x16: rlhl();
-                    break;
-
-                case 0x0F: rrc(a);
-                    break;
-                case 0x08: rrc(b);
-                    break;
-                case 0x09: rrc(c);
-                    break;
-                case 0x0A: rrc(d);
-                    break;
-                case 0x0B: rrc(e);
-                    break;
-                case 0x0C: rrc(h);
-                    break;
-                case 0x0D: rrc(l);
-                    break;
-                case 0x0E: rrchl();
-                    break;
-
-                case 0x1F: rr(a);
-                    break;
-                case 0x18: rr(b);
-                    break;
-                case 0x19: rr(c);
-                    break;
-                case 0x1A: rr(d);
-                    break;
-                case 0x1B: rr(e);
-                    break;
-                case 0x1C: rr(h);
-                    break;
-                case 0x1D: rr(l);
-                    break;
-                case 0x1E: rrhl();
-                    break;
-
-                case 0x27: sla(a);
-                    break;
-                case 0x20: sla(b);
-                    break;
-                case 0x21: sla(c);
-                    break;
-                case 0x22: sla(d);
-                    break;
-                case 0x23: sla(e);
-                    break;
-                case 0x24: sla(h);
-                    break;
-                case 0x25: sla(l);
-                    break;
-                case 0x26: slahl();
-                    break;
-
-                case 0x2F: sra(a);
-                    break;
-                case 0x28: sra(b);
-                    break;
-                case 0x29: sra(c);
-                    break;
-                case 0x2A: sra(d);
-                    break;
-                case 0x2B: sra(e);
-                    break;
-                case 0x2C: sra(h);
-                    break;
-                case 0x2D: sra(l);
-                    break;
-                case 0x2E: srahl();
-                    break;
-
-                case 0x3F: srl(a);
-                    break;
-                case 0x38: srl(b);
-                    break;
-                case 0x39: srl(c);
-                    break;
-                case 0x3A: srl(d);
-                    break;
-                case 0x3B: srl(e);
-                    break;
-                case 0x3C: srl(h);
-                    break;
-                case 0x3D: srl(l);
-                    break;
-                case 0x3E: srlhl();
-                    break;
-
-                default:
-                    switch (cbOpcode & 199)//Discard the bit number
-                    {
-                        case 0x47: bit(cbOpcode & 0x38, a);
-                            break;
-                        case 0x40: bit(cbOpcode & 0x38, b);
-                            break;
-                        case 0x41: bit(cbOpcode & 0x38, c);
-                            break;
-                        case 0x42: bit(cbOpcode & 0x38, d);
-                            break;
-                        case 0x43: bit(cbOpcode & 0x38, e);
-                            break;
-                        case 0x44: bit(cbOpcode & 0x38, h);
-                            break;
-                        case 0x45: bit(cbOpcode & 0x38, l);
-                            break;
-                        case 0x46: bit(cbOpcode & 0x38, mMemory->readByte(hl()));
-                            break;
-
-                        case 0xC7: set(cbOpcode & 0x38, a);
-                            break;
-                        case 0xC0: set(cbOpcode & 0x38, b);
-                            break;
-                        case 0xC1: set(cbOpcode & 0x38, c);
-                            break;
-                        case 0xC2: set(cbOpcode & 0x38, d);
-                            break;
-                        case 0xC3: set(cbOpcode & 0x38, e);
-                            break;
-                        case 0xC4: set(cbOpcode & 0x38, h);
-                            break;
-                        case 0xC5: set(cbOpcode & 0x38, l);
-                            break;
-                        case 0xC6: sethl(cbOpcode & 0x38);
-                            break;
-
-                        case 0x87: res(cbOpcode & 0x38, a);
-                            break;
-                        case 0x80: res(cbOpcode & 0x38, b);
-                            break;
-                        case 0x81: res(cbOpcode & 0x38, c);
-                            break;
-                        case 0x82: res(cbOpcode & 0x38, d);
-                            break;
-                        case 0x83: res(cbOpcode & 0x38, e);
-                            break;
-                        case 0x84: res(cbOpcode & 0x38, h);
-                            break;
-                        case 0x85: res(cbOpcode & 0x38, l);
-                            break;
-                        case 0x86: reshl(cbOpcode & 0x38);
-                            break;
-                        default: // TODO: Raise exception.
-                            std::cout << "Opcode " << std::hex << cbOpcode << "no ejecutado" << std::endl;
-                    }
-            }
-            break;
-
         case 0xC3: pc = readNextWord();
             break;
         case 0xC2: jp(z_flag == false, readNextWord());
@@ -1205,6 +1011,204 @@ void cCpu::executeOpcode(int a_opcode)
 
         default: //TODO: Raise exception
             WARNING(true, "Unkown opcode");
+    }
+}
+
+void cCpu::executeCBOpCode(u8 a_cbOpCode) {
+    u8 innerBits = 0;
+    switch (a_cbOpCode) {
+        case 0x37: swap(a);
+            break;
+        case 0x30: swap(b);
+            break;
+        case 0x31: swap(c);
+            break;
+        case 0x32: swap(d);
+            break;
+        case 0x33: swap(e);
+            break;
+        case 0x34: swap(h);
+            break;
+        case 0x35: swap(l);
+            break;
+        case 0x36: swaphl();
+            break;
+
+        case 0x07: rlc(a);
+            break;
+        case 0x00: rlc(b);
+            break;
+        case 0x01: rlc(c);
+            break;
+        case 0x02: rlc(d);
+            break;
+        case 0x03: rlc(e);
+            break;
+        case 0x04: rlc(h);
+            break;
+        case 0x05: rlc(l);
+            break;
+        case 0x06: rlchl();
+            break;
+
+        case 0x17: rl(a);
+            break;
+        case 0x10: rl(b);
+            break;
+        case 0x11: rl(c);
+            break;
+        case 0x12: rl(d);
+            break;
+        case 0x13: rl(e);
+            break;
+        case 0x14: rl(h);
+            break;
+        case 0x15: rl(l);
+            break;
+        case 0x16: rlhl();
+            break;
+
+        case 0x0F: rrc(a);
+            break;
+        case 0x08: rrc(b);
+            break;
+        case 0x09: rrc(c);
+            break;
+        case 0x0A: rrc(d);
+            break;
+        case 0x0B: rrc(e);
+            break;
+        case 0x0C: rrc(h);
+            break;
+        case 0x0D: rrc(l);
+            break;
+        case 0x0E: rrchl();
+            break;
+
+        case 0x1F: rr(a);
+            break;
+        case 0x18: rr(b);
+            break;
+        case 0x19: rr(c);
+            break;
+        case 0x1A: rr(d);
+            break;
+        case 0x1B: rr(e);
+            break;
+        case 0x1C: rr(h);
+            break;
+        case 0x1D: rr(l);
+            break;
+        case 0x1E: rrhl();
+            break;
+
+        case 0x27: sla(a);
+            break;
+        case 0x20: sla(b);
+            break;
+        case 0x21: sla(c);
+            break;
+        case 0x22: sla(d);
+            break;
+        case 0x23: sla(e);
+            break;
+        case 0x24: sla(h);
+            break;
+        case 0x25: sla(l);
+            break;
+        case 0x26: slahl();
+            break;
+
+        case 0x2F: sra(a);
+            break;
+        case 0x28: sra(b);
+            break;
+        case 0x29: sra(c);
+            break;
+        case 0x2A: sra(d);
+            break;
+        case 0x2B: sra(e);
+            break;
+        case 0x2C: sra(h);
+            break;
+        case 0x2D: sra(l);
+            break;
+        case 0x2E: srahl();
+            break;
+
+        case 0x3F: srl(a);
+            break;
+        case 0x38: srl(b);
+            break;
+        case 0x39: srl(c);
+            break;
+        case 0x3A: srl(d);
+            break;
+        case 0x3B: srl(e);
+            break;
+        case 0x3C: srl(h);
+            break;
+        case 0x3D: srl(l);
+            break;
+        case 0x3E: srlhl();
+            break;
+
+        default:
+            innerBits = a_cbOpCode & 0x38;
+            switch (a_cbOpCode & 0xC7) { //Discard the bit number
+                case 0x47: bit(innerBits, a);
+                    break;
+                case 0x40: bit(innerBits, b);
+                    break;
+                case 0x41: bit(innerBits, c);
+                    break;
+                case 0x42: bit(innerBits, d);
+                    break;
+                case 0x43: bit(innerBits, e);
+                    break;
+                case 0x44: bit(innerBits, h);
+                    break;
+                case 0x45: bit(innerBits, l);
+                    break;
+                case 0x46: bit(innerBits, mMemory->readByte(hl()));
+                    break;
+
+                case 0xC7: set(innerBits, a);
+                    break;
+                case 0xC0: set(innerBits, b);
+                    break;
+                case 0xC1: set(innerBits, c);
+                    break;
+                case 0xC2: set(innerBits, d);
+                    break;
+                case 0xC3: set(innerBits, e);
+                    break;
+                case 0xC4: set(innerBits, h);
+                    break;
+                case 0xC5: set(innerBits, l);
+                    break;
+                case 0xC6: sethl(innerBits);
+                    break;
+
+                case 0x87: res(innerBits, a);
+                    break;
+                case 0x80: res(innerBits, b);
+                    break;
+                case 0x81: res(innerBits, c);
+                    break;
+                case 0x82: res(innerBits, d);
+                    break;
+                case 0x83: res(innerBits, e);
+                    break;
+                case 0x84: res(innerBits, h);
+                    break;
+                case 0x85: res(innerBits, l);
+                    break;
+                case 0x86: reshl(innerBits);
+                    break;
+                default: // TODO: Raise exception.
+                    std::cout << "Opcode " << std::hex << a_cbOpCode << "no ejecutado" << std::endl;
+            }
     }
 }
 

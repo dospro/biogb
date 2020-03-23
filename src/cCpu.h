@@ -27,8 +27,8 @@ public:
     void doCycle();
     void saveState(int number);
     void loadState(int number);
-    int fetchOpcode();
-    void updateCycles(int a_opcode);
+    int fetchOpCode();
+    void updateCycles();
 
 private:
 
@@ -120,7 +120,9 @@ private:
     inline void swaphl();
     inline void z8xor(u8 val);
     void setMode(int mode);
-    void executeOpcode(int a_opcode);
+    void updateIMEFlag();
+    void executeOpCode(int a_opCode);
+    void executeCBOpCode(u8 a_cbOpCode);
     void checkInterrupts();
     void updateModes();
     void initRTCTimer();
