@@ -340,6 +340,8 @@ void cCpu::updateModes()
             if ((STAT & 0x40) && LCDC & 0x80)
                 mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);
             mode = 4;  // Set LYC flag(no mode)
+        } else {
+            mMemory->mDisplay->resetLYCFlag();
         }
     }
 

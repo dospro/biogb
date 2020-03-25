@@ -48,6 +48,8 @@ public:
     void hBlankDraw();
     void setMode(int mode);
 
+    void resetLYCFlag() { stat.coincidenceFlag = false; };
+
     bool mVBlankInterruptRequest;
     bool mLCDInterruptRequest;
 

@@ -106,11 +106,10 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value) {
                 lcdc.bgWndActive = (a_value & 1) != 0;
                 break;
             case 0xFF41:
-                stat.coincidenceFlag = (a_value & 0x40) != 0;
+                stat.LYCInterrupt = (a_value & 0x40) != 0;
                 stat.mode2Interrupt = (a_value & 0x20) != 0;
                 stat.mode1Interrupt = (a_value & 0x10) != 0;
                 stat.mode0Interrupt = (a_value & 0x8) != 0;
-                stat.coincidenceFlag = (a_value & 0x4) != 0;
                 break;
             case 0xFF42:
                 SCYRegister = a_value;
@@ -179,7 +178,12 @@ void cDisplay::setVRAMBank(int a_bank) {
 }
 
 void cDisplay::setMode(int mode) {
-    stat.mode = mode;
+    if (mode & 4) {
+        stat.coincidenceFlag = true;
+
+    } else {
+        stat.mode = mode;
+    }
 }
 
 void cDisplay::updateModes() {
