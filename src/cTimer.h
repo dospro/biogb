@@ -12,8 +12,9 @@ public:
     int readRegister(int a_address);
     void writeRegister(int a_address, int a_value);
     void update(int a_cycles);
+
+    bool InterruptBit;
 private:
-    cInterrupts *mInterrupts;
     int mDIV;
     int mTAC;
     int mTIMA;

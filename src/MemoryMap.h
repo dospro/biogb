@@ -53,6 +53,9 @@ public:
     void load_sram();
     void updateIO(int a_cycles);
     int changeSpeed();
+    void resetInterruptRequest(int interrupt);
+    int readIFRegister();
+    void writeIFRegister(u8 value);
 
     std::unique_ptr<cDisplay> mDisplay;
     std::unique_ptr<cSound> mSound;

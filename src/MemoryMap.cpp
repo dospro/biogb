@@ -124,7 +124,7 @@ int MemoryMap::readIO(int a_address)
         case 0xFF07:
             return mTimer->readRegister(a_address);
         case 0xFF0F:
-            return mInterrupts->readRegister(a_address);
+            return readIFRegister();
         case 0xFF4D:
             return (static_cast<int>(mPrepareSpeedChange)) | (mCurrentSpeed << 7);
         case 0xFF40:  // LCDC
@@ -396,7 +396,7 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
             mTimer->writeRegister(a_address, a_value);
             break;
         case 0xFF0F: // IF Register
-            mInterrupts->writeRegister(a_address, a_value);
+            writeIFRegister(a_value);
             break;
 //        case 0xFF41:
 //            IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
@@ -662,4 +662,21 @@ int MemoryMap::changeSpeed()
         mPrepareSpeedChange = false;
     }
     return mCurrentSpeed;
+}
+
+void MemoryMap::resetInterruptRequest(int interrupt) {
+    mInterrupts->resetInterrupt(interrupt);
+    if (interrupt == cInterrupts::TIMER) {
+        mTimer->InterruptBit = false;
+    }
+}
+
+int MemoryMap::readIFRegister() {
+    u8 temp = mTimer->InterruptBit ? cInterrupts::TIMER : 0;
+    return mInterrupts->readRegister(0xFF0F) | temp;
+}
+
+void MemoryMap::writeIFRegister(u8 value) {
+    mTimer->InterruptBit = (value & cInterrupts::TIMER) != 0 ? true : false;
+    mInterrupts->writeRegister(0xFF0F, value);
 }

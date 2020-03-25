@@ -1,7 +1,6 @@
 #include "cTimer.h"
 
-cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0} {
-    mInterrupts = a_interruptPointer;
+cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}, InterruptBit{false} {
 }
 
 cTimer::~cTimer() = default;
@@ -69,7 +68,7 @@ void cTimer::update(int a_cycles) {
     if (mTIMA > 0xFF)//This means we will have an overflow
     {
         mTIMA = mTMA;
-        mInterrupts->setInterrupt(cInterrupts::TIMER);
+        InterruptBit = true;
     }
     mDIV = newDiv;
 }

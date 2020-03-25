@@ -221,37 +221,40 @@ void cCpu::checkInterrupts()
 {
     int interrupt;
     interrupt = mMemory->mInterrupts->getReadyInterrupts();
-    if (interruptsEnabled && interrupt > 0)
+    int requestedInterrupts = mMemory->readIFRegister();
+    int enabledTimerInterrupt = mMemory->mInterrupts->readRegister(0xFFFF) & cInterrupts::TIMER;
+    bool timerInterrupt = (requestedInterrupts & enabledTimerInterrupt) != 0;
+    if (interruptsEnabled && (interrupt > 0 || timerInterrupt))
     {
         interruptsEnabled = false;
         if (interrupt & 1)//v-blank
         {
             call(true, 0x0040);
-            mMemory->mInterrupts->resetInterrupt(cInterrupts::VBLANK);
+            mMemory->resetInterruptRequest(cInterrupts::VBLANK);
             mCyclesSum += 20;
         }
         else if (interrupt & 2)//LCDC
         {
             call(true, 0x0048);
-            mMemory->mInterrupts->resetInterrupt(cInterrupts::LCDC);
+            mMemory->resetInterruptRequest(cInterrupts::LCDC);
             mCyclesSum += 20;
         }
-        else if (interrupt & 4)//timer
+        else if (timerInterrupt)//timer
         {
             call(true, 0x0050);
-            mMemory->mInterrupts->resetInterrupt(cInterrupts::TIMER);
+            mMemory->resetInterruptRequest(cInterrupts::TIMER);
             mCyclesSum += 20;
         }
         else if (interrupt & 8)//Serial Transfer
         {
             call(true, 0x0058);
-            mMemory->mInterrupts->resetInterrupt(cInterrupts::SERIAL);
+            mMemory->resetInterruptRequest(cInterrupts::SERIAL);
             mCyclesSum += 20;
         }
         else if (interrupt & 16)//P10-P13
         {
             call(true, 0x0060);
-            mMemory->mInterrupts->resetInterrupt(cInterrupts::JOYPAD);
+            mMemory->resetInterruptRequest(cInterrupts::JOYPAD);
             mCyclesSum += 20;
         }
     }
@@ -456,7 +459,7 @@ void cCpu::executeOpCode(int a_opCode) {
         case 0x2E: l = readNextByte();
             break;
 
-        case 0x7F: a = a;
+        case 0x7F:   // a = a;
             break;
         case 0x78: a = b;
             break;
@@ -473,7 +476,7 @@ void cCpu::executeOpCode(int a_opCode) {
         case 0x7E: a = mMemory->readByte(hl());
             break;
 
-        case 0x40: b = b;
+        case 0x40:  // b = b;
             break;
         case 0x41: b = c;
             break;
@@ -490,7 +493,7 @@ void cCpu::executeOpCode(int a_opCode) {
 
         case 0x48: c = b;
             break;
-        case 0x49: c = c;
+        case 0x49:  // c = c;
             break;
         case 0x4A: c = d;
             break;
@@ -507,7 +510,7 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
         case 0x51: d = c;
             break;
-        case 0x52: d = d;
+        case 0x52:  // d = d;
             break;
         case 0x53: d = e;
             break;
@@ -524,7 +527,7 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
         case 0x5A: e = d;
             break;
-        case 0x5B: e = e;
+        case 0x5B:  // e = e;
             break;
         case 0x5C: e = h;
             break;
@@ -541,7 +544,7 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
         case 0x63: h = e;
             break;
-        case 0x64: h = h;
+        case 0x64:  // h = h;
             break;
         case 0x65: h = l;
             break;
@@ -558,7 +561,7 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
         case 0x6C: l = h;
             break;
-        case 0x6D: l = l;
+        case 0x6D:  // l = l;
             break;
         case 0x6E: l = mMemory->readByte(hl());
             break;
