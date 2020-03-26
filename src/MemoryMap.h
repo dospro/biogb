@@ -9,9 +9,16 @@
 #include "cDisplay.h"
 #include "sound/cSound.h"
 #include "cInput.h"
-#include "cInterrupts.h"
 #include "cTimer.h"
 #include "Memory/RomLoader.h"
+
+enum eInterrupts {
+        VBLANK = 1,
+        LCDC = 2,
+        TIMER = 4,
+        SERIAL = 8,
+        JOYPAD = 16
+};
 
 struct HDMA
 {
@@ -39,6 +46,8 @@ struct SerialTransfer
     u8 rec, trans;
 };
 
+class cTimer;
+
 class MemoryMap
 {
 public:
@@ -53,6 +62,7 @@ public:
     void load_sram();
     void updateIO(int a_cycles);
     int changeSpeed();
+    u8 getEnabledInterrupts();
     void resetInterruptRequest(int interrupt);
     int readIFRegister();
     void writeIFRegister(u8 value);
@@ -60,7 +70,6 @@ public:
     std::unique_ptr<cDisplay> mDisplay;
     std::unique_ptr<cSound> mSound;
     std::unique_ptr<cInput> mInput;
-    std::unique_ptr<cInterrupts> mInterrupts;
     std::unique_ptr<cTimer> mTimer;
     RTC_Regs rtc, rtc2;
     SerialTransfer ST;
@@ -81,6 +90,7 @@ private:
     bool mPrepareSpeedChange{};
     MBCTypes mbc_type;
     bool with_timer{};
+    u8 IERegister{};
     void init_ram(int ram_banks);
     void init_wram(bool is_color);
     void init_sub_systems();

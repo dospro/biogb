@@ -41,13 +41,8 @@ private:
     u16 pc, sp;
     bool interruptsEnabled;
     u32 intStatus;
-    s32 cyclesCount;
     int mCyclesSum;
-    u8 nextMode;
-    u8 scanLine;
-    s32 lyCycles;
     s32 rtcCount;
-    int mCurrentSpeed;
     bool isRunning;
     u32 fps, fpsCounter;
     u32 time1, time2;
@@ -123,7 +118,6 @@ private:
     void executeOpCode(int a_opCode);
     void executeCBOpCode(u8 a_cbOpCode);
     void checkInterrupts();
-    void updateModes();
     void initRTCTimer();
     void fullUpdate();
 };

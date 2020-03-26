@@ -13,7 +13,6 @@ MemoryMap::MemoryMap() :
         mDisplay{},
         mSound{},
         mInput{},
-        mInterrupts{},
         mTimer{},
         romBank{1},
         ramBank{},
@@ -79,8 +78,7 @@ void MemoryMap::init_sub_systems() {
     std::cout << "Input...";
     mInput = std::make_unique<cInput>();
     std::cout << "OK" << std::endl;
-    mInterrupts = std::make_unique<cInterrupts>();
-    mTimer = std::make_unique<cTimer>(mInterrupts.get());
+    mTimer = std::make_unique<cTimer>();
 }
 
 u8 MemoryMap::readByte(u16 address)
@@ -131,6 +129,7 @@ int MemoryMap::readIO(int a_address)
         case 0xFF41:  // STAT
         case 0xFF42:
         case 0xFF43:
+        case 0xFF44:  // LY
         case 0xFF45:  // LYC
         case 0xFF4A:
         case 0xFF4B:
@@ -140,7 +139,7 @@ int MemoryMap::readIO(int a_address)
         case 0xFF6B:
             return mDisplay->readFromDisplay(a_address);
         case 0xFFFF:
-            return mInterrupts->readRegister(a_address);
+            return IERegister;
         default:
             return IOMap[a_address][0];
     }
@@ -398,22 +397,15 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
         case 0xFF0F: // IF Register
             writeIFRegister(a_value);
             break;
-//        case 0xFF41:
-//            IOMap[a_address][0] = (IOMap[a_address][0] & 7) | (a_value & 0xF8); //Just write upper 5 bits
-//            break;
-        case 0xFF44://LY
-            IOMap[a_address][0] = 0;
-            break;
-
         case 0xFF46://DMA
             DMATransfer(a_value);
             IOMap[a_address][0] = a_value;
             break;
         case 0xFF40: //LCDC
-//        case 0xFF44: //LY
         case 0xFF41:  // STAT
         case 0xFF42:  // SCY
         case 0xFF43:  // SCX
+        case 0xFF44:  // LY
         case 0xFF45:  // LYC
         case 0xFF47:  // BGP
         case 0xFF48:  // OBP0
@@ -422,7 +414,6 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
         case 0xFF4B:  // WX
         case 0xFF4F:  // VRAM bank
             mDisplay->writeToDisplay(a_address, a_value);
-            IOMap[a_address][0] = a_value;
             break;
         case 0xFF4D:
             mPrepareSpeedChange = (a_value & 1) == 1;
@@ -478,28 +469,24 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value)
             }
             break;
         case 0xFFFF:
-            mInterrupts->writeRegister(a_address, a_value);
+            IERegister = a_value;
             break;
         default:
             IOMap[a_address][0] = a_value;
     }
 }
 
-void MemoryMap::DMATransfer(u8 address)
-{
+void MemoryMap::DMATransfer(u8 address) {
     int temp = (address << 8);
-    for (int i = 0xFE00; i < 0xFEA0; i++)
-    {
+    for (int i = 0xFE00; i < 0xFEA0; i++) {
         IOMap[i][0] = readByte(temp);
         mDisplay->writeToDisplay(i, IOMap[i][0]);
         temp++;
     }
 }
 
-void MemoryMap::HDMATransfer(u16 source, u16 dest, u32 length)
-{
-    for (int i = 0; i < length; i++)
-    {
+void MemoryMap::HDMATransfer(u16 source, u16 dest, u32 length) {
+    for (int i = 0; i < length; i++) {
         writeByte(0x8000 + dest + i, readByte(source + i));
     }
 }
@@ -645,10 +632,10 @@ void MemoryMap::load_sram() {
     }
 }
 
-void MemoryMap::updateIO(int a_cycles)
-{
+void MemoryMap::updateIO(int a_cycles) {
+    mDisplay->update(a_cycles >> mCurrentSpeed);
     mSound->updateCycles(a_cycles >> mCurrentSpeed);
-    mTimer->update(a_cycles >> mCurrentSpeed);
+    mTimer->update(a_cycles);
 }
 
 int MemoryMap::changeSpeed()
@@ -664,19 +651,44 @@ int MemoryMap::changeSpeed()
     return mCurrentSpeed;
 }
 
+u8 MemoryMap::getEnabledInterrupts() {
+    return IERegister & readIFRegister();
+}
+
 void MemoryMap::resetInterruptRequest(int interrupt) {
-    mInterrupts->resetInterrupt(interrupt);
-    if (interrupt == cInterrupts::TIMER) {
-        mTimer->InterruptBit = false;
+    switch (interrupt) {
+        case eInterrupts::VBLANK:
+            mDisplay->mVBlankInterruptRequest = false;
+            break;
+
+        case eInterrupts::LCDC:
+            mDisplay->mLCDInterruptRequest = false;
+            break;
+
+        case eInterrupts::TIMER:
+            mTimer->InterruptBit = false;
+            break;
+
+        default:
+            printf("Resseting other interrupt %d\n", interrupt);
+            break;
     }
 }
 
 int MemoryMap::readIFRegister() {
-    u8 temp = mTimer->InterruptBit ? cInterrupts::TIMER : 0;
-    return mInterrupts->readRegister(0xFF0F) | temp;
+    u8 vblank = mDisplay->mVBlankInterruptRequest ? eInterrupts::VBLANK : 0;
+    u8 lcdc = mDisplay->mLCDInterruptRequest ? eInterrupts::LCDC : 0;
+    u8 timer = mTimer->InterruptBit ? eInterrupts::TIMER : 0;
+    u8 serial = 0;
+    u8 joypad = 0;
+    return serial | joypad | timer | vblank | lcdc;
 }
 
 void MemoryMap::writeIFRegister(u8 value) {
-    mTimer->InterruptBit = (value & cInterrupts::TIMER) != 0 ? true : false;
-    mInterrupts->writeRegister(0xFF0F, value);
+    mDisplay->mVBlankInterruptRequest = (value & eInterrupts::VBLANK) != 0;
+    mDisplay->mLCDInterruptRequest = (value & eInterrupts::LCDC) != 0;
+    mTimer->InterruptBit = (value & eInterrupts::TIMER) != 0;
+    if ((value & eInterrupts::SERIAL) || (value & eInterrupts::JOYPAD)) {
+        printf("Other interrupts request\n");
+    }
 }

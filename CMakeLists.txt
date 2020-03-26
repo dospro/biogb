@@ -36,8 +36,6 @@ set(SOURCE_FILES
         src/sound/cSoundChannel4.h
         src/cTimer.cpp
         src/cTimer.h
-        src/cInterrupts.cpp
-        src/cInterrupts.h
         #src/Memory/Rom.cpp src/Memory/Rom.h src/Memory/Ram.cpp src/Memory/Ram.h src/Memory/MemoryController.cpp src/Memory/MemoryController.h src/Memory/MBC1.cpp src/Memory/MBC1.h src/Memory/RomOnly.cpp src/Memory/RomOnly.h src/Memory/MBC5.cpp src/Memory/MBC5.h)
         src/Memory/RomLoader.cpp
         src/Memory/RomLoader.h src/Exceptions.h)

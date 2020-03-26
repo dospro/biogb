@@ -1,7 +1,3 @@
-//
-// Created by dospro on 14/12/15.
-//
-
 #include "cSoundChannel1.h"
 
 cSoundChannel1::cSoundChannel1(int a_generalFrecuency) :

@@ -46,9 +46,7 @@ public:
 
     void getMemoryPointer(MemoryMap *a_memory) { memory = a_memory; };
     void hBlankDraw();
-    void setMode(int mode);
-
-    void resetLYCFlag() { stat.coincidenceFlag = false; };
+    void update(int a_cycles);
 
     bool mVBlankInterruptRequest;
     bool mLCDInterruptRequest;
@@ -87,13 +85,14 @@ private:
     u8 SCYRegister;
     u8 WXRegister;
     u8 WYRegister;
-    u32 LYCyclesCounter;
+    int LYCyclesCounter;
+    int cyclesCounter;
+    u32 nextMode;
     int mFinalPriority;
     int mBGPI;
     int mOBPI;
     bool mIsColor;
     bool mMasterPriority, mOAMPriority;
-    void updateModes();
     void drawBackGround();
     void drawEmptyBG();
     void drawWindow();

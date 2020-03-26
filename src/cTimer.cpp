@@ -1,6 +1,6 @@
 #include "cTimer.h"
 
-cTimer::cTimer(cInterrupts *a_interruptPointer) : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}, InterruptBit{false} {
+cTimer::cTimer() : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}, InterruptBit{false} {
 }
 
 cTimer::~cTimer() = default;

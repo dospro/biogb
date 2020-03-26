@@ -2,12 +2,11 @@
 #define BIOGB_CTIMER_H
 
 
-#include "cInterrupts.h"
+#include "MemoryMap.h"
 
-class cTimer
-{
+class cTimer {
 public:
-    cTimer(cInterrupts *a_interruptPointer);
+    cTimer();
     ~cTimer();
     int readRegister(int a_address);
     void writeRegister(int a_address, int a_value);

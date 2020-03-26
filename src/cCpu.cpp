@@ -11,7 +11,7 @@ cNet net;
 
 bool isColor;
 
-cCpu::cCpu() : mCyclesSum{0}, mCurrentSpeed{0}
+cCpu::cCpu() : mCyclesSum{0}
 {
     mMemory = nullptr;
     mOpcodeCyclesTable = {1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1,
@@ -131,14 +131,7 @@ void cCpu::loadState(int number)
 
 }
 
-bool cCpu::init_cpu(std::string file_name)
-{
-    cyclesCount = 0;
-    nextMode = 3;
-    lyCycles = 456;
-    scanLine = 0;
-
-
+bool cCpu::init_cpu(std::string file_name) {
     af(0x11B0);
     bc(0x0013);
     de(0x00D8);
@@ -217,44 +210,29 @@ bool cCpu::init_cpu(std::string file_name)
     return true;
 }
 
-void cCpu::checkInterrupts()
-{
-    int interrupt;
-    interrupt = mMemory->mInterrupts->getReadyInterrupts();
-    int requestedInterrupts = mMemory->readIFRegister();
-    int enabledTimerInterrupt = mMemory->mInterrupts->readRegister(0xFFFF) & cInterrupts::TIMER;
-    bool timerInterrupt = (requestedInterrupts & enabledTimerInterrupt) != 0;
-    if (interruptsEnabled && (interrupt > 0 || timerInterrupt))
-    {
+void cCpu::checkInterrupts() {
+    auto interrupt = mMemory->getEnabledInterrupts();
+    if (interruptsEnabled && interrupt > 0) {
         interruptsEnabled = false;
-        if (interrupt & 1)//v-blank
-        {
+        if (interrupt & eInterrupts::VBLANK) {  // v-blank
             call(true, 0x0040);
-            mMemory->resetInterruptRequest(cInterrupts::VBLANK);
+            mMemory->resetInterruptRequest(eInterrupts::VBLANK);
             mCyclesSum += 20;
-        }
-        else if (interrupt & 2)//LCDC
-        {
+        } else if (interrupt & eInterrupts::LCDC) {  // LCDC
             call(true, 0x0048);
-            mMemory->resetInterruptRequest(cInterrupts::LCDC);
+            mMemory->resetInterruptRequest(eInterrupts::LCDC);
             mCyclesSum += 20;
-        }
-        else if (timerInterrupt)//timer
-        {
+        } else if (interrupt & eInterrupts::TIMER) {  // timer
             call(true, 0x0050);
-            mMemory->resetInterruptRequest(cInterrupts::TIMER);
+            mMemory->resetInterruptRequest(eInterrupts::TIMER);
             mCyclesSum += 20;
-        }
-        else if (interrupt & 8)//Serial Transfer
-        {
+        } else if (interrupt & eInterrupts::SERIAL) {  // Serial Transfer
             call(true, 0x0058);
-            mMemory->resetInterruptRequest(cInterrupts::SERIAL);
+            mMemory->resetInterruptRequest(eInterrupts::SERIAL);
             mCyclesSum += 20;
-        }
-        else if (interrupt & 16)//P10-P13
-        {
+        } else if (interrupt & eInterrupts::JOYPAD) {  // P10-P13
             call(true, 0x0060);
-            mMemory->resetInterruptRequest(cInterrupts::JOYPAD);
+            mMemory->resetInterruptRequest(eInterrupts::JOYPAD);
             mCyclesSum += 20;
         }
     }
@@ -292,9 +270,14 @@ void cCpu::doCycle()
         executeOpCode(opCode);
         mCyclesSum += mOpcodeCyclesTable[opCode];
     }
-    updateCycles();
     checkInterrupts();
-    updateModes();
+    updateCycles();
+
+    if(fpsCounter > 10) {
+        fullUpdate();
+        fpsCounter = 0;
+    }
+    fpsCounter++;
 
 
     if (rtcCount >= 4194304)
@@ -312,87 +295,8 @@ int cCpu::fetchOpCode()
 void cCpu::updateCycles()
 {
     mMemory->updateIO(mCyclesSum);
-    cyclesCount -= mCyclesSum;
-    lyCycles -= mCyclesSum;
     rtcCount += mCyclesSum;
     mCyclesSum = 0;
-}
-
-void cCpu::updateModes()
-{
-    //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
-    //This means those take double clock cycles to finish(because those are
-    // slower than the other parts).
-    auto LCDC = mMemory->readByte(0xFF40);
-    auto STAT = mMemory->readByte(0xFF41);
-    auto mode = STAT & 3;
-    if (lyCycles <= 0) {
-        lyCycles += (456 << mCurrentSpeed);
-        scanLine = ++mMemory->IOMap[0xFF44][0]; //Increment LY
-        if (scanLine == 153) {
-            scanLine = 0;
-            mMemory->IOMap[0xFF44][0] = 0;
-        }
-
-        auto LYC = mMemory->readByte(0xFF45);
-        if (scanLine == LYC) {
-            // We have a LY==LYC interrupt
-            if ((STAT & 0x40) && LCDC & 0x80)
-                mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);
-            mode = 4;  // Set LYC flag(no mode)
-        } else {
-            mMemory->mDisplay->resetLYCFlag();
-        }
-    }
-
-    if (cyclesCount <= 0) {  // If the current mode has finished, change mode
-        switch (nextMode) {
-            case 0://Do Mode 0 actions.
-                cyclesCount += (204 << mCurrentSpeed); //Number of cycles this mode needs
-                nextMode = 2;
-
-                mode = 0;
-                mMemory->mDisplay->hBlankDraw();
-                if ((STAT & 8) && (LCDC & 0x80))
-                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 0 H-Blank LCDC Interrupt
-                if (isColor)  // In Gameboy Color it must be checked if we need to do hdma transfers
-                    mMemory->HBlankHDMA();
-
-                if (scanLine == 143)  // If next scanline is 144 then go to V-Blank period
-                    nextMode = 1;
-                break;
-
-            case 1:  // Do Mode 1 actions
-                cyclesCount += (4560 << mCurrentSpeed);
-                nextMode = 4; //Full update
-                mode = 1;
-                if (LCDC & 0x80)
-                    mMemory->mInterrupts->setInterrupt(cInterrupts::VBLANK);
-                if (STAT & 0x10 && LCDC & 0x80)
-                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC);  // Mode 1 V-Blank LCDC Interrupt
-                break;
-
-            case 2:  // Do Mode 2 actions
-                cyclesCount += (80 << mCurrentSpeed);
-                nextMode = 3;
-                mode = 2;
-                if (STAT & 0x20 && LCDC >> 7 == 1)
-                    mMemory->mInterrupts->setInterrupt(cInterrupts::LCDC); //Mode 2 OAM LCDC Interrupt
-                break;
-
-            case 3://Do Mode 3 actions
-                cyclesCount += (172 << mCurrentSpeed);
-                nextMode = 0;
-                mode = 3;
-                break;
-            case 4://Full update after mode 1
-                nextMode = 2;
-                mMemory->mDisplay->updateScreen();
-                fullUpdate();
-                break;
-        }
-    }
-    mMemory->mDisplay->setMode(mode);
 }
 
 void cCpu::fullUpdate()
@@ -419,14 +323,14 @@ void cCpu::fullUpdate()
     if (mMemory->mInput->isKeyPressed(GBK_KP_MINUS)) if (fpsSpeed > 1)
         fpsSpeed--;
 
-    if (!mMemory->mInput->isKeyPressed(GBK_SPACE))
-    {
-        if (time1 > SDL_GetTicks())
-        {
-            SDL_Delay(time1 - SDL_GetTicks());
-        }
-        time1 = SDL_GetTicks() + ((17 / fpsSpeed));
-    }
+//    if (!mMemory->mInput->isKeyPressed(GBK_SPACE))
+//    {
+//        if (time1 > SDL_GetTicks())
+//        {
+//            SDL_Delay(time1 - SDL_GetTicks());
+//        }
+//        time1 = SDL_GetTicks() + ((17 / fpsSpeed));
+//    }
 }
 
 void cCpu::updateIMEFlag() {
@@ -904,12 +808,12 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
 
         case 0x76: // HALT
-            if (mMemory->mInterrupts->getReadyInterrupts() == 0)
+            if (mMemory->getEnabledInterrupts() == 0)
                 pc--;
             break;
         case 0x10:
             if (isColor)
-                mCurrentSpeed = mMemory->changeSpeed();
+                mMemory->changeSpeed();
             break;
         case 0xF3: intStatus = 2;
             break;
