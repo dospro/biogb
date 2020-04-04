@@ -1,0 +1,15 @@
+---
+BasedOnStyle: Google
+
+AllowAllConstructorInitializersOnNextLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Always
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakAfterReturnType: None
+IndentWidth: 4
+ColumnLimit: 120
+AllowAllArgumentsOnNextLine: false
+
+...

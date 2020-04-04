@@ -1,43 +1,12 @@
-/*
- *     Proyect: BioGB
- *    Filename: cSDLGfx.cpp
- *     Version: v4.0
- * Description: Gameboy Color Emulator
- *     License: GPLv2
- *
- *      Author: Copyright (C) Rub� Daniel Guti�rez Cruz <dospro@gmail.com>
- *        Date: 07-1-2007
- *
- *
- *	This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details. 
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- */
+#include "cSDLDisplay.h"
 
-
-#include"cSDLDisplay.h"
-
-cSDLDisplay::cSDLDisplay(bool a_isColor) :
-        mScreen{nullptr},
-        mRenderer{nullptr},
-        mTexture{nullptr},
-        cDisplay(a_isColor)
-{
-    if (SDL_WasInit(SDL_INIT_VIDEO) == 0)
-    {
-        if (SDL_Init(SDL_INIT_VIDEO) != 0)
-        {
+cSDLDisplay::cSDLDisplay(bool a_isColor)
+    : mScreen{nullptr},
+      mRenderer{nullptr},
+      mTexture{nullptr},
+      cDisplay(a_isColor) {
+    if (SDL_WasInit(SDL_INIT_VIDEO) == 0) {
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
             printf("SDL: Couldn't init SDL Video: %s\n", SDL_GetError());
             return;
         }
@@ -45,8 +14,7 @@ cSDLDisplay::cSDLDisplay(bool a_isColor) :
 
     mScreen = SDL_CreateWindow("BioGB v5.0", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, mScreenWidth * 3,
                                mScreenHeight * 3, 0);
-    if (!mScreen)
-    {
+    if (!mScreen) {
         puts("SDL: Error creating screen");
         return;
     }
@@ -58,26 +26,20 @@ cSDLDisplay::cSDLDisplay(bool a_isColor) :
     mWindowSize = {0, 0, mScreenWidth * 3, mScreenHeight * 3};
 }
 
-cSDLDisplay::~cSDLDisplay()
-{
-    if (mTexture != nullptr)
-    {
+cSDLDisplay::~cSDLDisplay() {
+    if (mTexture != nullptr) {
         SDL_DestroyTexture(mTexture);
     }
-    if (mRenderer != nullptr)
-    {
+    if (mRenderer != nullptr) {
         SDL_DestroyRenderer(mRenderer);
     }
-    if (mScreen != nullptr)
-    {
+    if (mScreen != nullptr) {
         SDL_DestroyWindow(mScreen);
     }
-    if (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO)
-        SDL_Quit();
+    if (SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) SDL_Quit();
 }
 
-void cSDLDisplay::updateScreen(void)
-{
+void cSDLDisplay::updateScreen() {
     SDL_UpdateTexture(mTexture, nullptr, videoBuffer, mScreenWidth * sizeof(unsigned int));
     SDL_RenderCopy(mRenderer, mTexture, nullptr, &mWindowSize);
     SDL_RenderPresent(mRenderer);

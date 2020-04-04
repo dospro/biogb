@@ -3,13 +3,13 @@
 
 #include <array>
 #include <vector>
-#include"macros.h"
+
+#include "macros.h"
 
 #define BGPI 0xFF68
 #define BGPD 0xFF69
 #define OBPI 0xFF6A
 #define OBPD 0xFF6B
-
 
 class MemoryMap;
 
@@ -34,38 +34,40 @@ struct STAT {
     unsigned int mode;
 };
 
-
 class cDisplay {
-public:
+    //    using VideoBuffer = std::array<std::array<int, 144>, 160>;
+    using VideoBuffer = int[144][160];
+
+   public:
     explicit cDisplay(bool a_isColor);
     virtual ~cDisplay();
     virtual void updateScreen() = 0;
     u8 readFromDisplay(u16 a_address);
     void writeToDisplay(u16 a_address, u8 a_value);
     void setVRAMBank(int a_bank);
+    bool hasLineFinished();
 
-    void getMemoryPointer(MemoryMap *a_memory) { memory = a_memory; };
     void hBlankDraw();
     void update(int a_cycles);
+    const VideoBuffer &getFrameBuffer();
 
     bool mVBlankInterruptRequest;
     bool mLCDInterruptRequest;
 
-protected:
+   protected:
     const int mScreenWidth = 160;
     const int mScreenHeight = 144;
-    int videoBuffer[144][160];
+    VideoBuffer videoBuffer;
 
-private:
+   private:
     const int TOTAL_OAM_BLOCKS = 40;
     const int SPRITE_ABOVE_BG = 0;
     const int BG_ABOVE_SPRITE = 1;
     const int OAM_SPRITE_ABOVE_BG = 2;
-    const int TILE_PATTERN_TABLE_0 = 0; //0x8000 - 0x8000;
-    const int TILE_PATTERN_TABLE_1 = 0x0800; //0x8800 - 0x8000;
-    const int TILE_MAP_TABLE_0 = 0x1800; // 0x9800 - 0x8000
-    const int TILE_MAP_TABLE_1 = 0x1C00; // 0x9C00 - 0x8000
-    MemoryMap *memory;
+    const int TILE_PATTERN_TABLE_0 = 0;       // 0x8000 - 0x8000;
+    const int TILE_PATTERN_TABLE_1 = 0x0800;  // 0x8800 - 0x8000;
+    const int TILE_MAP_TABLE_0 = 0x1800;      // 0x9800 - 0x8000
+    const int TILE_MAP_TABLE_1 = 0x1C00;      // 0x9C00 - 0x8000
     std::array<u8, 0x9F> mOAM;
     std::vector<std::array<u8, 0x2000>> mVRAM;
     std::array<u32, 8> mSpriteColorTable;
@@ -92,6 +94,7 @@ private:
     int mBGPI;
     int mOBPI;
     bool mIsColor;
+    bool isLineFinished;
     bool mMasterPriority, mOAMPriority;
     void drawBackGround();
     void drawEmptyBG();

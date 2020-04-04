@@ -1,34 +1,27 @@
 #ifndef BIOGB_MEMORYMAP_H
 #define BIOGB_MEMORYMAP_H
 
-#include <iostream>
-#include <vector>
 #include <array>
+#include <iostream>
 #include <string>
-#include "macros.h"
+#include <vector>
+
+#include "Memory/RomLoader.h"
 #include "cDisplay.h"
-#include "sound/cSound.h"
 #include "cInput.h"
 #include "cTimer.h"
-#include "Memory/RomLoader.h"
+#include "macros.h"
+#include "sound/cSound.h"
 
-enum eInterrupts {
-        VBLANK = 1,
-        LCDC = 2,
-        TIMER = 4,
-        SERIAL = 8,
-        JOYPAD = 16
-};
+enum eInterrupts { VBLANK = 1, LCDC = 2, TIMER = 4, SERIAL = 8, JOYPAD = 16 };
 
-struct HDMA
-{
+struct HDMA {
     u8 hs, ls;
     u8 hd, ld;
     int length;
     bool mode, active;
 };
-struct RTC_Regs
-{
+struct RTC_Regs {
     u8 rtcRegSelect;
     bool areRtcRegsSelected;
     bool latch;
@@ -38,8 +31,7 @@ struct RTC_Regs
     u8 dl;
     u8 dh;
 };
-struct SerialTransfer
-{
+struct SerialTransfer {
     bool start;
     bool cType;
     bool speed;
@@ -48,9 +40,8 @@ struct SerialTransfer
 
 class cTimer;
 
-class MemoryMap
-{
-public:
+class MemoryMap {
+   public:
     MemoryMap();
     ~MemoryMap();
     void rtcCounter(void);
@@ -76,13 +67,14 @@ public:
     u16 romBank, ramBank, wRamBank;
     u8 IOMap[0x10000][1]{};
 
-private:
+   private:
     std::vector<std::array<u8, 0x4000>> mRom;
     std::vector<std::array<u8, 0x2000>> mRam;
     std::vector<std::array<u8, 0x1000>> mWRam;
     std::array<u8, 0x80> mHRam{};
     std::string mRomFilename;
     HDMA hdma;
+    bool mIsColor;
     bool mRomMode;
     u8 hi, lo;
     int dest, source;
@@ -108,5 +100,4 @@ private:
     int readIO(int a_address);
 };
 
-
-#endif //BIOGB_MEMORYMAP_H
+#endif  // BIOGB_MEMORYMAP_H

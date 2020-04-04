@@ -1,5 +1,6 @@
-#include<iostream>
-#include"cCpu.h"
+#include <iostream>
+
+#include "CPU/cCpu.h"
 
 int main(int argc, char *argv[]) {
     cCpu *gb;
@@ -12,7 +13,7 @@ int main(int argc, char *argv[]) {
     gb = new cCpu;
     if (gb->init_cpu(rom_file_name)) {
         while (gb->isCpuRunning())
-            gb->doCycle();
+            gb->runFrame();
     }
     delete gb;
     return 0;

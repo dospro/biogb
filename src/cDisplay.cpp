@@ -1,5 +1,5 @@
 #include"cDisplay.h"
-#include"cCpu.h"
+#include"CPU/cCpu.h"
 
 #define COLOR_REDUCTION_FACTOR 1.5
 #define COLOR_INFLUENCE_FACTOR 8
@@ -20,7 +20,6 @@ cDisplay::cDisplay(bool a_isColor) :
                  {GB_DARK_GRAY, GB_BLACK}},
         mBGPaletteMemory{},
         mOBJPaletteMemory{},
-        memory{nullptr},
         mMasterPriority{false},
         mIsColor{a_isColor},
         mVRAMBank{0},
@@ -56,6 +55,7 @@ cDisplay::cDisplay(bool a_isColor) :
     if (a_isColor) {
         mVRAM.push_back(std::array<u8, 0x2000>{});
     }
+    stat.mode = 2;
 }
 
 cDisplay::~cDisplay() {}
@@ -80,6 +80,9 @@ u8 cDisplay::readFromDisplay(u16 a_address) {
             case 0xFF43: return SCXRegister;
             case 0xFF44: return LYRegister;
             case 0xFF45: return LYCRegister;
+            case 0xFF47: return 0;
+            case 0xFF48: return 0;
+            case 0xFF49: return 0;
             case 0xFF4A: return WYRegister;
             case 0xFF4B: return WXRegister;
             case 0xFF68: return mBGPI;
@@ -182,6 +185,10 @@ void cDisplay::setVRAMBank(int a_bank) {
     mVRAMBank = a_bank & 1;
 }
 
+bool cDisplay::hasLineFinished() {
+    return isLineFinished;
+}
+
 
 void cDisplay::update(int a_cycles) {
     //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
@@ -195,71 +202,78 @@ void cDisplay::update(int a_cycles) {
      * In double speed mode, the cpu is able to execute 200 cycles before a render is triggered.
      * In other words, all the cycles for LCDC are doubled.
     */
-    LYCyclesCounter -= a_cycles;
-    if (LYCyclesCounter <= 0) {
-        LYCyclesCounter += 456;
-        LYRegister++;
-        if (LYRegister == 153) {
-            LYRegister = 0;
-        }
 
-        if (LYRegister == LYCRegister) {
-            //We have a LY==LYC interrupt
-            if (lcdc.lcdcActive && stat.LYCInterrupt) {
+    // Let's first split the higher level cases:
+    // 1. When line changes
+    // 2. When all 144 lines are drawn
+    // 3. Do nothing for 10 lines???
+
+
+    const auto cyclesPerMode0 = 206;
+    const auto cyclesPerMode2 = 82;
+    const auto cyclesPerMode3 = 168;
+    const auto cyclesPerLines = cyclesPerMode0 + cyclesPerMode2 + cyclesPerMode3;  // 456
+
+    isLineFinished = false;
+    if (!lcdc.lcdcActive) {
+        return;
+    }
+
+    LYCyclesCounter += a_cycles;
+
+    if (stat.mode == 2) {
+        if (LYCyclesCounter >= cyclesPerMode2) {
+            // Mode 2 finished, next mode is 3
+            stat.mode = 3;
+        }
+    } else if (stat.mode == 3) {
+        if (LYCyclesCounter >= cyclesPerMode2 + cyclesPerMode3) {
+            stat.mode = 0;
+            if (stat.mode0Interrupt) {
                 mLCDInterruptRequest = true;
             }
-            stat.coincidenceFlag = true;
-        } else {
-            stat.coincidenceFlag = false;
+            hBlankDraw();
         }
-    }
+    } else if (stat.mode == 0 || stat.mode == 1) {
+        if (LYCyclesCounter >= cyclesPerLines) {
+            LYCyclesCounter -= cyclesPerLines;
+            LYRegister++;
+            isLineFinished = true;
 
-    cyclesCounter -= a_cycles;
-    if (cyclesCounter <= 0) {  // If the current mode has finished, change mode
-        switch (nextMode) {
-            case 0:  // Do Mode 0 actions.
-                cyclesCounter += 204; //Number of cycles this mode needs
-                nextMode = 2;
-                stat.mode = 0;
-                hBlankDraw();
-                if (stat.mode0Interrupt && lcdc.lcdcActive)
-                    mLCDInterruptRequest = true;  // Mode 0 H-Blank LCDC Interrupt
-//                if (mIsColor)  // In Gameboy Color it must be checked if we need to do hdma transfers
-//                    HBlankHDMA();
+            // TODO: Maybe modify cycles for lines 153 and 0???
 
-                if (LYRegister == 143)  // If next scanline is 144 then go to V-Blank period
-                    nextMode = 1;
-                break;
-
-            case 1:  // Do Mode 1 actions
-                cyclesCounter += 4560;
-                nextMode = 4; //Full update
-                stat.mode = 1;
-                if (lcdc.lcdcActive)
-                    mVBlankInterruptRequest = true;
-                if (stat.mode1Interrupt && lcdc.lcdcActive)
-                    mLCDInterruptRequest = true;  // Mode 1 V-Blank LCDC Interrupt
-                break;
-
-            case 2:  // Do Mode 2 actions
-                cyclesCounter += 80;
-                nextMode = 3;
+            if (LYRegister < 144) {
                 stat.mode = 2;
-                if (stat.mode2Interrupt && lcdc.lcdcActive)
-                    mLCDInterruptRequest = true;  // Mode 2 OAM LCDC Interrupt
-                break;
+                if (stat.mode2Interrupt) {
+                    mLCDInterruptRequest = true;
+                }
+            } else if (LYRegister == 144) {
+                // From line 144 to 153 we are on vblank
+                stat.mode = 1;
+                if ( stat.mode1Interrupt ) {
+                    mLCDInterruptRequest = true;
+                }
+                mVBlankInterruptRequest = true;
+            } else if (LYRegister > 153) {
+                // After line 153 we start all over again
+                LYRegister = 0;
+                stat.mode = 2;
+            }
+//            printf("Current line %d\n", LYRegister);
 
-            case 3:  // Do Mode 3 actions
-                cyclesCounter += 172;
-                nextMode = 0;
-                stat.mode = 3;
-                break;
-            case 4:  // Full update after mode 1
-                nextMode = 2;
-                updateScreen();
-                break;
+            stat.coincidenceFlag = false;
+            if (LYRegister == LYCRegister) {
+                stat.coincidenceFlag = true;
+                if (stat.LYCInterrupt) {
+                    mLCDInterruptRequest = true;
+                }
+            }
         }
     }
+}
+
+const cDisplay::VideoBuffer &cDisplay::getFrameBuffer() {
+    return this->videoBuffer;
 }
 
 void cDisplay::hBlankDraw() {
