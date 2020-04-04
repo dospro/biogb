@@ -1,5 +1,4 @@
 #include"cDisplay.h"
-#include"CPU/cCpu.h"
 
 #define COLOR_REDUCTION_FACTOR 1.5
 #define COLOR_INFLUENCE_FACTOR 8
@@ -174,6 +173,7 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value) {
                     mOBPI = (mOBPI + 1) & 0xFF;
                 break;
             default:
+                printf("Writing from IOMap %X: %X\n", a_address, a_value);
                 //TODO: Raise exception/
                 //std::cout << "Falta: " << a_address << "\n";
                 break;

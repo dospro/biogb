@@ -21,18 +21,15 @@ class cCpu {
 
     bool isCpuRunning() { return isRunning; }
 
-    void doCycle();
     void saveState(int number);
     void loadState(int number);
     void runFrame();
     void runScanLine();
     int fetchOpCode();
-    void updateCycles();
 
    private:
     MemoryMap *mMemory;
     std::array<int, 0x100> mOpcodeCyclesTable;
-    std::array<int, 0x100> opCycles;
     std::array<int, 0x100> mCBOpcodeCyclesTable;
     u8 a, b, c, d, e, h, l;
     bool z_flag, n_flag, h_flag, c_flag;

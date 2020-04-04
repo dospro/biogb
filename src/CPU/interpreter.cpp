@@ -1,7 +1,6 @@
 #include "cCpu.h"
 
 void cCpu::executeOpCode(int a_opCode) {
-    //    printf("PC: %x | Opcode: %x\n", pc, a_opCode);
     switch (a_opCode) {
         case 0x06: b = readNextByte(); break;
         case 0x0E: c = readNextByte(); break;

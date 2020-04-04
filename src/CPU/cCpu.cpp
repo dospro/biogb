@@ -21,7 +21,7 @@ cCpu::cCpu() : mCyclesSum{0} {
         2, 4, 3, 0, 3, 0, 2, 4, 3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4,
         3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4};
     for (int &i : mOpcodeCyclesTable) {
-        i <<= 2;
+        i *= 4;
     }
 
     mCBOpcodeCyclesTable = {
@@ -37,7 +37,7 @@ cCpu::cCpu() : mCyclesSum{0} {
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2};
     for (int &i : mCBOpcodeCyclesTable) {
-        i <<= 2;
+        i *= 4;
     }
 }
 
@@ -225,47 +225,16 @@ void cCpu::initRTCTimer() {
     mMemory->rtc2.dl = currentTime.tm_wday;
 }
 
-void cCpu::doCycle() {
-    u8 opCode = fetchOpCode();
-    updateIMEFlag();
-    if (opCode == 0xCB) {
-        u8 cbOpCode = fetchOpCode();
-        executeCBOpCode(cbOpCode);
-        mCyclesSum += mCBOpcodeCyclesTable[cbOpCode];
-    } else {
-        executeOpCode(opCode);
-        mCyclesSum += mOpcodeCyclesTable[opCode];
-    }
-    checkInterrupts();
-    updateCycles();
-
-    if (fpsCounter > 10) {
-        fullUpdate();
-        fpsCounter = 0;
-    }
-    fpsCounter++;
-
-    if (rtcCount >= 4194304) {
-        rtcCount -= 4194304;
-        mMemory->rtcCounter();
-    }
-}
 
 int cCpu::fetchOpCode() {
     return mMemory->readByte(pc++);
 }
 
-void cCpu::updateCycles() {
-    mMemory->updateIO(mCyclesSum);
-    rtcCount += mCyclesSum;
-    mCyclesSum = 0;
-}
 
 void cCpu::runFrame() {
     for (int line = 0; line < 154; ++line) {
         if (line == 144) {
             fullUpdate();
-            //            printf("Draw screen\n");
             mMemory->mDisplay->updateScreen();
         }
         runScanLine();
@@ -273,7 +242,6 @@ void cCpu::runFrame() {
 }
 
 void cCpu::runScanLine() {
-    const auto cyclesPerLine = 456;
     do {
         u8 opCode = fetchOpCode();
         auto cycles = 0;
@@ -288,14 +256,8 @@ void cCpu::runScanLine() {
         }
         cycles += checkInterrupts();
         mMemory->updateIO(cycles);
-        //        mMemory->mDisplay->update(cycles);
-        //        mMemory->mSound->updateCycles(cycles);
-        //        mMemory->mTimer->update(cycles);
         rtcCount += cycles;
-        mCyclesSum += cycles;
     } while (!mMemory->mDisplay->hasLineFinished());
-    //    mCyclesSum -= cyclesPerLine;
-    //    printf("Drawing the line\n");
     mMemory->HBlankHDMA();
 }
 
