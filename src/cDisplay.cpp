@@ -79,15 +79,15 @@ u8 cDisplay::readFromDisplay(u16 a_address) {
             case 0xFF43: return SCXRegister;
             case 0xFF44: return LYRegister;
             case 0xFF45: return LYCRegister;
-            case 0xFF47: return 0;
-            case 0xFF48: return 0;
-            case 0xFF49: return 0;
+            case 0xFF47: return BGPRegister;
+            case 0xFF48: return OBP0Register;
+            case 0xFF49: return OBP1Register;
             case 0xFF4A: return WYRegister;
             case 0xFF4B: return WXRegister;
-            case 0xFF68: return mBGPI;
-            case 0xFF69: return mBGPaletteMemory[mBGPI & 0x3F];
-            case 0xFF6A: return mOBPI;
-            case 0xFF6B: return mOBJPaletteMemory[mOBPI & 0x3F];
+            case 0xFF68: return BGPIRegister;
+            case 0xFF69: return mBGPaletteMemory[BGPIRegister & 0x3F];
+            case 0xFF6A: return OBPIRegister;
+            case 0xFF6B: return mOBJPaletteMemory[OBPIRegister & 0x3F];
             default:break;
         }
     }
@@ -130,55 +130,50 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value) {
             case 0xFF45:
                 LYCRegister = a_value;
                 break;
-            case 0xFF47://BGP
-                BGPTable[1][1] = WPTable[1][1] = BWColors[(a_value >> 7)][(a_value >> 6) & 1];
-                BGPTable[1][0] = WPTable[1][0] = BWColors[(a_value >> 5) & 1][(a_value >> 4) & 1];
-                BGPTable[0][1] = WPTable[0][1] = BWColors[(a_value >> 3) & 1][(a_value >> 2) & 1];
-                BGPTable[0][0] = WPTable[0][0] = BWColors[(a_value >> 1) & 1][(a_value & 1)];
+            case 0xFF47:  // BGP
+                BGPRegister = a_value;
+                setBGPColors(a_value);
                 break;
-            case 0xFF48://OBP0
+            case 0xFF48:  // OBP0
+                OBP0Register = a_value;
                 for (int i = 0; i < 4; ++i) {
                     mSpriteColorTable[i] = BWColors[(a_value >> ((i * 2) + 1)) & 1][(a_value >> (i * 2)) & 1];
                 }
                 break;
-            case 0xFF49://OBP1
+            case 0xFF49:  // OBP1
+                OBP1Register = a_value;
                 for (int i = 0; i < 4; ++i) {
                     mSpriteColorTable[i + 4] = BWColors[(a_value >> ((i * 2) + 1)) & 1][(a_value >> (i * 2)) & 1];
                 }
                 break;
-            case 0xFF4A:
-                WYRegister = a_value;
-                break;
-            case 0xFF4B:
-                WXRegister = a_value;
-                break;
-            case 0xFF4F: // VRAM Bank
-                setVRAMBank(a_value);
-                break;
-            case 0xFF68: // BGPI
-                mBGPI = a_value;
-                break;
-            case 0xFF69: // BGPD
-                mBGPaletteMemory[mBGPI & 0x3F] = a_value;
-                if (mBGPI & 0x80)
-                    mBGPI = (mBGPI + 1) & 0xFF;
-                break;
-            case OBPI:
-                mOBPI = a_value;
-                break;
-            case OBPD:
+            case 0xFF4A: WYRegister = a_value; break;
+            case 0xFF4B: WXRegister = a_value; break;
+            case 0xFF4F: setVRAMBank(a_value); break;    // VRAM Bank
+            case 0xFF68: BGPIRegister = a_value; break;  // BGPI
+            case 0xFF69:
+                mBGPaletteMemory[BGPIRegister & 0x3F] = a_value;
+                if (BGPIRegister & 0x80) BGPIRegister = (BGPIRegister + 1) & 0xFF;
+                break;  // BGPD
+            case 0xFF6A: OBPIRegister = a_value; break;
+            case 0xFF6B:
                 // 8 color palettes x 4 colors each palette x 2 bytes each color = 64 bytes(0x3F bytes)
-                mOBJPaletteMemory[mOBPI & 0x3F] = a_value;
-                if (mOBPI & 0x80)
-                    mOBPI = (mOBPI + 1) & 0xFF;
+                mOBJPaletteMemory[OBPIRegister & 0x3F] = a_value;
+                if (OBPIRegister & 0x80) OBPIRegister = (OBPIRegister + 1) & 0xFF;
                 break;
             default:
                 printf("Writing from IOMap %X: %X\n", a_address, a_value);
-                //TODO: Raise exception/
-                //std::cout << "Falta: " << a_address << "\n";
+                // TODO: Raise exception/
+                // std::cout << "Falta: " << a_address << "\n";
                 break;
         }
     }
+}
+
+void cDisplay::setBGPColors(u8 value) {
+    BGPTable[1][1] = WPTable[1][1] = BWColors[(value >> 7)][(value >> 6) & 1];
+    BGPTable[1][0] = WPTable[1][0] = BWColors[(value >> 5) & 1][(value >> 4) & 1];
+    BGPTable[0][1] = WPTable[0][1] = BWColors[(value >> 3) & 1][(value >> 2) & 1];
+    BGPTable[0][0] = WPTable[0][0] = BWColors[(value >> 1) & 1][(value & 1)];
 }
 
 void cDisplay::setVRAMBank(int a_bank) {

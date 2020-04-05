@@ -6,11 +6,6 @@
 
 #include "macros.h"
 
-#define BGPI 0xFF68
-#define BGPD 0xFF69
-#define OBPI 0xFF6A
-#define OBPD 0xFF6B
-
 class MemoryMap;
 
 struct LCDC {
@@ -87,12 +82,15 @@ class cDisplay {
     u8 SCYRegister;
     u8 WXRegister;
     u8 WYRegister;
+    u8 BGPRegister;
+    u8 OBP0Register;
+    u8 OBP1Register;
     int LYCyclesCounter;
     int cyclesCounter;
     u32 nextMode;
     int mFinalPriority;
-    int mBGPI;
-    int mOBPI;
+    int BGPIRegister;
+    int OBPIRegister;
     bool mIsColor;
     bool isLineFinished;
     bool mMasterPriority, mOAMPriority;
@@ -107,6 +105,8 @@ class cDisplay {
     void setBGColorTable(int tileNumber);
     bool isTileVisible(int a_xPosition) const;
     void drawTileLine(int firstByte, int secondByte, int xPosition, bool hFlip);
+
+    void setBGPColors(u8 value);
 };
 
 #endif

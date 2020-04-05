@@ -16,10 +16,8 @@ MemoryMap::MemoryMap()
       ramBank{},
       wRamBank{1},
       mRomMode{},
-      hi{},
-      lo{},
-      source{},
-      dest{},
+      MBC5HighAddress{},
+      MBC5LowAddress{},
       hdma{},
       rtc{},
       rtc2{},
@@ -105,6 +103,8 @@ u8 MemoryMap::readByte(u16 address) {
         return mHRam[address - 0xFF80];
     else
         return readIO(address);
+
+    return 0xFF;
 }
 
 int MemoryMap::readIO(int a_address) {
@@ -131,6 +131,11 @@ int MemoryMap::readIO(int a_address) {
         case 0xFF69:  // BGPD
         case 0xFF6A:
         case 0xFF6B: return mDisplay->readFromDisplay(a_address);
+        case 0xFF51: return hdma.src & 0xFF;
+        case 0xFF52: return (hdma.src >> 8) & 0xFF;
+        case 0xFF53: return hdma.dest & 0xFF;
+        case 0xFF54: return (hdma.dest >> 8) & 0xFF;
+        case 0xFF55: return (hdma.mode << 7) | (hdma.length / 0x10 - 1);
         case 0xFFFF: return IERegister;
         default: return IOMap[a_address][0];
     }
@@ -265,12 +270,12 @@ void MemoryMap::sendMBC3Command(u16 a_address, u8 a_value) {
 void MemoryMap::sendMBC5Command(u16 a_address, u8 a_value) {
     if (a_address >= 0x2000 && a_address < 0x3000)  // 8 lower bits rom bank change
     {
-        lo = a_value;
-        romBank = ((hi << 8) | lo) & 0x1FF;
+        MBC5LowAddress = a_value;
+        romBank = ((MBC5HighAddress << 8) | MBC5LowAddress) & 0x1FF;
     } else if (a_address >= 0x3000 && a_address < 0x4000)  // 9 bit of rom bank change
     {
-        hi = a_value & 1;
-        romBank = ((hi << 8) | lo) & 0x1FF;
+        MBC5HighAddress = a_value & 1;
+        romBank = ((MBC5HighAddress << 8) | MBC5LowAddress) & 0x1FF;
     } else if (a_address >= 0x4000 && a_address < 0x6000)  // ram bank change
         ramBank = a_value & 0xF;
 }
@@ -348,13 +353,8 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
         case 0xFF07:  // TAC Register
             mTimer->writeRegister(a_address, a_value);
             break;
-        case 0xFF0F:  // IF Register
-            writeIFRegister(a_value);
-            break;
-        case 0xFF46:  // DMA
-            DMATransfer(a_value);
-            IOMap[a_address][0] = a_value;
-            break;
+        case 0xFF0F: writeIFRegister(a_value); break;  // IF Register
+        case 0xFF46: DMATransfer(a_value); break;  // DMA
         case 0xFF40:  // LCDC
         case 0xFF41:  // STAT
         case 0xFF42:  // SCY
@@ -370,39 +370,24 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
             mDisplay->writeToDisplay(a_address, a_value);
             break;
         case 0xFF4D: mPrepareSpeedChange = (a_value & 1) == 1; break;
+        case 0xFF51: hdma.src = (hdma.src & 0xF0) | (a_value << 8); break;             // HDMA Source High
+        case 0xFF52: hdma.src = (hdma.src & 0xFF00) | (a_value & 0xF0); break;         // HDMA Source Low
+        case 0xFF53: hdma.dest = (hdma.dest & 0xFF) | ((a_value & 0x1F) << 8); break;  // HDMA Dest High
+        case 0xFF54: hdma.dest = (hdma.dest & 0x1F00) | (a_value & 0xF0); break;       // HDMA Dest Low
         case 0xFF55:  // HDMA Transfer
             hdma.mode = ((a_value >> 7) & 1) != 0;
             hdma.length = ((a_value & 0x7F) + 1) * 0x10;
-            dest = ((IOMap[0xFF53][0] << 8) | IOMap[0xFF54][0]) & 0x1FF0;
-            source = ((IOMap[0xFF51][0] << 8) | IOMap[0xFF52][0]) & 0xFFF0;
-            //            std::cout << "Write to FF55: " << "\n";
-            //            std::cout << "Mode: " << ((a_value >> 7) & 1) << "\n";
-            //            std::cout << "Length: " << std::hex << hdma.length <<
-            //            std::dec << "\n"; std::cout << "Source: " << std::hex
-            //            << source << std::dec << "\n"; std::cout << "Destiny:
-            //            " << std::hex << dest << std::dec << "\n";
-            if (hdma.active && !hdma.mode) {
-                // std::cout << "HDMA: Stop" << "\n";
-                IOMap[a_address][0] |= 0x80;
-                // std::cout << "FF55: " << std::hex <<
-                // static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
+            if (hdma.active && !hdma.mode) {  //  Stop a current H-BLANK HDMA
                 hdma.active = false;
-                break;
-            } else if (!hdma.mode && !hdma.active) {
-                // std::cout << "HDMA: Mode 0 start" << "\n";
-                HDMATransfer(source, dest, hdma.length);
-                IOMap[a_address][0] = 0xFF;
-                // std::cout << "FF55: " << std::hex <<
-                // static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
-                break;
-            } else {
-                // std::cout << "HDMA: Mode 1 active" << "\n";
+                hdma.mode = false;
+            } else if (!hdma.mode && !hdma.active) {  // Start a General HDMA
+                HDMATransfer(hdma.src, hdma.dest, hdma.length);
+                hdma.mode = true;
+                hdma.length = 0x800;
+            } else if(hdma.mode) {  // Start H-Blank HDMA
                 hdma.active = true;
-                IOMap[a_address][0] = a_value & 0x7F;
-                // std::cout << "FF55: " << std::hex <<
-                // static_cast<int>(IOMap[a_address][0]) << std::dec << "\n";
+                hdma.mode = false;
             }
-
             break;
         case 0xFF68:
         case 0xFF69:
@@ -434,29 +419,18 @@ void MemoryMap::HDMATransfer(u16 source, u16 dest, u32 length) {
 
 void MemoryMap::HBlankHDMA() {
     if (hdma.active) {
-        // std::cout << "HDMA at LY: " << static_cast<int>(IOMap[0xFF44][0]) <<
-        // "\n";
         for (int i = 0; i < 0x10; ++i) {
-            writeByte(0x8000 + dest + i, readByte(source + i));
+            writeByte(0x8000 + hdma.dest + i, readByte(hdma.src + i));
         }
-        dest += 0x10;
-        IOMap[0xFF53][0] = dest >> 8;
-        IOMap[0xFF54][0] = dest & 0xFF;
-        source += 0x10;
-        IOMap[0xFF51][0] = source >> 8;
-        IOMap[0xFF52][0] = source & 0xFF;
+        hdma.dest += 0x10;
+        hdma.src += 0x10;
         hdma.length -= 0x10;
-        // std::cout << "Length after transfer: " << std::hex <<
-        // static_cast<int>(hdma.length) << std::dec << "\n";
 
         if (hdma.length <= 0) {
-            IOMap[0xFF55][0] = 0xFF;
+            hdma.mode = true;
+            hdma.length = 0x800;
             hdma.active = false;
-        } else {
-            IOMap[0xFF55][0] = hdma.length / 0x10 - 1;
         }
-        // std::cout << "FF55 length: " << std::hex <<
-        // static_cast<int>(IOMap[0xFF55][0]) << std::dec << "\n";
     }
 }
 

@@ -16,8 +16,8 @@
 enum eInterrupts { VBLANK = 1, LCDC = 2, TIMER = 4, SERIAL = 8, JOYPAD = 16 };
 
 struct HDMA {
-    u8 hs, ls;
-    u8 hd, ld;
+    u16 src;
+    u16 dest;
     int length;
     bool mode, active;
 };
@@ -76,8 +76,7 @@ class MemoryMap {
     HDMA hdma;
     bool mIsColor;
     bool mRomMode;
-    u8 hi, lo;
-    int dest, source;
+    u8 MBC5HighAddress, MBC5LowAddress;
     int mCurrentSpeed;
     bool mPrepareSpeedChange{};
     MBCTypes mbc_type;

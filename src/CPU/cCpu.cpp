@@ -230,10 +230,11 @@ int cCpu::fetchOpCode() {
     return mMemory->readByte(pc++);
 }
 
-
 void cCpu::runFrame() {
     for (int line = 0; line < 154; ++line) {
-        if (line == 144) {
+        if (line < 144) {
+            mMemory->HBlankHDMA();
+        } else if (line == 144) {
             fullUpdate();
             mMemory->mDisplay->updateScreen();
         }
@@ -258,7 +259,6 @@ void cCpu::runScanLine() {
         mMemory->updateIO(cycles);
         rtcCount += cycles;
     } while (!mMemory->mDisplay->hasLineFinished());
-    mMemory->HBlankHDMA();
 }
 
 void cCpu::fullUpdate() {
