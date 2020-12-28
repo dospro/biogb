@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "CPU/cCpu.h"
+#include "CPU/cpu.h"
 
 int main(int argc, char *argv[]) {
     cCpu *gb;

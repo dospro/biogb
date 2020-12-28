@@ -1,4 +1,4 @@
-#include "cCpu.h"
+#include "cpu.h"
 
 void cCpu::executeOpCode(int a_opCode) {
     switch (a_opCode) {

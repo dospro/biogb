@@ -1,4 +1,4 @@
-#include "cCpu.h"
+#include "cpu.h"
 
 void cCpu::adc(u8 value) {
     u8 result = a + value + (u8)c_flag;
