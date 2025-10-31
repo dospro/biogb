@@ -11,7 +11,7 @@ using RomBank = std::array<u8, 0x4000>;
 
 struct RomType {
     int id;
-    char name[128];
+    std::string_view name;
 };
 
 struct BanksInfo {
@@ -31,28 +31,28 @@ enum class MBCTypes {
 
 class RomLoader {
 public:
-    RomLoader(const std::string &file_name);
-    std::vector<RomBank> get_rom();
-    bool is_color();
-    bool has_timer();
-    int get_ram_banks();
-    MBCTypes get_mbc_type();
+    explicit RomLoader(std::string_view file_name);
+    [[nodiscard]] std::vector<RomBank> get_rom();
+    [[nodiscard]] bool is_color() const;
+    [[nodiscard]] bool has_timer() const;
+    [[nodiscard]] int get_ram_banks() const;
+    [[nodiscard]] MBCTypes get_mbc_type() const;
 
 private:
     void read_header();
-    static MBCTypes calculate_mbc_type(u8 mbc_id);
-    static bool has_mbc_timer(u8 mbc_id);
+    static constexpr MBCTypes calculate_mbc_type(u8 mbc_id) noexcept;
+    static constexpr bool has_mbc_timer(u8 mbc_id) noexcept;
     int calculate_rom_banks(u8 rom_size_id);
     int calculate_ram_banks(u8 ram_size_id);
     void load_rom(int banks);
-    std::vector<RomBank> rom;
-    std::ifstream file;
-    std::string name;
-    bool color;
-    bool with_timer;
-    MBCTypes mbc;
-    int rom_banks;
-    int ram_banks;
+    std::vector<RomBank> rom{};
+    std::ifstream file{};
+    std::string name{};
+    bool color{};
+    bool with_timer{};
+    MBCTypes mbc{};
+    int rom_banks{};
+    int ram_banks{};
 };
 
 

@@ -66,13 +66,13 @@ class cCpu {
     u8 readNextByte();
     u16 readNextWord();
     // Cpu instructions routines
-    void adc(u8 value);
+    void adc(u8 value) noexcept;
     void add(u8 value);
     void addhl(u16 value);
     void addsp(s8 value);
     void z8and(u8 value);
     void bit(u8 bit_number, u8 register_value);
-    void call(bool condition, u16 address);
+    void call(bool condition, u16 address) noexcept;
     void cp(u8 val);
     void daa();
     void dec(u8 &reg);

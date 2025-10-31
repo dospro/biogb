@@ -1,11 +1,12 @@
 #include "cpu.h"
 
-void cCpu::adc(u8 value) {
-    u8 result = a + value + f.flags.c;
-    f.flags.z = (result & 0xFFu) == 0;
+void cCpu::adc(const u8 value) noexcept {
+    const u16 full_result = a + value + f.flags.c;
+    const u8 result = static_cast<u8>(full_result);
+    f.flags.z = result == 0;
     f.flags.n = false;
     f.flags.h = ((a & 0xFu) + (value & 0xFu) + f.flags.c) > 0xFu;
-    f.flags.c = (a + value + f.flags.c) > 0xFFu;
+    f.flags.c = full_result > 0xFFu;
     a = result;
 }
 
@@ -27,8 +28,8 @@ void cCpu::addhl(u16 value) {
 }
 
 void cCpu::addsp(s8 value) {
-    f.flags.c = ((sp & 0xFFu) + (u8)value) > 0xFFu;
-    f.flags.h = ((sp & 0xFu) + ((u8)value & 0xFu)) > 0xFu;
+    f.flags.c = ((sp & 0xFFu) + static_cast<u8>(value)) > 0xFFu;
+    f.flags.h = ((sp & 0xFu) + (static_cast<u8>(value) & 0xFu)) > 0xFu;
     sp += value;
     f.flags.z = false;
     f.flags.n = false;
@@ -49,8 +50,8 @@ void cCpu::bit(u8 bit_number, u8 register_value) {
     f.flags.h = true;
 }
 
-void cCpu::call(bool condition, u16 address) {
-    if (condition) {
+void cCpu::call(const bool condition, const u16 address) noexcept {
+    if (condition) [[unlikely]] {
         push(pc);
         pc = address;
         mCyclesSum += 12;
@@ -137,8 +138,8 @@ void cCpu::jr(bool condition, s8 value) {
 }
 
 void cCpu::ldhl(s8 value) {
-    f.flags.c = ((sp & 0xFFu) + (u8)value > 0xFFu);
-    f.flags.h = ((sp & 0xFu) + ((u8)value & 0xFu) > 0xFu);
+    f.flags.c = ((sp & 0xFFu) + static_cast<u8>(value) > 0xFFu);
+    f.flags.h = ((sp & 0xFu) + (static_cast<u8>(value) & 0xFu) > 0xFu);
     f.flags.z = false;
     f.flags.n = false;
     hl(sp + value);

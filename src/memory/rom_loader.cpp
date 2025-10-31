@@ -1,8 +1,10 @@
 #include "rom_loader.h"
 
+#include <algorithm>
 #include <iostream>
 
-const struct RomType CartrigeTypes[] = {
+constexpr std::array<RomType, 29> CartridgeTypes = {
+    {
         {0,    "Rom Only"},
         {1,    "Rom + MBC1"},
         {2,    "Rom + MBC1 + Ram"},
@@ -32,9 +34,10 @@ const struct RomType CartrigeTypes[] = {
         {0xFD, "Bandai TAMA5(Not working)"},
         {0xFE, "Hudson HuC-3(Not working)"},
         {0xFF, "Hudson HuC-1 + Ram + Battery"},
-};
+}};
 
-const struct BanksInfo VALID_ROM_SIZES[] = {
+constexpr std::array<BanksInfo, 12> VALID_ROM_SIZES = {
+    {
         {0,    16384 << 1, 2},
         {1,    16384 << 2, 4},
         {2,    16384 << 3, 8},
@@ -47,17 +50,18 @@ const struct BanksInfo VALID_ROM_SIZES[] = {
         {0x52, 16384 * 72, 72},
         {0x53, 16384 * 80, 80},
         {0x54, 16384 * 96, 96},
-};
+}};
 
-const struct BanksInfo VALID_RAM_SIZES[] = {
+constexpr std::array<BanksInfo, 5> VALID_RAM_SIZES = {
+    {
         {0, 0,      0},
         {1, 2048,   1},
         {2, 8192,   1},
         {3, 32768,  4},
         {4, 131072, 16},
-};
+}};
 
-RomLoader::RomLoader(const std::string &file_name) {
+RomLoader::RomLoader(const std::string_view file_name) {
     file.open(file_name, std::ios::binary);
     if (file.bad()) {
         throw std::runtime_error("Error opening the file");
@@ -67,56 +71,44 @@ RomLoader::RomLoader(const std::string &file_name) {
     file.close();
 }
 
-std::vector<RomBank> RomLoader::get_rom() {
+[[nodiscard]] std::vector<RomBank> RomLoader::get_rom() {
     return rom;
 }
 
-bool RomLoader::is_color() {
+[[nodiscard]] bool RomLoader::is_color() const {
     return color;
 }
 
-bool RomLoader::has_timer() {
+[[nodiscard]] bool RomLoader::has_timer() const {
     return with_timer;
 }
 
-int RomLoader::get_ram_banks() {
+[[nodiscard]] int RomLoader::get_ram_banks() const {
     return ram_banks;
 }
 
-MBCTypes RomLoader::get_mbc_type() {
+[[nodiscard]] MBCTypes RomLoader::get_mbc_type() const {
     return mbc;
 }
 
 void RomLoader::read_header() {
-    file.seekg(0x134);
-    char buffer[15];
-    file.read(buffer, 15);
-    name = std::string(buffer);
+    std::array<char, 0x150> header{};
+    file.read(header.data(), header.size());
+    name = std::string(&header[0x134], 15);
+    name.erase(std::ranges::find(name, '\0'), name.end());
 
-    file.seekg(0x143);
-    u8 gbc_byte{};
-    file.read(reinterpret_cast<char *>(&gbc_byte), 1);
+    const u8 gbc_byte = header[0x143];
     color = (gbc_byte == 0x80 || gbc_byte == 0xC0);
 
-    file.seekg(0x147);
-    u8 mbc_id{};
-    file.read(reinterpret_cast<char *>(&mbc_id), 1);
+    const u8 mbc_id = header[0x147];
     mbc = calculate_mbc_type(mbc_id);
     with_timer = has_mbc_timer(mbc_id);
 
-    file.seekg(0x148);
-    u8 rom_size_id{};
-    file.read(reinterpret_cast<char *>(&rom_size_id), 1);
-
-    file.seekg(0x149);
-    u8 ram_size_id{};
-    file.read(reinterpret_cast<char *>(&ram_size_id), 1);
-
-    rom_banks = calculate_rom_banks(rom_size_id);
-    ram_banks = calculate_ram_banks(ram_size_id);
+    rom_banks = calculate_rom_banks(header[0x148]);
+    ram_banks = calculate_ram_banks(header[0x149]);
 }
 
-MBCTypes RomLoader::calculate_mbc_type(u8 mbc_id) {
+constexpr MBCTypes RomLoader::calculate_mbc_type(const u8 mbc_id) noexcept {
     switch (mbc_id) {
         case 0:
             return MBCTypes::RomOnly;
@@ -150,41 +142,34 @@ MBCTypes RomLoader::calculate_mbc_type(u8 mbc_id) {
     }
 }
 
-int RomLoader::calculate_rom_banks(u8 rom_size_id) {
-    int banks{0};
-    auto rom_size_info = std::find_if(
-            std::begin(VALID_ROM_SIZES),
-            std::end(VALID_ROM_SIZES),
-            [rom_size_id](auto rom_size_item) { return rom_size_item.id == rom_size_id; }
-    );
-    banks = rom_size_info->banks;
-
-    if (banks == 0) {
-        file.seekg(0, std::ios::end);
-        auto size = file.tellg();
-        banks = size / 0x4000;
-        std::cout << "WARNING: Unknown chip found. Trying generic emulation." << std::endl;
+int RomLoader::calculate_rom_banks(const u8 rom_size_id) {
+    const auto it = std::ranges::find(VALID_ROM_SIZES, rom_size_id, &BanksInfo::id);
+    if (it != VALID_ROM_SIZES.end()) [[likely]] {
+        file.seekg(0, std::ios::beg);
+        return it->banks;
     }
-    file.seekg(0);
+
+    file.seekg(0, std::ios::end);
+    const int banks = static_cast<int>(file.tellg()) / 0x4000;
+    std::println("WARNING: Unknown chip found. Trying generic emulation.");
+    file.seekg(0, std::ios::beg);
     return banks;
 }
 
-int RomLoader::calculate_ram_banks(u8 ram_size_id) {
-    auto ram_size_info = std::find_if(
-            std::begin(VALID_RAM_SIZES),
-            std::end(VALID_RAM_SIZES),
-            [ram_size_id](auto ram_size_item) { return ram_size_item.id == ram_size_id; }
-    );
-    return ram_size_info->banks;
+int RomLoader::calculate_ram_banks(const u8 ram_size_id) {
+    const auto it = std::ranges::find(VALID_RAM_SIZES, ram_size_id, &BanksInfo::id);
+    if (it == VALID_RAM_SIZES.end()) [[unlikely]] {
+        std::println("WARNING: Unknown ram size found.");
+        return 0;
+    }
+    return it->banks;
 }
 
-bool RomLoader::has_mbc_timer(u8 mbc_id) {
+constexpr bool RomLoader::has_mbc_timer(const u8 mbc_id) noexcept {
     return (mbc_id == 0x0F || mbc_id == 0x10);
 }
 
-void RomLoader::load_rom(int banks) {
-    for (int i = 0; i < banks; ++i) {
-        rom.push_back(RomBank{});
-        file.read(reinterpret_cast<char *>(&rom[i][0]), 0x4000);
-    }
+void RomLoader::load_rom(const int banks) {
+    rom.resize(banks);
+    file.read(reinterpret_cast<char *>(rom.data()), 0x4000 * banks);
 }
