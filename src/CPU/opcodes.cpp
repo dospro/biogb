@@ -1,52 +1,52 @@
 #include "cpu.h"
 
 void cCpu::adc(u8 value) {
-    u8 result = a + value + (u8)c_flag;
-    z_flag = (result & 0xFFu) == 0;
-    n_flag = false;
-    h_flag = ((a & 0xFu) + (value & 0xFu) + (u8)c_flag) > 0xFu;
-    c_flag = (a + value + (u8)c_flag) > 0xFFu;
+    u8 result = a + value + f.flags.c;
+    f.flags.z = (result & 0xFFu) == 0;
+    f.flags.n = false;
+    f.flags.h = ((a & 0xFu) + (value & 0xFu) + f.flags.c) > 0xFu;
+    f.flags.c = (a + value + f.flags.c) > 0xFFu;
     a = result;
 }
 
 void cCpu::add(u8 value) {
-    z_flag = ((a + value) & 0xFFu) == 0;
-    n_flag = false;
-    h_flag = (a & 0xFu) + (value & 0xFu) > 0xFu;
-    c_flag = (a + value) > 0xFFu;
+    f.flags.z = ((a + value) & 0xFFu) == 0;
+    f.flags.n = false;
+    f.flags.h = (a & 0xFu) + (value & 0xFu) > 0xFu;
+    f.flags.c = (a + value) > 0xFFu;
     a += value;
 }
 
 void cCpu::addhl(u16 value) {
     u16 hl_value = hl();
-    n_flag = false;
-    h_flag = ((hl_value & 0xFFFu) + (value & 0xFFFu)) > 0xFFFu;
+    f.flags.n = false;
+    f.flags.h = ((hl_value & 0xFFFu) + (value & 0xFFFu)) > 0xFFFu;
     // h_flag=((hl_value>>8)+(value>>8))>0xFF;
-    c_flag = (hl_value + value) > 0xFFFFu;
+    f.flags.c = (hl_value + value) > 0xFFFFu;
     hl(hl_value + value);
 }
 
 void cCpu::addsp(s8 value) {
-    c_flag = ((sp & 0xFFu) + (u8)value) > 0xFFu;
-    h_flag = ((sp & 0xFu) + ((u8)value & 0xFu)) > 0xFu;
+    f.flags.c = ((sp & 0xFFu) + (u8)value) > 0xFFu;
+    f.flags.h = ((sp & 0xFu) + ((u8)value & 0xFu)) > 0xFu;
     sp += value;
-    z_flag = false;
-    n_flag = false;
+    f.flags.z = false;
+    f.flags.n = false;
 }
 
 void cCpu::z8and(u8 value) {
     a &= value;
-    z_flag = (a == 0);
-    n_flag = false;
-    h_flag = true;
-    c_flag = false;
+    f.flags.z = (a == 0);
+    f.flags.n = false;
+    f.flags.h = true;
+    f.flags.c = false;
 }
 
 void cCpu::bit(u8 bit_number, u8 register_value) {
     bit_number >>= 3u;
-    z_flag = (register_value & (1u << bit_number)) == 0;
-    n_flag = false;
-    h_flag = true;
+    f.flags.z = (register_value & (1u << bit_number)) == 0;
+    f.flags.n = false;
+    f.flags.h = true;
 }
 
 void cCpu::call(bool condition, u16 address) {
@@ -58,32 +58,34 @@ void cCpu::call(bool condition, u16 address) {
 }
 
 void cCpu::cp(u8 val) {
-    z_flag = (a == val);
-    n_flag = true;
-    h_flag = (a & 0xFu) < (val & 0xFu);
-    c_flag = a < val;
+    f.flags.z = (a == val);
+    f.flags.n = true;
+    f.flags.h = (a & 0xFu) < (val & 0xFu);
+    f.flags.c = a < val;
 }
 
 void cCpu::daa() {
     int result = a;
-    if (n_flag) {
-        if (h_flag) result = (result - 6) & 0xFF;
-        if (c_flag) result -= 0x60;
+    if (f.flags.n) {
+        if (f.flags.h) result = (result - 6) & 0xFF;
+        if (f.flags.c) result -= 0x60;
     } else {
-        if (h_flag || (result & 0xF) > 9) result += 6;
-        if (c_flag || result > 0x9F) result += 0x60;
+        if (f.flags.h || (result & 0xF) > 9) result += 6;
+        if (f.flags.c || result > 0x9F) result += 0x60;
     }
 
-    if ((result & 0x100) == 0x100) c_flag = true;
+    if ((result & 0x100) == 0x100) {
+        f.flags.c = true;
+    }
     a = result & 0xFF;
-    z_flag = (a == 0);
-    h_flag = false;
+    f.flags.z = (a == 0);
+    f.flags.h = false;
 }
 
 void cCpu::dec(u8 &reg) {
-    z_flag = (reg == 1);
-    n_flag = true;
-    h_flag = (reg & 0xFu) == 0;
+    f.flags.z = (reg == 1);
+    f.flags.n = true;
+    f.flags.h = (reg & 0xFu) == 0;
     reg -= 1;
 }
 
@@ -101,9 +103,9 @@ void cCpu::dechl() {
 }
 
 void cCpu::inc(u8 &reg) {
-    z_flag = (reg == 0xFF);
-    n_flag = false;
-    h_flag = (reg & 0xFu) == 0xF;
+    f.flags.z = (reg == 0xFF);
+    f.flags.n = false;
+    f.flags.h = (reg & 0xFu) == 0xF;
     reg += 1;
 }
 
@@ -135,10 +137,10 @@ void cCpu::jr(bool condition, s8 value) {
 }
 
 void cCpu::ldhl(s8 value) {
-    c_flag = ((sp & 0xFFu) + (u8)value > 0xFFu);
-    h_flag = ((sp & 0xFu) + ((u8)value & 0xFu) > 0xFu);
-    z_flag = false;
-    n_flag = false;
+    f.flags.c = ((sp & 0xFFu) + (u8)value > 0xFFu);
+    f.flags.h = ((sp & 0xFu) + ((u8)value & 0xFu) > 0xFu);
+    f.flags.z = false;
+    f.flags.n = false;
     hl(sp + value);
 }
 
@@ -149,10 +151,10 @@ void cCpu::ldnnsp(u16 value) {
 
 void cCpu::z8or(u8 value) {
     a |= value;
-    z_flag = (a == 0);
-    n_flag = false;
-    h_flag = false;
-    c_flag = false;
+    f.flags.z = (a == 0);
+    f.flags.n = false;
+    f.flags.h = false;
+    f.flags.c = false;
 }
 
 void cCpu::pop(u8 &high_register, u8 &low_register) {
@@ -165,7 +167,7 @@ void cCpu::pop(u8 &high_register, u8 &low_register) {
 void cCpu::popaf() {
     u8 flags_value;
     pop(a, flags_value);
-    flags(flags_value);
+    f.byte = flags_value & 0xF0u;
 }
 
 void cCpu::push(u16 regs) {
@@ -194,19 +196,19 @@ void cCpu::ret(bool condition) {
 }
 
 void cCpu::rlc(u8 &reg) {
-    c_flag = (reg >> 7) & 1;
-    reg = (reg << 1) | c_flag;
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    f.flags.c = (reg >> 7) & 1;
+    reg = (reg << 1) | f.flags.c;
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rlca() {
-    c_flag = (a >> 7) & 1;
-    a = (a << 1) | c_flag;
-    z_flag = false;
-    n_flag = false;
-    h_flag = false;
+    f.flags.c = (a >> 7) & 1;
+    a = (a << 1) | f.flags.c;
+    f.flags.z = false;
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rlchl() {
@@ -216,21 +218,21 @@ void cCpu::rlchl() {
 }
 
 void cCpu::rl(u8 &reg) {
-    u8 carry_flag_bit = (u8)c_flag;
-    c_flag = (reg >> 7u) & 1u;
+    u8 carry_flag_bit = f.flags.c;
+    f.flags.c = (reg >> 7u) & 1u;
     reg = (reg << 1u) | carry_flag_bit;
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rla() {
     u8 result = a >> 7;
-    a = (a << 1) | c_flag;
-    z_flag = false;
-    c_flag = result & 1;
-    n_flag = false;
-    h_flag = false;
+    a = (a << 1) | f.flags.c;
+    f.flags.z = false;
+    f.flags.c = result & 1;
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rlhl() {
@@ -240,19 +242,19 @@ void cCpu::rlhl() {
 }
 
 void cCpu::rrc(u8 &reg) {
-    c_flag = reg & 1u;
-    reg = (reg >> 1u) | (c_flag << 7u);
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    f.flags.c = reg & 1u;
+    reg = (reg >> 1u) | (f.flags.c << 7u);
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rrca() {
-    c_flag = a & 1u;
-    a = (a >> 1u) | (c_flag << 7u);
-    z_flag = false;
-    n_flag = false;
-    h_flag = false;
+    f.flags.c = a & 1u;
+    a = (a >> 1u) | (f.flags.c << 7u);
+    f.flags.z = false;
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rrchl() {
@@ -263,20 +265,20 @@ void cCpu::rrchl() {
 
 void cCpu::rr(u8 &reg) {
     bool new_carry_flag = reg & 1u;      // Keep the first bit
-    reg = (reg >> 1u) | (c_flag << 7u);  // Shift n right and put carry at the top
-    c_flag = new_carry_flag;             // Put the kept n bit into carry
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    reg = (reg >> 1u) | (f.flags.c << 7u);  // Shift n right and put carry at the top
+    f.flags.c = new_carry_flag;             // Put the kept n bit into carry
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rra() {
     bool result = a & 1u;            // Keep the first bit
-    a = (a >> 1u) | (c_flag << 7u);  // Shift n right and put carry at the top
-    c_flag = result;                 // Put the kept n bit into carry
-    z_flag = false;
-    n_flag = false;
-    h_flag = false;
+    a = (a >> 1u) | (f.flags.c << 7u);  // Shift n right and put carry at the top
+    f.flags.c = result;                 // Put the kept n bit into carry
+    f.flags.z = false;
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::rrhl() {
@@ -290,14 +292,14 @@ void cCpu::rst(u8 address) {
 }
 
 void cCpu::sbc(u8 value) {
-    u16 result = a - value - c_flag;
-    n_flag = true;
+    u16 result = a - value - f.flags.c;
+    f.flags.n = true;
     // h_flag = (result & 0xF) > (a & 0xF);
-    c_flag = (result > a);
-    h_flag = ((a ^ value ^ (result & 0xFFu)) & 0x10u) != 0;
+    f.flags.c = (result > a);
+    f.flags.h = ((a ^ value ^ (result & 0xFFu)) & 0x10u) != 0;
 
     a = result & 0xFFu;
-    z_flag = (a == 0);
+    f.flags.z = (a == 0);
 }
 
 void cCpu::set(u8 bit, u8 &reg) {
@@ -311,11 +313,11 @@ void cCpu::sethl(u8 bit_number) {
 }
 
 void cCpu::sla(u8 &reg) {
-    c_flag = (reg >> 7u) & 1u;
+    f.flags.c = (reg >> 7u) & 1u;
     reg <<= 1u;
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::slahl() {
@@ -325,11 +327,11 @@ void cCpu::slahl() {
 }
 
 void cCpu::sra(u8 &reg) {
-    c_flag = reg & 1u;
+    f.flags.c = reg & 1u;
     reg = (reg >> 1u) | (reg & 0x80u);
-    z_flag = (reg == 0);
-    h_flag = false;
-    n_flag = false;
+    f.flags.z = (reg == 0);
+    f.flags.h = false;
+    f.flags.n = false;
 }
 
 void cCpu::srahl() {
@@ -339,11 +341,11 @@ void cCpu::srahl() {
 }
 
 void cCpu::srl(u8 &reg) {
-    c_flag = reg & 1u;
+    f.flags.c = reg & 1u;
     reg >>= 1u;
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
 }
 
 void cCpu::srlhl() {
@@ -353,19 +355,19 @@ void cCpu::srlhl() {
 }
 
 void cCpu::sub(u8 value) {
-    z_flag = (a == value);
-    n_flag = true;
-    h_flag = (value & 0xFu) > (a & 0xFu);
-    c_flag = (value > a);
+    f.flags.z = (a == value);
+    f.flags.n = true;
+    f.flags.h = (value & 0xFu) > (a & 0xFu);
+    f.flags.c = (value > a);
     a -= value;
 }
 
 void cCpu::swap(u8 &reg) {
     reg = ((reg & 0xFu) << 4u) | (reg >> 4u);
-    z_flag = (reg == 0);
-    n_flag = false;
-    h_flag = false;
-    c_flag = false;
+    f.flags.z = (reg == 0);
+    f.flags.n = false;
+    f.flags.h = false;
+    f.flags.c = false;
 }
 
 void cCpu::swaphl() {
@@ -376,8 +378,8 @@ void cCpu::swaphl() {
 
 void cCpu::z8xor(u8 val) {
     a ^= val;
-    z_flag = (a == 0);
-    n_flag = false;
-    h_flag = false;
-    c_flag = false;
+    f.flags.z = (a == 0);
+    f.flags.n = false;
+    f.flags.h = false;
+    f.flags.c = false;
 }

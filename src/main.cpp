@@ -1,20 +1,21 @@
-#include <iostream>
+#include <print>
 
 #include "CPU/cpu.h"
 
 int main(int argc, char *argv[]) {
-    cCpu *gb;
-    std::cout << "BioGB v5.0\n";
+    std::println("BioGB v5.0");
     if (argc < 2) {
-        std::cout << "Usage: biogb game.gb\n";
-        return 0;
+        std::println(stderr, "Usage: biogb <game.gb>");
+        return EXIT_FAILURE;
     }
-    std::string rom_file_name{argv[1]};
-    gb = new cCpu;
-    if (gb->init_cpu(rom_file_name)) {
-        while (gb->isCpuRunning())
-            gb->runFrame();
+    const std::string rom_file_name{argv[1]};
+
+    cCpu gb;
+    if (!gb.init_cpu(rom_file_name)) {
+        std::println(stderr, "Initialization failed: {}", rom_file_name);
+        return EXIT_FAILURE;
     }
-    delete gb;
+    while (gb.isCpuRunning())
+        gb.runFrame();
     return 0;
 }

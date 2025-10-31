@@ -256,18 +256,18 @@ void cCpu::executeOpCode(int a_opCode) {
         case 0x27: daa(); break;
         case 0x2F:
             a = ~a;
-            n_flag = true;
-            h_flag = true;
+            f.flags.n = true;
+            f.flags.h = true;
             break;
         case 0x3F:
-            c_flag = (c_flag == false);
-            n_flag = false;
-            h_flag = false;
+            f.flags.c = (f.flags.c == false);
+            f.flags.n = false;
+            f.flags.h = false;
             break;
         case 0x37:
-            c_flag = true;
-            n_flag = false;
-            h_flag = false;
+            f.flags.c = true;
+            f.flags.n = false;
+            f.flags.h = false;
             break;
 
         case 0x00: break;
@@ -285,23 +285,23 @@ void cCpu::executeOpCode(int a_opCode) {
         case 0x0F: rrca(); break;
 
         case 0xC3: pc = readNextWord(); break;
-        case 0xC2: jp(z_flag == false, readNextWord()); break;
-        case 0xCA: jp(z_flag == true, readNextWord()); break;
-        case 0xD2: jp(c_flag == false, readNextWord()); break;
-        case 0xDA: jp(c_flag == true, readNextWord()); break;
+        case 0xC2: jp(f.flags.z == false, readNextWord()); break;
+        case 0xCA: jp(f.flags.z == true, readNextWord()); break;
+        case 0xD2: jp(f.flags.c == false, readNextWord()); break;
+        case 0xDA: jp(f.flags.c == true, readNextWord()); break;
         case 0xE9: pc = hl(); break;
 
         case 0x18: jr(true, readNextByte()); break;
-        case 0x20: jr(z_flag == false, readNextByte()); break;
-        case 0x28: jr(z_flag == true, readNextByte()); break;
-        case 0x30: jr(c_flag == false, readNextByte()); break;
-        case 0x38: jr(c_flag == true, readNextByte()); break;
+        case 0x20: jr(f.flags.z == false, readNextByte()); break;
+        case 0x28: jr(f.flags.z == true, readNextByte()); break;
+        case 0x30: jr(f.flags.c == false, readNextByte()); break;
+        case 0x38: jr(f.flags.c == true, readNextByte()); break;
 
         case 0xCD: call(true, readNextWord()); break;
-        case 0xC4: call(z_flag == false, readNextWord()); break;
-        case 0xCC: call(z_flag == true, readNextWord()); break;
-        case 0xD4: call(c_flag == false, readNextWord()); break;
-        case 0xDC: call(c_flag == true, readNextWord()); break;
+        case 0xC4: call(f.flags.z == false, readNextWord()); break;
+        case 0xCC: call(f.flags.z == true, readNextWord()); break;
+        case 0xD4: call(f.flags.c == false, readNextWord()); break;
+        case 0xDC: call(f.flags.c == true, readNextWord()); break;
 
         case 0xC7: rst(0x00); break;
         case 0xCF: rst(0x08); break;
@@ -313,10 +313,10 @@ void cCpu::executeOpCode(int a_opCode) {
         case 0xFF: rst(0x38); break;
 
         case 0xC9: ret(true); break;
-        case 0xC0: ret(z_flag == false); break;
-        case 0xC8: ret(z_flag == true); break;
-        case 0xD0: ret(c_flag == false); break;
-        case 0xD8: ret(c_flag == true); break;
+        case 0xC0: ret(f.flags.z == false); break;
+        case 0xC8: ret(f.flags.z == true); break;
+        case 0xD0: ret(f.flags.c == false); break;
+        case 0xD8: ret(f.flags.c == true); break;
 
         case 0xD9:
             ret(true);

@@ -1,25 +1,37 @@
 #ifndef BIOGB_CPU
 #define BIOGB_CPU
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <expected>
 
 #include "../memory/memory_map.h"
 #include "../input.h"
 #include "../macros.h"
 #include "../sound/sound.h"
 
-#ifdef USE_SDL_NET
-#include "cNet.h"
-#endif
+union FRegister {
+    struct {
+        u8: 4; // Lower 4 bits are unused
+        u8 c: 1; // Carry flag
+        u8 h: 1; // Half-carry flag
+        u8 n: 1; // Subtract flag
+        u8 z: 1; // Zero flag
+    } flags;
+
+    u8 byte{};
+
+    constexpr FRegister() noexcept = default;
+
+    constexpr explicit FRegister(const u8 value) noexcept : byte(value) {
+    };
+};
 
 class cCpu {
    public:
-    cCpu();
-    ~cCpu();
-    bool init_cpu(std::string file_name);
+    cCpu() noexcept;
+    ~cCpu() = default;
+    [[nodiscard]] std::expected<void, std::string> init_cpu(std::string_view file_name);
 
-    bool isCpuRunning() { return isRunning; }
+    [[nodiscard]] bool isCpuRunning() const { return isRunning; }
 
     void saveState(int number);
     void loadState(int number);
@@ -28,23 +40,21 @@ class cCpu {
     int fetchOpCode();
 
    private:
-    MemoryMap *mMemory;
+    std::unique_ptr<MemoryMap> mMemory;
     std::array<int, 0x100> mOpcodeCyclesTable;
     std::array<int, 0x100> mCBOpcodeCyclesTable;
-    u8 a, b, c, d, e, h, l;
-    bool z_flag, n_flag, h_flag, c_flag;
-    u16 pc, sp;
-    bool interruptsEnabled;
-    u32 intStatus;
-    int mCyclesSum;
-    s32 rtcCount;
-    bool isRunning;
-    u32 fps, fpsCounter;
-    u32 time1, time2;
-    u32 fpsSpeed;
+    u8 a{}, b{}, c{}, d{}, e{}, h{}, l{};
+    FRegister f{};
+    u16 pc{}, sp{};
+    bool interruptsEnabled{};
+    u32 intStatus{};
+    int mCyclesSum{};
+    s32 rtcCount{};
+    bool isRunning{};
+    u32 fps{}, fpsCounter{};
+    u32 time1{}, time2{};
+    u32 fpsSpeed{};
     // Help routines
-    u8 flags();
-    void flags(u8);
     u16 af();
     void af(u16);
     u16 bc();

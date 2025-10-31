@@ -1,14 +1,11 @@
 #include "cpu.h"
 
-#include <iostream>
-
 #ifdef USE_SDL_NET
 cNet net;
 #endif
 
-cCpu::cCpu() : mCyclesSum{0} {
-    mMemory = nullptr;
-    mOpcodeCyclesTable = {
+namespace {
+    constexpr std::array<int, 256> kOpBase = {
         1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, 0, 3, 2, 2, 1, 1, 2, 1,
         2, 2, 2, 2, 1, 1, 2, 1, 2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1,
         2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
@@ -19,12 +16,10 @@ cCpu::cCpu() : mCyclesSum{0} {
         1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
         2, 3, 3, 3, 3, 4, 2, 4, 2, 4, 3, 0, 3, 3, 2, 4, 2, 3, 3, 0, 3, 4, 2, 4,
         2, 4, 3, 0, 3, 0, 2, 4, 3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4,
-        3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4};
-    for (int &i : mOpcodeCyclesTable) {
-        i *= 4;
-    }
+        3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4
+    };
 
-    mCBOpcodeCyclesTable = {
+    constexpr std::array<int, 256> kCbOpBase = {
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 3, 2,
@@ -35,34 +30,28 @@ cCpu::cCpu() : mCyclesSum{0} {
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
         2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
-        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2};
-    for (int &i : mCBOpcodeCyclesTable) {
-        i *= 4;
+        2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2
+    };
+
+    consteval std::array<int, 256> times4(std::array<int, 256> a) {
+        for (auto &v: a) v *= 4;
+        return a;
     }
+
+    constinit std::array<int, 256> kOpCycles = times4(kOpBase);
+    constinit std::array<int, 256> kCbOpCycles = times4(kCbOpBase);
 }
 
-cCpu::~cCpu() {
-    if (mMemory) delete mMemory;
-}
-
-u8 cCpu::flags() {
-    return (u8)(z_flag << 7u) | (u8)(n_flag << 6u) | (u8)(h_flag << 5u) | (u8)(c_flag << 4u);
-}
-
-void cCpu::flags(u8 value) {
-    z_flag = (u8)(value >> 7u) & 1u;
-    n_flag = (u8)(value >> 6u) & 1u;
-    h_flag = (u8)(value >> 5u) & 1u;
-    c_flag = (u8)(value >> 4u) & 1u;
+cCpu::cCpu() noexcept : mOpcodeCyclesTable{kOpCycles}, mCBOpcodeCyclesTable{kCbOpCycles} {
 }
 
 u16 cCpu::af() {
-    return (u16)(a << 8u) | flags();
+    return static_cast<u16>((a << 8u) | f.byte);
 }
 
-void cCpu::af(u16 value) {
+void cCpu::af(const u16 value) {
     a = value >> 8u;
-    flags(value & 0xFFu);
+    f.byte = value & 0xF0u;
 }
 
 u16 cCpu::bc() {
@@ -106,7 +95,7 @@ void cCpu::saveState(int number) {}
 
 void cCpu::loadState(int number) {}
 
-bool cCpu::init_cpu(std::string file_name) {
+[[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(std::string_view file_name) {
     af(0x11B0);
     bc(0x0013);
     de(0x00D8);
@@ -114,25 +103,20 @@ bool cCpu::init_cpu(std::string file_name) {
     pc = 0x0100;
     sp = 0xFFFE;
 
-    std::cout << "Rom....";
-    mMemory = new MemoryMap;
-    if (mMemory == nullptr) {
-        std::cout << "Failure Type A" << std::endl;
-        return false;
+    std::println("Allocating resources");
+    try {
+        mMemory = std::make_unique<MemoryMap>();
+    } catch (const std::bad_alloc&) {
+        return std::unexpected("Memory allocation failed for MemoryMap");
     }
-    if (!mMemory->load_rom(file_name)) {
-        std::cout << "Failure Type B" << std::endl;
-        return false;
+
+    std::println("Loading Rom into memory");
+    const std::string path(file_name);
+    if (!mMemory->load_rom(path)) {
+        return std::unexpected(std::format("Failed to load ROM {}", file_name));
     }
-    std::cout << "Succeded" << std::endl;
-#ifdef USE_SDL_NET
-    std::cout << "OPTIONAL Net...";
-    if (!net.init()) {
-        std::cout << "Error" << std::endl;
-        return false;
-    }
-    std::cout << "OK" << std::endl;
-#endif
+    std::println("Rom loaded successfully");
+    std::println("Initializing CPU");
 
     initRTCTimer();
 
@@ -169,14 +153,20 @@ bool cCpu::init_cpu(std::string file_name) {
     mMemory->writeByte(0xFF4D, 0x00);
     mMemory->writeByte(0xFFFF, 0x00);
 
-    time1 = SDL_GetTicks() + 16;
-    time2 = SDL_GetTicks() + 1000;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+    const auto now = SDL_GetTicks64();
+    time1 = static_cast<u32>(now + 16);
+    time2 = static_cast<u32>(now + 1000);
+#else
+    time1 = SDL_GetTicks() + 16u;
+    time2 = SDL_GetTicks() + 1000u;
+#endif
 
     isRunning = true;
     fpsSpeed = 1;
 
-    std::cout << "Everything Done!!" << std::endl;
-    return true;
+    std::println("Starting emulation! Have fun!");
+    return {};
 }
 
 int cCpu::checkInterrupts() {
@@ -282,9 +272,10 @@ void cCpu::fullUpdate() {
     if (!mMemory->mInput->isKeyPressed(GBK_SPACE)) {
         auto temp = SDL_GetTicks();
         if (time1 > temp) {
-            SDL_Delay(time1 - temp + 10);
+            SDL_Delay((time1 - temp) * 2);
+        } else {
+            time1 = temp + ((17 / fpsSpeed));
         }
-        time1 = temp + ((17 / fpsSpeed));
     }
 }
 
