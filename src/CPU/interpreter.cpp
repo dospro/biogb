@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include <print>
 
 void cCpu::executeOpCode(int a_opCode) {
     switch (a_opCode) {
@@ -433,7 +434,7 @@ void cCpu::executeCBOpCode(u8 a_cbOpCode) {
                 case 0x85: res(innerBits, l); break;
                 case 0x86: reshl(innerBits); break;
                 default:  // TODO: Raise exception.
-                    std::cout << "Opcode " << std::hex << a_cbOpCode << "no ejecutado" << std::endl;
+                    std::println("Opcode {} not implemented", a_cbOpCode);
             }
     }
 }

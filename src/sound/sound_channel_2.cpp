@@ -1,26 +1,10 @@
-//
-// Created by dospro on 17/12/15.
-//
-
 #include "sound_channel_2.h"
 
-cSoundChannel2::cSoundChannel2(int a_generalFrecuency) :
-        cSoundChannel(a_generalFrecuency),
-        mPatternIndex{0},
-        mCounter{0}
-{
-
+cSoundChannel2::cSoundChannel2(int a_generalFrequency) : cSoundChannel(a_generalFrequency) {
 }
 
-cSoundChannel2::~cSoundChannel2()
-{
-
-}
-
-int cSoundChannel2::readRegister(int a_address)
-{
-    switch (a_address)
-    {
+int cSoundChannel2::readRegister(const int a_address) const {
+    switch (a_address) {
         case 0xFF16:
             return NR21 | 0x3F;
         case 0xFF17:
@@ -34,10 +18,8 @@ int cSoundChannel2::readRegister(int a_address)
     }
 }
 
-void cSoundChannel2::writeRegister(int a_address, int a_value)
-{
-    switch (a_address)
-    {
+void cSoundChannel2::writeRegister(const int a_address, const int a_value) {
+    switch (a_address) {
         case 0xFF16:
             writeNR21(a_value);
             break;
@@ -55,37 +37,32 @@ void cSoundChannel2::writeRegister(int a_address, int a_value)
     }
 }
 
-int cSoundChannel2::getOnOffBit()
-{
+int cSoundChannel2::getOnOffBit() const {
     if (mOnOff)
         return 2;
     return 0;
 }
 
-void cSoundChannel2::writeNR21(int a_value)
-{
+void cSoundChannel2::writeNR21(const int a_value) {
     mWavePatternType = a_value >> 6;
     mSoundLength = (64 - (a_value & 63)) * (CYCLES_PER_SECOND / 256);
     NR21 = a_value;
 }
 
-void cSoundChannel2::writeNR22(int a_value)
-{
+void cSoundChannel2::writeNR22(const int a_value) {
     mInitialVolumen = a_value >> 4;
     mIncreaseVolumen = ((a_value & 8) != 0);
     setEnvelopTimer(a_value);
     NR22 = a_value;
 }
 
-void cSoundChannel2::writeNR23(int a_value)
-{
+void cSoundChannel2::writeNR23(const int a_value) {
     mFrequency = (mFrequency & 0x700) | a_value;
     setFrequency();
     NR23 = a_value;
 }
 
-void cSoundChannel2::writeNR24(int a_value)
-{
+void cSoundChannel2::writeNR24(const int a_value) {
     mFrequency = (mFrequency & 0xFF) | ((a_value & 7) << 8);
     setFrequency();
     mConsecutive = ((a_value & 0x40) == 0);
@@ -103,14 +80,10 @@ void cSoundChannel2::writeNR24(int a_value)
     NR24 = a_value;
 }
 
-int cSoundChannel2::getSample()
-{
-    if (mCounter <= mSamplesPerSecond)
-    {
+int cSoundChannel2::getSample() {
+    if (mCounter <= mSamplesPerSecond) {
         ++mCounter;
-    }
-    else
-    {
+    } else {
         ++mPatternIndex;
         if (mPatternIndex >= mWavePatternDuty[mWavePatternType].size())
             mPatternIndex = 0;
@@ -121,30 +94,22 @@ int cSoundChannel2::getSample()
     return (mInitialVolumen * mWavePatternDuty[mWavePatternType][mPatternIndex]) / 15;
 }
 
-void cSoundChannel2::update(int a_cycles)
-{
-    if (mOnOff && !mConsecutive)
-    {
+void cSoundChannel2::update(const int a_cycles) {
+    if (mOnOff && !mConsecutive) {
         mSoundLength -= a_cycles;
-        if (mSoundLength <= 0)
-        {
+        if (mSoundLength <= 0) {
             mOnOff = false;
             mSoundLength = 0;
         }
     }
-    if (mOnOff && mEnvelopSweep != 0)
-    {
+    if (mOnOff && mEnvelopSweep != 0) {
         mEnvelopSweep -= a_cycles;
-        if (mEnvelopSweep <= 0)
-        {
-            if (mIncreaseVolumen)
-            {
+        if (mEnvelopSweep <= 0) {
+            if (mIncreaseVolumen) {
                 mInitialVolumen++;
                 if (mInitialVolumen > 0xF)
                     mInitialVolumen = 0xF;
-            }
-            else
-            {
+            } else {
                 mInitialVolumen--;
                 if (mInitialVolumen < 0)
                     mInitialVolumen = 0;
@@ -154,13 +119,11 @@ void cSoundChannel2::update(int a_cycles)
     }
 }
 
-void cSoundChannel2::setFrequency()
-{
-    double finalFrequency = 131072 / (2048 - mFrequency);
-    mSamplesPerSecond = GENERAL_FREQUENCY / finalFrequency / mWavePatternDuty[mWavePatternType].size();
+void cSoundChannel2::setFrequency() {
+    const double finalFrequency = 131072.0f / (2048.0f - static_cast<double>(mFrequency));
+    mSamplesPerSecond = GENERAL_FREQUENCY / finalFrequency / static_cast<double>(mWavePatternDuty[mWavePatternType].size());
 }
 
-void cSoundChannel2::setEnvelopTimer(int a_value)
-{
+void cSoundChannel2::setEnvelopTimer(const int a_value) {
     mEnvelopSweep = (a_value & 7) * (CYCLES_PER_SECOND / 64);
 }

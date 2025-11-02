@@ -1,11 +1,6 @@
 #include "timer.h"
 
-cTimer::cTimer() : mDIV{0}, mTAC{0}, mTIMA{0}, mTMA{0}, InterruptBit{false} {
-}
-
-cTimer::~cTimer() = default;
-
-int cTimer::readRegister(int a_address) {
+int cTimer::readRegister(const int a_address) const {
     switch (a_address) {
         case 0xFF04:
             return mDIV >> 8;
@@ -20,7 +15,7 @@ int cTimer::readRegister(int a_address) {
     }
 }
 
-void cTimer::writeRegister(int a_address, int a_value) {
+void cTimer::writeRegister(const int a_address, const int a_value) {
     switch (a_address) {
         case 0xFF04:
             mDIV = 0;
@@ -38,35 +33,25 @@ void cTimer::writeRegister(int a_address, int a_value) {
     }
 }
 
-void cTimer::update(int a_cycles) {
+void cTimer::update(const int a_cycles) {
     int newDiv = (mDIV + a_cycles) & 0xFFFF;
-    int carryBits = mDIV ^newDiv;
+    int carryBit{0};
     int freq{mTAC & 3};
     int enable{(mTAC >> 2) & 1};
 
     switch (freq) {
-        case 0:
-            carryBits >>= 9;
-            break;
-        case 3:
-            carryBits >>= 7;
-            break;
-        case 2:
-            carryBits >>= 5;
-            break;
-        case 1:
-            carryBits >>= 3;
-            break;
-        default:
-            break;
+        case 0: carryBit = 0x200; break;
+        case 3: carryBit = 0x80; break;
+        case 2: carryBit = 0x20; break;
+        case 1: carryBit = 0x8; break;
+        default: break;
     }
     if (enable != 0) {
-        if (carryBits != 0)
-            mTIMA++;
+        // Falling-edge detector (went from 1 to 0)
+        if ((mDIV & carryBit) != 0 && (newDiv & carryBit) == 0) mTIMA++;
     }
 
-    if (mTIMA > 0xFF)//This means we will have an overflow
-    {
+    if (mTIMA > 0xFF) {
         mTIMA = mTMA;
         InterruptBit = true;
     }

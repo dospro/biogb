@@ -1,8 +1,5 @@
 #include "cpu.h"
-
-#ifdef USE_SDL_NET
-cNet net;
-#endif
+#include <print>
 
 namespace {
     constexpr std::array<int, 256> kOpBase = {

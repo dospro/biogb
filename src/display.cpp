@@ -1,8 +1,7 @@
 #include "display.h"
 
-#define COLOR_REDUCTION_FACTOR 1.5
-#define COLOR_INFLUENCE_FACTOR 8
-#define COLOR_INCREMENT_FACTOR 20
+#include <algorithm>
+#include <cmath>
 
 #define BG_WHITE 0xE0F8D0
 #define BG_LIGHT_GRAY 0x7EC070
@@ -31,24 +30,23 @@ cDisplay::cDisplay(bool a_isColor) :
     mSpriteColorTable = {
             BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK,
             BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK};
-    for (int color = 0; color < 0x10000; ++color) {
-        int red{((color & 0x1F) << 8) >> 5};
-        int green{(((color >> 5) & 0x1F) << 8) >> 5};
-        int blue{(((color >> 10) & 0x1F) << 8) >> 5};
 
-        red = static_cast<int>((red / COLOR_REDUCTION_FACTOR
-                                + green / COLOR_INFLUENCE_FACTOR
-                                + blue / COLOR_INFLUENCE_FACTOR)
-                               + COLOR_INCREMENT_FACTOR);
-        green = static_cast<int>(((green / COLOR_REDUCTION_FACTOR)
-                                  + (red / COLOR_INFLUENCE_FACTOR)
-                                  + (blue / COLOR_INFLUENCE_FACTOR))
-                                 + COLOR_INCREMENT_FACTOR);
-        blue = static_cast<int>(((blue / COLOR_REDUCTION_FACTOR)
-                                 + (red / COLOR_INFLUENCE_FACTOR)
-                                 + (green / COLOR_INFLUENCE_FACTOR))
-                                + COLOR_INCREMENT_FACTOR);
-        gbcColors[color] = static_cast<unsigned int>((red << 16) | (green << 8) | blue);
+    constexpr double gamma_correction = 1.0f / 1.6f;
+
+    for (int color = 0; color < 0x10000; ++color) {
+        const double normal_red = (color & 0x1F) / 31.0;
+        const double normal_green = ((color >> 5) & 0x1F) / 31.0;
+        const double normal_blue = ((color >> 10) & 0x1F) / 31.0;
+
+        const double new_red = std::clamp((normal_red * 0.87 + normal_green * 0.06 + normal_blue * 0.07) * 0.90, 0.0, 1.0);
+        const double new_green = std::clamp((normal_red * 0.0 + normal_green * 0.85 + normal_blue * 0.15) * 0.90, 0.0, 1.0);
+        const double new_blue = std::clamp((normal_red * 0.10 + normal_green * 0.10 + normal_blue * 0.8) * 0.90, 0.0, 1.0);
+
+        const u8 red_8bit = static_cast<u8>(std::clamp(std::pow(new_red, gamma_correction) * 255.0f, 0.0, 255.0));
+        const u8 green_8bit = static_cast<u8>(std::clamp(std::pow(new_green, gamma_correction) * 255.0f, 0.0, 255.0));
+        const u8 blue_8bit = static_cast<u8>(std::clamp(std::pow(new_blue, gamma_correction) * 255.0f, 0.0, 255.0));
+
+        gbcColors[color] = static_cast<unsigned int>((red_8bit << 16) | (green_8bit << 8) | blue_8bit);
     }
     mVRAM.push_back(std::array<u8, 0x2000>{});
     if (a_isColor) {
@@ -56,8 +54,6 @@ cDisplay::cDisplay(bool a_isColor) :
     }
     stat.mode = 2;
 }
-
-cDisplay::~cDisplay() {}
 
 u8 cDisplay::readFromDisplay(u16 a_address) {
     // TODO: Implement

@@ -2,7 +2,7 @@
 #define BIOGB_MEMORY_MAP_H
 
 #include <array>
-#include <iostream>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -42,10 +42,10 @@ class cTimer;
 
 class MemoryMap {
    public:
-    MemoryMap();
-    ~MemoryMap();
-    void rtcCounter(void);
-    bool load_rom(const std::string& file_name);
+    MemoryMap() = default;
+    ~MemoryMap() = default;
+    std::expected<void, std::string> load_rom(std::string_view file_name);
+    void rtcCounter();
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA();
@@ -58,33 +58,33 @@ class MemoryMap {
     int readIFRegister();
     void writeIFRegister(u8 value);
 
-    std::unique_ptr<cDisplay> mDisplay;
-    std::unique_ptr<cSound> mSound;
-    std::unique_ptr<cInput> mInput;
-    std::unique_ptr<cTimer> mTimer;
-    RTC_Regs rtc, rtc2;
-    SerialTransfer ST;
-    u16 romBank, ramBank, wRamBank;
+    std::unique_ptr<cDisplay> mDisplay{};
+    std::unique_ptr<cSound> mSound{};
+    std::unique_ptr<cInput> mInput{};
+    std::unique_ptr<cTimer> mTimer{};
+    RTC_Regs rtc{}, rtc2{};
+    SerialTransfer ST{};
+    u16 romBank{1}, ramBank{}, wRamBank{1};
     u8 IOMap[0x10000][1]{};
 
    private:
-    std::vector<std::array<u8, 0x4000>> mRom;
-    std::vector<std::array<u8, 0x2000>> mRam;
-    std::vector<std::array<u8, 0x1000>> mWRam;
+    std::vector<std::array<u8, 0x4000>> mRom{};
+    std::vector<std::array<u8, 0x2000>> mRam{};
+    std::vector<std::array<u8, 0x1000>> mWRam{};
     std::array<u8, 0x80> mHRam{};
-    std::string mRomFilename;
-    HDMA hdma;
-    bool mIsColor;
-    bool mRomMode;
-    u8 MBC5HighAddress, MBC5LowAddress;
-    int mCurrentSpeed;
+    std::string mRomFilename{};
+    HDMA hdma{};
+    bool mIsColor{};
+    bool mRomMode{};
+    u8 MBC5HighAddress{}, MBC5LowAddress{};
+    int mCurrentSpeed{};
     bool mPrepareSpeedChange{};
-    MBCTypes mbc_type;
+    MBCTypes mbc_type{};
     bool with_timer{};
     u8 IERegister{};
     void init_ram(int ram_banks);
     void init_wram(bool is_color);
-    void init_sub_systems();
+    [[nodiscard]] std::expected<void, std::string> init_sub_systems() noexcept;
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
     u8 readRom(u16 a_address) const noexcept;

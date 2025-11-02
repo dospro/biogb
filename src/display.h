@@ -35,7 +35,7 @@ class cDisplay {
 
    public:
     explicit cDisplay(bool a_isColor);
-    virtual ~cDisplay();
+    virtual ~cDisplay() = default;
     virtual void updateScreen() = 0;
     u8 readFromDisplay(u16 a_address);
     void writeToDisplay(u16 a_address, u8 a_value);

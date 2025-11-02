@@ -1,34 +1,17 @@
-//
-// Created by dospro on 18/12/15.
-//
-
 #include "sound_channel_4.h"
 
-cSoundChannel4::cSoundChannel4(int a_generalFrecuency) :
-        cSoundChannel(a_generalFrecuency),
-        mShiftRegister{0x7FFF},
-        mPatternIndex{0},
-        mCounter{0}
-{
-    for (int i = 0; i < mRandomWave.size(); ++i)
-    {
-        int xoredBit = ((mShiftRegister) ^ (mShiftRegister >> 1)) & 1;
+cSoundChannel4::cSoundChannel4(const int a_generalFrequency) : cSoundChannel(a_generalFrequency) {
+    for (int &i: mRandomWave) {
+        const int xoredBit = ((mShiftRegister) ^ (mShiftRegister >> 1)) & 1;
         mShiftRegister >>= 1;
         mShiftRegister = mShiftRegister | (xoredBit << 14);
-        int sample = (((mShiftRegister & 1) ^ 1) * 0xFF);
-        mRandomWave[i] = sample;
+        const int sample = (((mShiftRegister & 1) ^ 1) * 0xFF);
+        i = sample;
     }
 }
 
-cSoundChannel4::~cSoundChannel4()
-{
-
-}
-
-int cSoundChannel4::readRegister(int a_address)
-{
-    switch (a_address)
-    {
+int cSoundChannel4::readRegister(const int a_address) const {
+    switch (a_address) {
         case 0xFF20:
             return NR41 | 0xFF;
         case 0xFF21:
@@ -42,10 +25,8 @@ int cSoundChannel4::readRegister(int a_address)
     }
 }
 
-void cSoundChannel4::writeRegister(int a_address, int a_value)
-{
-    switch (a_address)
-    {
+void cSoundChannel4::writeRegister(const int a_address, const int a_value) {
+    switch (a_address) {
         case 0xFF20:
             writeNR41(a_value);
             break;
@@ -63,14 +44,10 @@ void cSoundChannel4::writeRegister(int a_address, int a_value)
     }
 }
 
-int cSoundChannel4::getSample()
-{
-    if (mCounter <= mPeriod)
-    {
+int cSoundChannel4::getSample() {
+    if (mCounter <= mPeriod) {
         mCounter++;
-    }
-    else
-    {
+    } else {
         ++mPatternIndex;
         if (mPatternIndex > mPatternWidth)
             mPatternIndex = 0;
@@ -97,31 +74,23 @@ int cSoundChannel4::getSample()
     return (mInitialVolumen * mRandomWave[mPatternIndex]) / 15;*/
 }
 
-void cSoundChannel4::update(int a_cycles)
-{
-    if (mOnOff && !mConsecutive)
-    {
+void cSoundChannel4::update(const int a_cycles) {
+    if (mOnOff && !mConsecutive) {
         mSoundLength -= a_cycles;
-        if (mSoundLength <= 0)
-        {
+        if (mSoundLength <= 0) {
             mOnOff = false;
             mSoundLength = 0;
         }
     }
 
-    if (mOnOff && mEnvelopSweep != 0)
-    {
+    if (mOnOff && mEnvelopSweep != 0) {
         mEnvelopSweep -= a_cycles;
-        if (mEnvelopSweep <= 0)
-        {
-            if (mVolumenIncrease)
-            {
+        if (mEnvelopSweep <= 0) {
+            if (mVolumenIncrease) {
                 mInitialVolumen++;
                 if (mInitialVolumen > 0xF)
                     mInitialVolumen = 0xF;
-            }
-            else
-            {
+            } else {
                 mInitialVolumen--;
                 if (mInitialVolumen < 0)
                     mInitialVolumen = 0;
@@ -131,29 +100,25 @@ void cSoundChannel4::update(int a_cycles)
     }
 }
 
-int cSoundChannel4::getOnOffBit()
-{
+int cSoundChannel4::getOnOffBit() const {
     if (mOnOff)
         return 8;
     return 0;
 }
 
-void cSoundChannel4::writeNR41(int a_value)
-{
+void cSoundChannel4::writeNR41(const int a_value) {
     mSoundLength = (64 - (a_value & 63)) * (CYCLES_PER_SECOND / 256);
     NR41 = a_value;
 }
 
-void cSoundChannel4::writeNR42(int a_value)
-{
+void cSoundChannel4::writeNR42(const int a_value) {
     mInitialVolumen = a_value >> 4;
     mVolumenIncrease = ((a_value >> 3) & 1) != 0;
     setEnvelopTimer(a_value);
     NR42 = a_value;
 }
 
-void cSoundChannel4::writeNR43(int a_value)
-{
+void cSoundChannel4::writeNR43(const int a_value) {
     mShiftClock = (a_value >> 4);
     mPatternWidth = ((a_value & 8) != 0) ? 0x80 : 0x8000;
     mDivisorCode = a_value & 7;
@@ -166,8 +131,7 @@ void cSoundChannel4::writeNR43(int a_value)
     NR43 = a_value;
 }
 
-void cSoundChannel4::writeNR44(int a_value)
-{
+void cSoundChannel4::writeNR44(const int a_value) {
     mConsecutive = (a_value & 0x40) == 0;
     if ((a_value & 0x80) != 0) // Trigger
     {
@@ -183,7 +147,6 @@ void cSoundChannel4::writeNR44(int a_value)
     NR44 = a_value;
 }
 
-void cSoundChannel4::setEnvelopTimer(int a_value)
-{
+void cSoundChannel4::setEnvelopTimer(const int a_value) {
     mEnvelopSweep = (a_value & 7) * (CYCLES_PER_SECOND / 64);
 }

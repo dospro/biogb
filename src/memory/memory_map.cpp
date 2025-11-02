@@ -1,51 +1,39 @@
 #include "memory_map.h"
 
-#include <iostream>
+#include <expected>
+#include <fstream>
+#include <print>
 
-#include "../custom_exceptions.h"
 #include "../imp/audio/sdl_audio.h"
 #include "../imp/video/sdl_display.h"
 
-MemoryMap::MemoryMap()
-    : mCurrentSpeed{0},
-      mDisplay{},
-      mSound{},
-      mInput{},
-      mTimer{},
-      romBank{1},
-      ramBank{},
-      wRamBank{1},
-      mRomMode{},
-      MBC5HighAddress{},
-      MBC5LowAddress{},
-      hdma{},
-      rtc{},
-      rtc2{},
-      ST{} {}
-
-MemoryMap::~MemoryMap() = default;
-
-bool MemoryMap::load_rom(const std::string &file_name) {
+std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file_name) {
     mRomFilename = std::string(file_name);
-    RomLoader loader{file_name};
-    mRom = loader.get_rom();
-    mIsColor = loader.is_color();
-    mbc_type = loader.get_mbc_type();
-    with_timer = loader.has_timer();
-    init_ram(loader.get_ram_banks());
-    init_wram(loader.is_color());
+    try {
+        RomLoader loader{file_name};
+        mRom = loader.get_rom();
+        mIsColor = loader.is_color();
+        mbc_type = loader.get_mbc_type();
+        with_timer = loader.has_timer();
+        init_ram(loader.get_ram_banks());
+    } catch (std::exception &e) {
+        return std::unexpected(e.what());
+    }
+    init_wram(mIsColor);
     load_sram();
-    init_sub_systems();
-    return true;
+    if (const auto result = init_sub_systems(); !result) [[unlikely]] {
+        return std::unexpected(result.error());
+    }
+    return {};
 }
 
-void MemoryMap::init_ram(int ram_banks) {
+void MemoryMap::init_ram(const int ram_banks) {
     for (int i = 0; i < ram_banks; ++i) {
         mRam.emplace_back(std::array<u8, 0x2000>{});
     }
 }
 
-void MemoryMap::init_wram(bool is_color) {
+void MemoryMap::init_wram(const bool is_color) {
     mWRam.push_back(std::array<u8, 0x1000>{});
     mWRam.push_back(std::array<u8, 0x1000>{});
     if (is_color) {
@@ -55,28 +43,44 @@ void MemoryMap::init_wram(bool is_color) {
     }
 }
 
-void MemoryMap::init_sub_systems() {
-    std::cout << "Display.";
-    mDisplay = std::make_unique<cSDLDisplay>(mIsColor);
-    std::cout << "OK" << std::endl;
-
-    std::cout << "Sound...";
-    mSound = std::make_unique<cSDLSound>(44100, 512);
-    if (!mSound) {
-        throw SoundSystemError("Failed to initialize sound system");
+std::expected<void, std::string> MemoryMap::init_sub_systems() noexcept {
+    std::print("Starting Display -> ");
+    try {
+        mDisplay = std::make_unique<cSDLDisplay>(mIsColor);
+    } catch (const std::exception &) {
+        std::println("Failed");
+        return std::unexpected("Failed to start display system");
     }
-    std::cout << "OK" << std::endl;
-    std::cout << "Turning sound on" << std::endl;
-    mSound->turnOn();
+    std::println("Ok");
 
-    std::cout << "Input...";
-    mInput = std::make_unique<cInput>();
-    std::cout << "OK" << std::endl;
-    mTimer = std::make_unique<cTimer>();
+    std::print("Starting Sound System -> ");
+    try {
+        mSound = std::make_unique<cSDLSound>(44100, 512);
+    } catch (const std::exception &) {
+        std::println("Failed");
+        return std::unexpected("Failed to start sound system");
+    }
+    mSound->turnOn();
+    std::println("Ok");
+
+    std::print("Starting Input System -> ");
+    try {
+        mInput = std::make_unique<cInput>();
+    } catch (const std::exception &) {
+        std::println("Failed");
+        return std::unexpected("Failed to start input system");
+    }
+    std::println("Ok");
+    try {
+        mTimer = std::make_unique<cTimer>();
+    } catch (const std::exception &) {
+        return std::unexpected("Failed to start timer system");
+    }
+    return {};
 }
 
 u8 MemoryMap::readByte(u16 address) {
-    if (address < 0x8000) return readRom(address);
+    if (address < 0x8000) [[likely]] return readRom(address);
     else if (address < 0xA000)
         return mDisplay->readFromDisplay(address);
     else if (address < 0xC000)
@@ -157,8 +161,11 @@ u8 MemoryMap::readRam(u16 address) const {
             case 0xC: return rtc2.dh;
             default: return mRam[ramBank][address - 0xA000];
         }
-    } else
-        return mRam[ramBank][address - 0xA000];
+    }
+    if (mRam.empty()) {
+        return 0xFF;
+    }
+    return mRam[ramBank][address - 0xA000];
 }
 
 void MemoryMap::send_command(u16 address, u8 value) {
@@ -181,8 +188,9 @@ void MemoryMap::writeByte(u16 a_address, u8 a_value) {
     else if (a_address < 0xC000) {
         if (rtc.areRtcRegsSelected) {
             writeRTCRegister(a_value);
-        } else
+        } else if (!mRam.empty()) {
             mRam[ramBank][a_address - 0xA000] = a_value;
+        }
     } else if (a_address < 0xD000)
         mWRam[0][a_address - 0xC000] = a_value;
     else if (a_address < 0xE000)
@@ -201,19 +209,15 @@ void MemoryMap::writeByte(u16 a_address, u8 a_value) {
         writeIO(a_address, a_value);
 }
 
-void MemoryMap::sendMBC1Command(u16 a_address, u8 a_value) {
+void MemoryMap::sendMBC1Command(const u16 a_address, const u8 a_value) {
     if (a_address >= 0x2000 && a_address < 0x4000) {
-        // if (mRomMode)
-        //{
-        romBank = a_value & 0x1F;
-        if (romBank == 0) romBank++;
-        /*}
-        else
-        {
-            romBank = (romBank & 0xE0) | (a_value & 0x1F);
-            if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank ==
-        0x60) romBank++;
-        }*/
+        if (mRomMode) {
+            romBank = a_value & 0x1F;
+            if (romBank == 0) romBank++;
+        } else {
+            romBank = (romBank & 0x60) | (a_value & 0x1F);
+            if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60) romBank++;
+        }
     } else if (a_address >= 0x4000 && a_address < 0x6000) {
         if (mRomMode) {
             romBank = (romBank & 0x1F) | ((a_value & 3) << 5);
@@ -465,78 +469,74 @@ void MemoryMap::rtcCounter(void) {
 }
 
 void MemoryMap::save_sram() {
-    std::string filename;
-    std::ofstream save_file;
-    std::ofstream rtc_file;
+    const std::filesystem::path rom_path(mRomFilename);
+    const std::filesystem::path save_dir{"savs/"};
+    const auto base_name = rom_path.stem();
 
-    auto first_index = mRomFilename.find_last_of('/') + 1;
-    filename = mRomFilename.substr(first_index);
-    auto last_index = filename.find_last_of('.');
-    filename = filename.substr(0, last_index);
-    std::cout << "Saving: " << filename << "\n";
-    auto sav_filename = "savs/" + filename + ".sav";
-    save_file.open(sav_filename, std::ios::binary);
-    if (save_file.fail()) {
-        std::cout << "WARNING: Couldn't save SRAM" << std::endl;
+    std::println("Saving: {}", base_name.string());
+
+    // Ensure save directory exists
+    std::error_code ec;
+    std::filesystem::create_directories(save_dir, ec);
+    if (ec) {
+        std::println(stderr, "WARNING: Failed to create save directory: {}", ec.message());
         return;
     }
-    for (auto &ram_bank : mRam)
-        save_file.write(reinterpret_cast<char *>(&ram_bank[0]), ram_bank.size());
-    save_file.close();
+
+    const auto sav_filename = save_dir / (base_name.string() + ".sav");
+    if (auto save_file = std::ofstream{sav_filename, std::ios::binary}) {
+        for (const auto &ram_bank: mRam)
+            save_file.write(reinterpret_cast<const char *>(ram_bank.data()), ram_bank.size());
+    } else {
+        std::println(stderr, "WARNING: Failed to create sav file");
+        return;
+    }
 
     if (with_timer) {
-        auto rtc_filename = "savs/" + filename + ".rtc";
-        rtc_file.open(filename, std::ios::binary);
-        if (rtc_file.fail()) {
-            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
+        const auto rtc_path = save_dir / (base_name.string() + ".rtc");
+        if (auto rtc_file = std::ofstream{rtc_path, std::ios::binary}) {
+            rtc_file.write(reinterpret_cast<const char *>(&rtc), sizeof(RTC_Regs));
+            rtc_file.write(reinterpret_cast<const char *>(&rtc2), sizeof(RTC_Regs));
+        } else {
+            std::println(stderr, "WARNING: Failed to create RTC file");
             return;
         }
-
-        rtc_file.write((char *)&rtc, sizeof(RTC_Regs));
-        rtc_file.write((char *)&rtc2, sizeof(RTC_Regs));
-        rtc_file.close();
     }
+    std::println("Successfully saved: {}", base_name.string());
 }
 
 void MemoryMap::load_sram() {
-    std::string filename;
-    std::ifstream save_file;
-    std::ifstream rtc_file;
+    const std::filesystem::path rom_path(mRomFilename);
+    const std::filesystem::path save_dir{"savs/"};
+    const auto base_name = rom_path.stem();
 
-    auto first_index = mRomFilename.find_last_of('/') + 1;
-    filename = mRomFilename.substr(first_index);
-    auto last_index = filename.find_last_of('.');
-    filename = filename.substr(0, last_index);
+    std::println("Loading: {}", base_name.string());
 
-    std::cout << "Loading: " << filename << "\n";
-    auto sav_filename = "savs/" + filename + ".sav";
-    save_file.open(sav_filename, std::ios::binary);
-    if (save_file.fail()) {
-        std::cout << "WARNING: Couldn't load SRAM" << std::endl;
+    const auto sav_filename = save_dir / (base_name.string() + ".sav");
+
+    if (auto save_file = std::ifstream{sav_filename, std::ios::binary}) {
+        for (auto &ram_bank: mRam)
+            save_file.read(reinterpret_cast<char *>(ram_bank.data()), ram_bank.size());
+    } else {
+        std::println(stderr, "WARNING: Failed to read sav file");
         return;
     }
-    for (auto &ram_bank : mRam)
-        save_file.read(reinterpret_cast<char *>(&ram_bank[0]), ram_bank.size());
-    save_file.close();
 
     if (with_timer) {
-        auto rtc_filename = "savs/" + filename + ".rtc";
-        rtc_file.open(rtc_filename, std::ios::binary);
-        if (rtc_file.fail()) {
-            std::cout << "WARNING: Couldn't save RTC file" << std::endl;
+        const auto rtc_path = save_dir / (base_name.string() + ".rtc");
+        if (auto rtc_file = std::ifstream{rtc_path, std::ios::binary}) {
+            rtc_file.read(reinterpret_cast<char *>(&rtc), sizeof(RTC_Regs));
+            rtc_file.read(reinterpret_cast<char *>(&rtc2), sizeof(RTC_Regs));
+        } else {
+            std::println(stderr, "WARNING: Failed to load RTC file");
             return;
         }
-
-        rtc_file.read((char *)&rtc, sizeof(RTC_Regs));
-        rtc_file.read((char *)&rtc2, sizeof(RTC_Regs));
-        rtc_file.close();
-        // initRTCTimer();
     }
 }
 
-void MemoryMap::updateIO(int a_cycles) {
+void MemoryMap::updateIO(const int a_cycles) {
     mDisplay->update(a_cycles >> mCurrentSpeed);
-    mSound->updateCycles(a_cycles);
+    mSound->updateCycles(a_cycles >> mCurrentSpeed);
     mTimer->update(a_cycles);
 }
 
@@ -562,7 +562,7 @@ void MemoryMap::resetInterruptRequest(int interrupt) {
         case eInterrupts::VBLANK: mDisplay->mVBlankInterruptRequest = false; break;
         case eInterrupts::LCDC: mDisplay->mLCDInterruptRequest = false; break;
         case eInterrupts::TIMER: mTimer->InterruptBit = false; break;
-        default: printf("Resseting other interrupt %d\n", interrupt); break;
+        default: std::println("Resetting other interrupt {}", interrupt); break;
     }
 }
 
@@ -580,6 +580,6 @@ void MemoryMap::writeIFRegister(u8 value) {
     mDisplay->mLCDInterruptRequest = (value & eInterrupts::LCDC) != 0;
     mTimer->InterruptBit = (value & eInterrupts::TIMER) != 0;
     if ((value & eInterrupts::SERIAL) || (value & eInterrupts::JOYPAD)) {
-        printf("Other interrupts request\n");
+        std::println("Other interrupts request");
     }
 }

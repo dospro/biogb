@@ -4,13 +4,8 @@
 
 #include "sound_channel_3.h"
 
-cSoundChannel3::cSoundChannel3(int a_generalFrecuency) :
-        cSoundChannel(a_generalFrecuency),
-        mCounter{0},
-        mPatternIndex{0}
-{
-    for (int i = 0; i < 32; i += 4)
-    {
+cSoundChannel3::cSoundChannel3(const int a_generalFrequency) : cSoundChannel(a_generalFrequency) {
+    for (int i = 0; i < 32; i += 4) {
         mWaveRam[i] = 0;
         mWaveRam[i + 1] = 0;
         mWaveRam[i + 2] = 0xFF;
@@ -18,15 +13,8 @@ cSoundChannel3::cSoundChannel3(int a_generalFrecuency) :
     }
 }
 
-cSoundChannel3::~cSoundChannel3()
-{
-
-}
-
-int cSoundChannel3::readRegister(int a_address)
-{
-    switch (a_address)
-    {
+int cSoundChannel3::readRegister(const int a_address) const {
+    switch (a_address) {
         case 0xFF1A:
             return NR30 | 0x7F;
         case 0xFF1B:
@@ -44,10 +32,8 @@ int cSoundChannel3::readRegister(int a_address)
     }
 }
 
-void cSoundChannel3::writeRegister(int a_address, int a_value)
-{
-    switch (a_address)
-    {
+void cSoundChannel3::writeRegister(const int a_address, const int a_value) {
+    switch (a_address) {
         case 0xFF1A:
             writeNR30(a_value);
             break;
@@ -64,37 +50,30 @@ void cSoundChannel3::writeRegister(int a_address, int a_value)
             writeNR34(a_value);
             break;
         default:
-            if (a_address >= 0xFF30 && a_address < 0xFF40)
-            {
+            if (a_address >= 0xFF30 && a_address < 0xFF40) {
                 writeWaveRam(a_address, a_value);
             }
             break;
     }
 }
 
-void cSoundChannel3::writeNR30(int a_value)
-{
-    if ((a_value & 0x80) == 0)
-    {
+void cSoundChannel3::writeNR30(const int a_value) {
+    if ((a_value & 0x80) == 0) {
         mDACBit = false;
         mOnOff = false;
-    }
-    else
+    } else
         mDACBit = true;
     NR30 = a_value;
 }
 
-void cSoundChannel3::writeNR31(int a_value)
-{
+void cSoundChannel3::writeNR31(const int a_value) {
     mSoundLength = (256 - a_value) * (CYCLES_PER_SECOND / 256);
     NR31 = a_value;
 }
 
-void cSoundChannel3::writeNR32(int a_value)
-{
+void cSoundChannel3::writeNR32(const int a_value) {
     mOutputLevel = (a_value >> 5) & 3;
-    switch (mOutputLevel)
-    {
+    switch (mOutputLevel) {
         case 0:
             mOutputLevel = 8;
             break;
@@ -112,15 +91,13 @@ void cSoundChannel3::writeNR32(int a_value)
     NR32 = a_value;
 }
 
-void cSoundChannel3::writeNR33(int a_value)
-{
+void cSoundChannel3::writeNR33(const int a_value) {
     mFrequency = (mFrequency & 0x700) | a_value;
     setFrequency();
     NR33 = a_value;
 }
 
-void cSoundChannel3::writeNR34(int a_value)
-{
+void cSoundChannel3::writeNR34(const int a_value) {
     mFrequency = (mFrequency & 0xFF) | ((a_value & 7) << 8);
     setFrequency();
     mConsecutive = (a_value & 0x40) == 0;
@@ -134,55 +111,44 @@ void cSoundChannel3::writeNR34(int a_value)
     NR34 = a_value;
 }
 
-void cSoundChannel3::writeWaveRam(int a_address, int a_value)
-{
+void cSoundChannel3::writeWaveRam(const int a_address, const int a_value) {
     int index = a_address - 0xFF30;
     mWaveRam[index * 2] = (a_value >> 4) << 4;
     mWaveRam[index * 2 + 1] = (a_value & 0xF) << 4;
     mWaveLastWrittenValue = a_value;
 }
 
-int cSoundChannel3::getOnOffBit()
-{
+int cSoundChannel3::getOnOffBit() const {
     if (mOnOff)
         return 4;
     return 0;
 }
 
-int cSoundChannel3::getSample()
-{
-    if (mCounter <= mSamplePerSecond)
-    {
+int cSoundChannel3::getSample() {
+    if (mCounter <= mSamplePerSecond) {
         ++mCounter;
-    }
-    else
-    {
+    } else {
         ++mPatternIndex;
         if (mPatternIndex >= mWaveRam.size())
             mPatternIndex = 0;
         mCounter -= mSamplePerSecond - 1;
-
     }
     if (!outputTerminal1 && !outputTerminal2)
         return 0;
     return mWaveRam[mPatternIndex] >> mOutputLevel;
 }
 
-void cSoundChannel3::update(int a_cycles)
-{
-    if (mOnOff && !mConsecutive)
-    {
+void cSoundChannel3::update(const int a_cycles) {
+    if (mOnOff && !mConsecutive) {
         mSoundLength -= a_cycles;
-        if (mSoundLength <= 0)
-        {
+        if (mSoundLength <= 0) {
             mOnOff = false;
             mSoundLength = 0;
         }
     }
 }
 
-void cSoundChannel3::setFrequency()
-{
-    double finalFrequency = {65536.0f / (2048.0f - mFrequency)};
-    mSamplePerSecond = GENERAL_FREQUENCY / finalFrequency / mWaveRam.size();
+void cSoundChannel3::setFrequency() {
+    const double finalFrequency = {65536.0f / (2048.0f - static_cast<double>(mFrequency))};
+    mSamplePerSecond = GENERAL_FREQUENCY / finalFrequency / static_cast<double>(mWaveRam.size());
 }
