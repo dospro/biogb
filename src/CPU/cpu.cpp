@@ -221,7 +221,7 @@ void cCpu::runFrame() {
             mMemory->HBlankHDMA();
         } else if (line == 144) {
             fullUpdate();
-            mMemory->mDisplay->updateScreen();
+            // mMemory->mDisplay.updateScreen();
         }
         runScanLine();
     }
@@ -250,7 +250,6 @@ void cCpu::fullUpdate() {
     mMemory->mInput->update();
     if (mMemory->mInput->isKeyPressed(GBK_ESCAPE)) {
         mMemory->save_sram();
-        mMemory->mSound->turnOff();
         isRunning = false;
     }
     if (mMemory->mInput->isKeyPressed(GBK_s)) {

@@ -2,49 +2,28 @@
 
 #include <algorithm>
 #include <cmath>
-
-#define BG_WHITE 0xE0F8D0
-#define BG_LIGHT_GRAY 0x7EC070
-#define GB_DARK_GRAY 0x346856
-#define GB_BLACK 0x081820
+#include <print>
 
 
-cDisplay::cDisplay(bool a_isColor) :
-        BGPTable{{BG_WHITE,     BG_LIGHT_GRAY},
-                 {GB_DARK_GRAY, GB_BLACK}},
-        WPTable{{BG_WHITE,     BG_LIGHT_GRAY},
-                {GB_DARK_GRAY, GB_BLACK}},
-        BWColors{{BG_WHITE,     BG_LIGHT_GRAY},
-                 {GB_DARK_GRAY, GB_BLACK}},
-        mBGPaletteMemory{},
-        mOBJPaletteMemory{},
-        mMasterPriority{false},
-        mIsColor{a_isColor},
-        mVRAMBank{0},
-        mTilePrioritiesTable{},
-        lcdc{},
-        cyclesCounter{0},
-        LYCyclesCounter{0},
-        nextMode{3},
-        LYRegister{0}{
-    mSpriteColorTable = {
-            BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK,
-            BG_WHITE, BG_LIGHT_GRAY, GB_DARK_GRAY, GB_BLACK};
-
-    constexpr double gamma_correction = 1.0f / 1.6f;
+cDisplay::cDisplay(const bool a_isColor) : mIsColor{a_isColor} {
+    constexpr double gamma_correction = 1.0 / 1.6;
 
     for (int color = 0; color < 0x10000; ++color) {
         const double normal_red = (color & 0x1F) / 31.0;
         const double normal_green = ((color >> 5) & 0x1F) / 31.0;
         const double normal_blue = ((color >> 10) & 0x1F) / 31.0;
 
-        const double new_red = std::clamp((normal_red * 0.87 + normal_green * 0.06 + normal_blue * 0.07) * 0.90, 0.0, 1.0);
-        const double new_green = std::clamp((normal_red * 0.0 + normal_green * 0.85 + normal_blue * 0.15) * 0.90, 0.0, 1.0);
-        const double new_blue = std::clamp((normal_red * 0.10 + normal_green * 0.10 + normal_blue * 0.8) * 0.90, 0.0, 1.0);
+        double new_red = (normal_red * 0.87 + normal_green * 0.06 + normal_blue * 0.07) * 0.90;
+        double new_green = (normal_red * 0.0 + normal_green * 0.85 + normal_blue * 0.15) * 0.90;
+        double new_blue = (normal_red * 0.10 + normal_green * 0.10 + normal_blue * 0.8) * 0.90;
 
-        const u8 red_8bit = static_cast<u8>(std::clamp(std::pow(new_red, gamma_correction) * 255.0f, 0.0, 255.0));
-        const u8 green_8bit = static_cast<u8>(std::clamp(std::pow(new_green, gamma_correction) * 255.0f, 0.0, 255.0));
-        const u8 blue_8bit = static_cast<u8>(std::clamp(std::pow(new_blue, gamma_correction) * 255.0f, 0.0, 255.0));
+        new_red = std::clamp(new_red, 0.0, 1.0);
+        new_green = std::clamp(new_green, 0.0, 1.0);
+        new_blue = std::clamp(new_blue, 0.0, 1.0);
+
+        const u8 red_8bit = static_cast<u8>(std::clamp(std::pow(new_red, gamma_correction) * 255.0, 0.0, 255.0));
+        const u8 green_8bit = static_cast<u8>(std::clamp(std::pow(new_green, gamma_correction) * 255.0, 0.0, 255.0));
+        const u8 blue_8bit = static_cast<u8>(std::clamp(std::pow(new_blue, gamma_correction) * 255.0, 0.0, 255.0));
 
         gbcColors[color] = static_cast<unsigned int>((red_8bit << 16) | (green_8bit << 8) | blue_8bit);
     }
@@ -55,7 +34,7 @@ cDisplay::cDisplay(bool a_isColor) :
     stat.mode = 2;
 }
 
-u8 cDisplay::readFromDisplay(u16 a_address) {
+u8 cDisplay::readFromDisplay(const u16 a_address) const {
     // TODO: Implement
     if (a_address >= 0x8000 && a_address < 0xA000) {
         return mVRAM[mVRAMBank][a_address - 0x8000];
@@ -84,13 +63,13 @@ u8 cDisplay::readFromDisplay(u16 a_address) {
             case 0xFF69: return mBGPaletteMemory[BGPIRegister & 0x3F];
             case 0xFF6A: return OBPIRegister;
             case 0xFF6B: return mOBJPaletteMemory[OBPIRegister & 0x3F];
-            default:break;
+            default: break;
         }
     }
     return 0;
 }
 
-void cDisplay::writeToDisplay(u16 a_address, u8 a_value) {
+void cDisplay::writeToDisplay(const u16 a_address, const u8 a_value) {
     if (a_address >= 0x8000 && a_address < 0xA000) {
         mVRAM[mVRAMBank][a_address - 0x8000] = a_value;
     } else if (a_address >= 0xFE00 && a_address < 0xFEA0) {
@@ -126,64 +105,67 @@ void cDisplay::writeToDisplay(u16 a_address, u8 a_value) {
             case 0xFF45:
                 LYCRegister = a_value;
                 break;
-            case 0xFF47:  // BGP
+            case 0xFF47: // BGP
                 BGPRegister = a_value;
                 setBGPColors(a_value);
                 break;
-            case 0xFF48:  // OBP0
+            case 0xFF48: // OBP0
                 OBP0Register = a_value;
                 for (int i = 0; i < 4; ++i) {
                     mSpriteColorTable[i] = BWColors[(a_value >> ((i * 2) + 1)) & 1][(a_value >> (i * 2)) & 1];
                 }
                 break;
-            case 0xFF49:  // OBP1
+            case 0xFF49: // OBP1
                 OBP1Register = a_value;
                 for (int i = 0; i < 4; ++i) {
                     mSpriteColorTable[i + 4] = BWColors[(a_value >> ((i * 2) + 1)) & 1][(a_value >> (i * 2)) & 1];
                 }
                 break;
-            case 0xFF4A: WYRegister = a_value; break;
-            case 0xFF4B: WXRegister = a_value; break;
-            case 0xFF4F: setVRAMBank(a_value); break;    // VRAM Bank
-            case 0xFF68: BGPIRegister = a_value; break;  // BGPI
+            case 0xFF4A: WYRegister = a_value;
+                break;
+            case 0xFF4B: WXRegister = a_value;
+                break;
+            case 0xFF4F: setVRAMBank(a_value);
+                break; // VRAM Bank
+            case 0xFF68: BGPIRegister = a_value;
+                break; // BGPI
             case 0xFF69:
                 mBGPaletteMemory[BGPIRegister & 0x3F] = a_value;
                 if (BGPIRegister & 0x80) BGPIRegister = (BGPIRegister + 1) & 0xFF;
-                break;  // BGPD
-            case 0xFF6A: OBPIRegister = a_value; break;
+                break; // BGPD
+            case 0xFF6A: OBPIRegister = a_value;
+                break;
             case 0xFF6B:
                 // 8 color palettes x 4 colors each palette x 2 bytes each color = 64 bytes(0x3F bytes)
                 mOBJPaletteMemory[OBPIRegister & 0x3F] = a_value;
                 if (OBPIRegister & 0x80) OBPIRegister = (OBPIRegister + 1) & 0xFF;
                 break;
             default:
-                printf("Writing from IOMap %X: %X\n", a_address, a_value);
-                // TODO: Raise exception/
-                // std::cout << "Falta: " << a_address << "\n";
+                std::println("WARNING: Writing to unmapped address {:x} value {:x}", a_address, a_value);
                 break;
         }
     }
 }
 
-void cDisplay::setBGPColors(u8 value) {
+void cDisplay::setBGPColors(const u8 value) {
     BGPTable[1][1] = WPTable[1][1] = BWColors[(value >> 7)][(value >> 6) & 1];
     BGPTable[1][0] = WPTable[1][0] = BWColors[(value >> 5) & 1][(value >> 4) & 1];
     BGPTable[0][1] = WPTable[0][1] = BWColors[(value >> 3) & 1][(value >> 2) & 1];
     BGPTable[0][0] = WPTable[0][0] = BWColors[(value >> 1) & 1][(value & 1)];
 }
 
-void cDisplay::setVRAMBank(int a_bank) {
+void cDisplay::setVRAMBank(const int a_bank) noexcept {
     mVRAMBank = a_bank & 1;
 }
 
-bool cDisplay::hasLineFinished() {
+bool cDisplay::hasLineFinished() const noexcept {
     return isLineFinished;
 }
 
 
 void cDisplay::update(int a_cycles) {
-    //NOTE: When CGB is at double speed LCD, Sound and HDMA work as normal.
-    //This means those take double clock cycles to finish(because those are
+    //NOTE: When CGB is at double speed, LCD, Sound and HDMA work as normal.
+    //This means those take double clock cycles to finish (because those are
     // slower than the other parts).
 
     /* Example
@@ -200,13 +182,13 @@ void cDisplay::update(int a_cycles) {
     // 3. Do nothing for 10 lines???
 
 
-    const auto cyclesPerMode0 = 206;
-    const auto cyclesPerMode2 = 82;
-    const auto cyclesPerMode3 = 168;
-    const auto cyclesPerLines = cyclesPerMode0 + cyclesPerMode2 + cyclesPerMode3;  // 456
+    constexpr auto cyclesPerMode0 = 206;
+    constexpr auto cyclesPerMode2 = 82;
+    constexpr auto cyclesPerMode3 = 168;
+    constexpr auto cyclesPerLines = cyclesPerMode0 + cyclesPerMode2 + cyclesPerMode3; // 456
 
     isLineFinished = false;
-    if (!lcdc.lcdcActive) {
+    if (!lcdc.lcdcActive) [[unlikely]] {
         return;
     }
 
@@ -241,7 +223,7 @@ void cDisplay::update(int a_cycles) {
             } else if (LYRegister == 144) {
                 // From line 144 to 153 we are on vblank
                 stat.mode = 1;
-                if ( stat.mode1Interrupt ) {
+                if (stat.mode1Interrupt) {
                     mLCDInterruptRequest = true;
                 }
                 mVBlankInterruptRequest = true;
@@ -250,7 +232,6 @@ void cDisplay::update(int a_cycles) {
                 LYRegister = 0;
                 stat.mode = 2;
             }
-//            printf("Current line %d\n", LYRegister);
 
             stat.coincidenceFlag = false;
             if (LYRegister == LYCRegister) {
@@ -263,8 +244,8 @@ void cDisplay::update(int a_cycles) {
     }
 }
 
-const cDisplay::VideoBuffer &cDisplay::getFrameBuffer() {
-    return this->videoBuffer;
+std::span<const u32> cDisplay::get_video_buffer() const {
+    return video_buffer_data;
 }
 
 void cDisplay::hBlankDraw() {
@@ -291,26 +272,25 @@ void cDisplay::hBlankDraw() {
     }
 }
 
-void cDisplay::drawEmptyBG() {
+void cDisplay::drawEmptyBG() const {
     for (int i = 0; i < 160; ++i) {
-        videoBuffer[LYRegister][i] = 0xFFFFFF;
+        videoBuffer[LYRegister, i] = 0xFFFFFF;
     }
 }
 
 void cDisplay::drawBackGround() {
-    int xScroll{-(SCXRegister & 7)};
-    int yScroll{(LYRegister + SCYRegister) & 0xFF};
+    const int xScroll{-(SCXRegister & 7)};
+    const int yScroll{(LYRegister + SCYRegister) & 0xFF};
     int currentTileInLine = SCXRegister / 8;
 
     for (int i = xScroll; i < 160; i += 8) {
-        if (currentTileInLine >= 32)
-            currentTileInLine -= 32;
+        currentTileInLine %= 32;
 
-        int tileNumber = lcdc.BGMapAddress + ((yScroll / 8) * 32 + currentTileInLine);
+        const int tileNumber = lcdc.BGMapAddress + ((yScroll / 8) * 32 + currentTileInLine);
 
         //mTilePrioritiesTable[counter]
-        bool hFlip{0};
-        bool vFlip{0};
+        bool hFlip{};
+        bool vFlip{};
         int bank{0};
         if (mIsColor) {
             hFlip = ((mVRAM[1][tileNumber] >> 5) & 1) != 0;
@@ -322,7 +302,6 @@ void cDisplay::drawBackGround() {
             setBGColorTable(tileNumber);
         }
 
-
         int tileOffset{mVRAM[0][tileNumber]};
         if (lcdc.tileDataAddress == TILE_PATTERN_TABLE_1) {
             tileOffset ^= 0x80;
@@ -330,30 +309,30 @@ void cDisplay::drawBackGround() {
 
         int offset{lcdc.tileDataAddress + (tileOffset * 16)};
         offset += (vFlip ? (7 - (yScroll & 7)) * 2 : (yScroll & 7) * 2);
-        int firstByte{mVRAM[bank][offset + 1]};
-        int secondByte{mVRAM[bank][offset]};
+        const int firstByte{mVRAM[bank][offset + 1]};
+        const int secondByte{mVRAM[bank][offset]};
         drawTileLine(firstByte, secondByte, i, hFlip);
         ++currentTileInLine;
     }
 }
 
-void cDisplay::drawTileLine(int firstByte, int secondByte, int xPosition, bool hFlip) {
+void cDisplay::drawTileLine(int firstByte, int secondByte, const int xPosition, const bool hFlip) const {
     for (int j = 0; j < 8; j++) {
-        int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
+        const int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
         if (isTileVisible(xOffset)) {
-            videoBuffer[LYRegister][xOffset] = BGPTable[firstByte & 1u][secondByte & 1u];
+            videoBuffer[LYRegister, xOffset] = BGPTable[firstByte & 1u][secondByte & 1u];
         }
         firstByte >>= 1;
         secondByte >>= 1;
     }
 }
 
-bool cDisplay::isTileVisible(int a_xPosition) const {
+bool cDisplay::isTileVisible(const int a_xPosition) const noexcept {
     return a_xPosition < 160 && a_xPosition >= 0 && LYRegister >= 0 && LYRegister < 144;
 }
 
-void cDisplay::setBGColorTable(int tileNumber) {
-    int palette = (mVRAM[1][tileNumber] & 7) * 8;
+void cDisplay::setBGColorTable(const int tileNumber) {
+    const int palette = (mVRAM[1][tileNumber] & 7) * 8;
 
     BGPTable[0][0] = gbcColors[((mBGPaletteMemory[palette + 1]) << 8) | (mBGPaletteMemory[palette])];
     BGPTable[0][1] = gbcColors[((mBGPaletteMemory[palette + 3]) << 8) | (mBGPaletteMemory[palette + 2])];
@@ -400,7 +379,7 @@ void cDisplay::drawWindow() {
             for (int j = 7; j >= 0; j--) {
                 int p{horizontalFlip ? i + (7 - j) : i + j};
                 if (p < 160 && p >= 0 && p >= wx)
-                    videoBuffer[LYRegister][p] = WPTable[firstByte & 1][secondByte & 1];
+                    videoBuffer[LYRegister, p] = WPTable[firstByte & 1][secondByte & 1];
                 firstByte >>= 1;
                 secondByte >>= 1;
             }
@@ -428,7 +407,6 @@ void cDisplay::drawSprites() {
                 spriteBank = (spriteFlags >> 3) & 1;
                 setSpriteColorTable(spritePaletteNumber);
                 spritePaletteNumber = 0;
-
             }
 
             bool yFlip{(spriteFlags & 0x40) != 0};
@@ -457,38 +435,38 @@ void cDisplay::drawSprites() {
 
 void cDisplay::setSpriteColorTable(int a_paletteNumber) {
     for (int i = 0; i < 4; ++i) {
-        int colorIndex = ((mOBJPaletteMemory[a_paletteNumber + (i * 2) + 1]) << 8) |
-                         (mOBJPaletteMemory[a_paletteNumber + i * 2]);
+        const u32 paletteIndex = a_paletteNumber + (i * 2);
+        const u32 colorIndex = (mOBJPaletteMemory[paletteIndex + 1] << 8) | (mOBJPaletteMemory[paletteIndex]);
         mSpriteColorTable[i] = gbcColors[colorIndex];
     }
 }
 
-int cDisplay::getPriority() {
+int cDisplay::getPriority() const {
     if (!mMasterPriority)
         return SPRITE_ABOVE_BG; // Sprites van hasta arriba.
 
     if (!mOAMPriority)
         return OAM_SPRITE_ABOVE_BG; // Sprite arriba de BG
     else
-        return BG_ABOVE_SPRITE;// BG(123) arriba de sprite
+        return BG_ABOVE_SPRITE; // BG(123) arriba de sprite
 }
 
-void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte) {
+void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, u8 firstByte, u8 secondByte) const {
     for (int i = 0; i < 8; ++i) {
         int offset{flipX ? i : 7 - i};
 
         auto colorIndex = (((firstByte & 1u) << 1u) | (secondByte & 1u));
         if (mFinalPriority == SPRITE_ABOVE_BG) {
             if (isSpritePixelVisible(spriteX, colorIndex, offset))
-                videoBuffer[LYRegister][spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                videoBuffer[LYRegister, spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         } else if (mFinalPriority == OAM_SPRITE_ABOVE_BG) {
             if (!mTilePrioritiesTable[(spriteX + offset) / 8] && isSpritePixelVisible(spriteX, colorIndex, offset))
-                videoBuffer[LYRegister][spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                videoBuffer[LYRegister, spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         } else if (mFinalPriority == BG_ABOVE_SPRITE) {
             if (isSpritePixelVisible(spriteX, colorIndex, offset) &&
-                (videoBuffer[LYRegister][spriteX + offset] == BGPTable[0][0] ||
-                 videoBuffer[LYRegister][spriteX + offset] == WPTable[0][0]))
-                videoBuffer[LYRegister][spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
+                (videoBuffer[LYRegister, spriteX + offset] == BGPTable[0][0] ||
+                 videoBuffer[LYRegister, spriteX + offset] == WPTable[0][0]))
+                videoBuffer[LYRegister, spriteX + offset] = mSpriteColorTable[4 * spritePaletteNumber + colorIndex];
         } else {
         }
 
@@ -497,8 +475,8 @@ void cDisplay::drawSpriteLine(bool flipX, int spriteX, int spritePaletteNumber, 
     }
 }
 
-bool cDisplay::isSpritePixelVisible(int a_xPosition, int a_colorIndex, int a_offset) const {
-    return ((a_xPosition + a_offset) < 160
-            && ((a_xPosition + a_offset) >= 0)
-            && a_colorIndex != 0);
+bool cDisplay::isSpritePixelVisible(const int a_xPosition, const int a_colorIndex, const int a_offset) const {
+    return a_xPosition + a_offset < 160
+           && a_xPosition + a_offset >= 0
+           && a_colorIndex != 0;
 }

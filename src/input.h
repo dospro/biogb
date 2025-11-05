@@ -35,25 +35,25 @@ class cInput
 public:
 
     cInput();
-    ~cInput();
+    ~cInput() = default;
     void setKey(int gbKey, int pKey);
     void update();
-    bool isKeyPressed(int k);
-    bool isGbKeyPressed(int k);
+    bool isKeyPressed(int k) const;
+    bool isGbKeyPressed(int k) const;
     bool isButtonPressed(int b);
-    int readRegister();
+    int readRegister() const;
     void writeRegister(int a_value);
 
 
 private:
-    int mButtons;
-    int mDirections;
-    int mP1Value;
-    SDL_Event event;
-    const unsigned char *key; //keyboard
+    int mButtons{};
+    int mDirections{};
+    int mP1Value{};
+    SDL_Event event{};
+    const unsigned char *key{}; //keyboard
 
-    int gbky[9]; //Gameboy keys
-    unsigned int button; //joypad/joystick
+    int gbky[9]{}; //Gameboy keys
+    unsigned int button{}; //joypad/joystick
 
 };
 

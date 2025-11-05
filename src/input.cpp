@@ -2,10 +2,8 @@
 
 #include <stdexcept>
 
-cInput::cInput()
-{
-    if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0)
-    {
+cInput::cInput() {
+    if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0)
             throw std::runtime_error("SDL Error can't init input system.");
     }
@@ -20,28 +18,19 @@ cInput::cInput()
     gbky[GB_SELECT] = GBK_RSHIFT;
 }
 
-cInput::~cInput()
-{
-
-}
-
-bool cInput::isButtonPressed(int b)
-{
+bool cInput::isButtonPressed(int b) {
     return false;
 }
 
-bool cInput::isKeyPressed(int k)
-{
+bool cInput::isKeyPressed(const int k) const {
     return key[k] != 0;
 }
 
-bool cInput::isGbKeyPressed(int k)
-{
+bool cInput::isGbKeyPressed(const int k) const {
     return key[gbky[k]] != 0;
 }
 
-void cInput::update()
-{
+void cInput::update() {
     SDL_PumpEvents();
     key = SDL_GetKeyboardState(nullptr);
 
@@ -64,16 +53,14 @@ void cInput::update()
     else mButtons &= 251;
 }
 
-int cInput::readRegister()
-{
+int cInput::readRegister() const {
     return mP1Value;
 }
 
-void cInput::writeRegister(int a_value)
-{
-    if ((a_value & 16) == 0)//Directions
+void cInput::writeRegister(const int a_value) {
+    if ((a_value & 16) == 0) //Directions
         mP1Value = ((mDirections ^ 255) & 0xF) | 0xE0;
-    else if ((a_value & 32) == 0)//Buttons
+    else if ((a_value & 32) == 0) //Buttons
         mP1Value = ((mButtons ^ 255) & 0xF) | 0xD0;
     else
         mP1Value = 0xFF;

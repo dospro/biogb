@@ -11,9 +11,9 @@ class cSound
 {
 public:
     explicit cSound(int a_generalFrequency);
-    virtual ~cSound() = default;
-    virtual void turnOn() = 0;
-    virtual void turnOff() = 0;
+    ~cSound() = default;
+    // virtual void turnOn() = 0;
+    // virtual void turnOff() = 0;
     [[nodiscard]] u8 readFromSound(u16 a_address) const;
     void writeToSound(u16 address, u8 value);
     void fillBuffer(u8 *a_internalBuffer, int a_bufferSize);

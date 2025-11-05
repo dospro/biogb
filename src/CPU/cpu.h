@@ -33,6 +33,9 @@ class cCpu {
 
     [[nodiscard]] bool isCpuRunning() const { return isRunning; }
 
+    [[nodiscard]] std::span<const u32> get_video_buffer() const {return mMemory->mDisplay->get_video_buffer();}
+    [[nodiscard]] cSound *get_sound_system() const {return mMemory->mSound.get();}
+
     void saveState(int number);
     void loadState(int number);
     void runFrame();

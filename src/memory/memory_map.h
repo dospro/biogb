@@ -65,7 +65,7 @@ class MemoryMap {
     RTC_Regs rtc{}, rtc2{};
     SerialTransfer ST{};
     u16 romBank{1}, ramBank{}, wRamBank{1};
-    u8 IOMap[0x10000][1]{};
+    std::array<u8, 0x100> IOMap{};
 
    private:
     std::vector<std::array<u8, 0x4000>> mRom{};

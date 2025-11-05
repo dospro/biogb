@@ -7,11 +7,7 @@ find_package(SDL2 REQUIRED)
 include_directories(${SDL2_INCLUDE_DIR})
 
 add_definitions(-DLINUX)
-set(GRAPHICS_IMPLEMENTATION src/imp/video/sdl_display.h src/imp/video/sdl_display.cpp)
-set(AUDIO_IMPLEMENTATION src/imp/audio/sdl_audio.h src/imp/audio/sdl_audio.cpp)
 set(SOURCE_FILES
-        ${GRAPHICS_IMPLEMENTATION}
-        ${AUDIO_IMPLEMENTATION}
         src/main.cpp
         src/memory/memory_map.cpp
         src/CPU/cpu.cpp

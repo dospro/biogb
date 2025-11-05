@@ -4,8 +4,6 @@
 #include <fstream>
 #include <print>
 
-#include "../imp/audio/sdl_audio.h"
-#include "../imp/video/sdl_display.h"
 
 std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file_name) {
     mRomFilename = std::string(file_name);
@@ -46,7 +44,7 @@ void MemoryMap::init_wram(const bool is_color) {
 std::expected<void, std::string> MemoryMap::init_sub_systems() noexcept {
     std::print("Starting Display -> ");
     try {
-        mDisplay = std::make_unique<cSDLDisplay>(mIsColor);
+        mDisplay = std::make_unique<cDisplay>(mIsColor);
     } catch (const std::exception &) {
         std::println("Failed");
         return std::unexpected("Failed to start display system");
@@ -55,12 +53,11 @@ std::expected<void, std::string> MemoryMap::init_sub_systems() noexcept {
 
     std::print("Starting Sound System -> ");
     try {
-        mSound = std::make_unique<cSDLSound>(44100, 512);
+        mSound = std::make_unique<cSound>(44100);
     } catch (const std::exception &) {
         std::println("Failed");
         return std::unexpected("Failed to start sound system");
     }
-    mSound->turnOn();
     std::println("Ok");
 
     std::print("Starting Input System -> ");
@@ -141,7 +138,7 @@ int MemoryMap::readIO(int a_address) {
         case 0xFF54: return (hdma.dest >> 8) & 0xFF;
         case 0xFF55: return (hdma.mode << 7) | (hdma.length / 0x10 - 1);
         case 0xFFFF: return IERegister;
-        default: return IOMap[a_address][0];
+        default: return IOMap[a_address & 0xFF];
     }
 }
 
@@ -325,13 +322,13 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
             break;
         case 0xFF01:  // SB-Serial Transfer data
             ST.trans = a_value;
-            IOMap[a_address][0] = a_value;
+            IOMap[a_address & 0xFF] = a_value;
             break;
         case 0xFF02:  // SC-SIO Control
             ST.start = (a_value >> 7) & 1;
             ST.speed = (a_value >> 1) & 1;
             ST.cType = (a_value & 1);
-            IOMap[a_address][0] = a_value;
+            IOMap[a_address & 0xFF] = a_value;
             if (ST.start) {
 #ifdef USE_SDL_NET
                 if (net.isActive()) {
@@ -344,9 +341,9 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
 #endif
                 {
                     if (ST.cType) {
-                        IOMap[0xFF01][0] = 0xFF;
-                        IOMap[a_address][0] = a_value & 0x7F;
-                        IOMap[0xFF0F][0] |= 8;
+                        IOMap[0xFF01 & 0xFF] = 0xFF;
+                        IOMap[a_address & 0xFF] = a_value & 0x7F;
+                        IOMap[0xFF0F & 0xFF] |= 8;
                     }
                 }
             }
@@ -398,14 +395,14 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
         case 0xFF6A:
         case 0xFF6B: mDisplay->writeToDisplay(a_address, a_value); break;
         case 0xFF70:
-            IOMap[a_address][0] = a_value;
+            IOMap[a_address & 0xFF] = a_value;
             if (mIsColor) {
                 wRamBank = a_value & 7;
                 if (wRamBank == 0) wRamBank++;
             }
             break;
         case 0xFFFF: IERegister = a_value; break;
-        default: IOMap[a_address][0] = a_value;
+        default: IOMap[a_address & 0xFF] = a_value;
     }
 }
 
