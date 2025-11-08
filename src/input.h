@@ -2,59 +2,34 @@
 #define BIOGB_INPUT
 
 
-#include<SDL.h>
+enum class GBKey : int {
+    Up = 0,
+    Down = 1,
+    Left = 2,
+    Right = 3,
+    A = 4,
+    B = 5,
+    Start = 6,
+    Select = 7,
+};
 
-
-#define GBK_ESCAPE SDL_SCANCODE_ESCAPE
-#define GBK_SPACE SDL_SCANCODE_SPACE
-#define GBK_KP_MINUS SDL_SCANCODE_KP_MINUS
-#define GBK_KP_PLUS SDL_SCANCODE_KP_PLUS
-#define GBK_s SDL_SCANCODE_S
-#define GBK_l SDL_SCANCODE_L
-#define GBK_x SDL_SCANCODE_X
-#define GBK_z SDL_SCANCODE_Z
-#define GBK_UP SDL_SCANCODE_UP
-#define GBK_DOWN SDL_SCANCODE_DOWN
-#define GBK_LEFT SDL_SCANCODE_LEFT
-#define GBK_RIGHT SDL_SCANCODE_RIGHT
-#define GBK_RETURN SDL_SCANCODE_RETURN
-#define GBK_RSHIFT SDL_SCANCODE_RSHIFT
-
-
-#define GB_UP        0
-#define GB_DOWN        1
-#define GB_LEFT        2
-#define GB_RIGHT    3
-#define GB_A        4
-#define GB_B        5
-#define GB_START    6
-#define GB_SELECT    7
-
-class cInput
-{
+class cInput {
 public:
+    cInput() = default;
 
-    cInput();
     ~cInput() = default;
-    void setKey(int gbKey, int pKey);
-    void update();
-    bool isKeyPressed(int k) const;
-    bool isGbKeyPressed(int k) const;
-    bool isButtonPressed(int b);
-    int readRegister() const;
-    void writeRegister(int a_value);
 
+    void reset_input();
+    void update_input(GBKey key);
+
+    int readRegister() const;
+
+    void writeRegister(int a_value);
 
 private:
     int mButtons{};
     int mDirections{};
     int mP1Value{};
-    SDL_Event event{};
-    const unsigned char *key{}; //keyboard
-
-    int gbky[9]{}; //Gameboy keys
-    unsigned int button{}; //joypad/joystick
-
 };
 
 #endif

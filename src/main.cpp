@@ -1,4 +1,5 @@
 #include <print>
+#include <SDL.h>
 
 #include "CPU/cpu.h"
 
@@ -112,11 +113,98 @@ int main(int argc, char *argv[]) {
         std::println(stderr, "ERROR: Could not open audio device: {}", SDL_GetError());
         return EXIT_FAILURE;
     }
-
-
     SDL_PauseAudioDevice(device_id, 0);
     constexpr int pitch = screen_width * sizeof(unsigned int);
-    while (gb.isCpuRunning()) {
+
+    Uint64 time_to_next_frame;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+    const auto now = SDL_GetTicks64();
+    time_to_next_frame = now + 16;
+#else
+    time_to_next_frame = SDL_GetTicks() + 16u;
+#endif
+
+
+    int fps = 0;
+    Uint64 fps_time = SDL_GetTicks64() + 1000;
+    Uint64 frame_start_time = SDL_GetTicks64();
+    Uint64 frame_count = 0;
+    std::string title;
+    u32 fpsSpeed = 1;
+    bool is_running = true;
+
+    SDL_Event event;
+    while (is_running) {
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_QUIT:
+                    is_running = false;
+                    // gb.save_sram();
+                    break;
+                case SDL_KEYUP:
+                    switch (event.key.keysym.sym) {
+                        case SDLK_s:
+                            std::println("Saving state");
+                            break;
+                        case SDLK_MINUS:
+                            fpsSpeed++;
+                            break;
+                        case SDLK_PLUS:
+                            fpsSpeed--;
+                        default:
+                            break;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        auto key_state = SDL_GetKeyboardState(nullptr);
+        gb.reset_input();
+
+
+        if (key_state[SDL_SCANCODE_ESCAPE]) {
+            break;
+        }
+        if (key_state[SDL_SCANCODE_Z]) {
+            gb.update_input(GBKey::A);
+        }
+        if (key_state[SDL_SCANCODE_X]) {
+            gb.update_input(GBKey::B);
+        }
+        if (key_state[SDL_SCANCODE_RETURN]) {
+            gb.update_input(GBKey::Start);
+        }
+        if (key_state[SDL_SCANCODE_RSHIFT]) {
+            gb.update_input(GBKey::Select);
+        }
+        if (key_state[SDL_SCANCODE_UP]) {
+            gb.update_input(GBKey::Up);
+        }
+        if (key_state[SDL_SCANCODE_DOWN]) {
+            gb.update_input(GBKey::Down);
+        }
+        if (key_state[SDL_SCANCODE_LEFT]) {
+            gb.update_input(GBKey::Left);
+        }
+        if (key_state[SDL_SCANCODE_RIGHT]) {
+            gb.update_input(GBKey::Right);
+        }
+        if (!key_state[SDL_SCANCODE_SPACE]) {
+            frame_count++;
+            const Uint64 target_time = frame_start_time + frame_count * 1000 / 60;
+            if (const auto current_time = SDL_GetTicks64(); target_time > current_time) {
+                SDL_Delay(target_time - current_time);
+            }
+        }
+        fps++;
+        if (fps_time <= SDL_GetTicks64()) {
+            title = "BioGB v5.0 - FPS: " + std::to_string(fps);
+            SDL_SetWindowTitle(screen.get(), title.c_str());
+            fps_time = SDL_GetTicks64() + 1000;
+            fps = 0;
+        }
         gb.runFrame();
         auto video_buffer = gb.get_video_buffer();
         SDL_UpdateTexture(texture.get(), nullptr, video_buffer.data(), pitch);

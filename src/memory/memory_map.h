@@ -24,7 +24,7 @@ struct HDMA {
 struct RTC_Regs {
     u8 rtcRegSelect;
     bool areRtcRegsSelected;
-    bool latch;
+    u8 latch;
     u8 sec;
     u8 min;
     u8 hr;

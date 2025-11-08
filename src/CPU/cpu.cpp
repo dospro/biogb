@@ -1,4 +1,6 @@
 #include "cpu.h"
+
+#include <chrono>
 #include <print>
 
 namespace {
@@ -150,18 +152,6 @@ void cCpu::loadState(int number) {}
     mMemory->writeByte(0xFF4D, 0x00);
     mMemory->writeByte(0xFFFF, 0x00);
 
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-    const auto now = SDL_GetTicks64();
-    time1 = static_cast<u32>(now + 16);
-    time2 = static_cast<u32>(now + 1000);
-#else
-    time1 = SDL_GetTicks() + 16u;
-    time2 = SDL_GetTicks() + 1000u;
-#endif
-
-    isRunning = true;
-    fpsSpeed = 1;
-
     std::println("Starting emulation! Have fun!");
     return {};
 }
@@ -192,23 +182,22 @@ int cCpu::checkInterrupts() {
 }
 
 void cCpu::initRTCTimer() {
-    struct tm currentTime;
-    time_t timer;
+    auto now = std::chrono::system_clock::now();
+    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+    auto *local_tm = std::localtime(&now_time_t);
 
-    timer = time(NULL);
-    currentTime = *localtime(&timer);
-    // printf("%d:%d:%d\n", currentTime.tm_hour, currentTime.tm_min,
-    // currentTime.tm_sec);
+    auto now_since_epoch = now.time_since_epoch();
+    auto time_of_day = std::chrono::hh_mm_ss(now_since_epoch);
 
-    mMemory->rtc.sec = currentTime.tm_sec;
-    mMemory->rtc.min = currentTime.tm_min;
-    mMemory->rtc.hr = currentTime.tm_hour - 10;
-    mMemory->rtc.dl = currentTime.tm_wday;
+    mMemory->rtc.sec = local_tm->tm_sec;
+    mMemory->rtc.min = local_tm->tm_min;
+    mMemory->rtc.hr = local_tm->tm_hour;
+    mMemory->rtc.dl = local_tm->tm_wday;
 
-    mMemory->rtc2.sec = currentTime.tm_sec;
-    mMemory->rtc2.min = currentTime.tm_min;
-    mMemory->rtc2.hr = currentTime.tm_hour - 10;
-    mMemory->rtc2.dl = currentTime.tm_wday;
+    mMemory->rtc2.sec = local_tm->tm_sec;
+    mMemory->rtc2.min = local_tm->tm_min;
+    mMemory->rtc2.hr = local_tm->tm_hour;
+    mMemory->rtc2.dl = local_tm->tm_wday;
 }
 
 int cCpu::fetchOpCode() {
@@ -219,9 +208,6 @@ void cCpu::runFrame() {
     for (int line = 0; line < 154; ++line) {
         if (line < 144) {
             mMemory->HBlankHDMA();
-        } else if (line == 144) {
-            fullUpdate();
-            // mMemory->mDisplay.updateScreen();
         }
         runScanLine();
     }
@@ -242,37 +228,13 @@ void cCpu::runScanLine() {
         }
         cycles += checkInterrupts();
         mMemory->updateIO(cycles);
+
         rtcCount += cycles;
     } while (!mMemory->mDisplay->hasLineFinished());
 }
 
-void cCpu::fullUpdate() {
-    mMemory->mInput->update();
-    if (mMemory->mInput->isKeyPressed(GBK_ESCAPE)) {
-        mMemory->save_sram();
-        isRunning = false;
-    }
-    if (mMemory->mInput->isKeyPressed(GBK_s)) {
-        saveState(0);
-    }
-    if (mMemory->mInput->isKeyPressed(GBK_l)) {
-        loadState(0);
-    }
-
-    if (mMemory->mInput->isKeyPressed(GBK_KP_PLUS))
-        if (fpsSpeed < 5) fpsSpeed++;
-
-    if (mMemory->mInput->isKeyPressed(GBK_KP_MINUS))
-        if (fpsSpeed > 1) fpsSpeed--;
-
-    if (!mMemory->mInput->isKeyPressed(GBK_SPACE)) {
-        auto temp = SDL_GetTicks();
-        if (time1 > temp) {
-            SDL_Delay((time1 - temp) * 2);
-        } else {
-            time1 = temp + ((17 / fpsSpeed));
-        }
-    }
+void cCpu::update_input(const GBKey input_key) const {
+    mMemory->mInput->update_input(input_key);
 }
 
 void cCpu::updateIMEFlag() {

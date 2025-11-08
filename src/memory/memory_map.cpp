@@ -148,14 +148,14 @@ u8 MemoryMap::readRom(u16 a_address) const noexcept {
         return mRom[romBank][a_address - 0x4000];
 }
 
-u8 MemoryMap::readRam(u16 address) const {
+u8 MemoryMap::readRam(const u16 address) const {
     if (rtc.areRtcRegsSelected) {
         switch (rtc.rtcRegSelect) {
             case 0x8: return rtc.sec;
-            case 0x9: return rtc2.min;
-            case 0xA: return rtc2.hr;
-            case 0xB: return rtc2.dl;
-            case 0xC: return rtc2.dh;
+            case 0x9: return rtc.min;
+            case 0xA: return rtc.hr;
+            case 0xB: return rtc.dl;
+            case 0xC: return rtc.dh;
             default: return mRam[ramBank][address - 0xA000];
         }
     }
@@ -234,7 +234,7 @@ void MemoryMap::sendMBC2Command(u16 a_address, u8 a_value) {
     }
 }
 
-void MemoryMap::sendMBC3Command(u16 a_address, u8 a_value) {
+void MemoryMap::sendMBC3Command(const u16 a_address, const u8 a_value) {
     if (a_address >= 0x2000 && a_address < 0x4000) romBank = a_value & 0x7F;
     else if (a_address >= 0x4000 && a_address < 0x6000) {
         switch (a_value) {
@@ -256,15 +256,16 @@ void MemoryMap::sendMBC3Command(u16 a_address, u8 a_value) {
             default: LOG(a_value);
         }
     } else if (a_address >= 0x6000 && a_address < 0x8000) {
-        if (rtc.latch == 0 && (a_value & 1) == 1) {
+        const u8 prev_latch = rtc.latch;
+        rtc.latch = a_value;
+
+        if (prev_latch == 0 && a_value == 1) {
             rtc.dh = rtc2.dh;
             rtc.dl = rtc2.dl;
             rtc.hr = rtc2.hr;
             rtc.min = rtc2.min;
             rtc.sec = rtc2.sec;
-            rtc.latch = 1;
         }
-        rtc.latch = a_value & 1;
     }
 }
 
@@ -330,21 +331,10 @@ void MemoryMap::writeIO(u16 a_address, u8 a_value) {
             ST.cType = (a_value & 1);
             IOMap[a_address & 0xFF] = a_value;
             if (ST.start) {
-#ifdef USE_SDL_NET
-                if (net.isActive()) {
-                    net.send(ST.trans);
-                    ST.rec = (u8)net.recieve();
-                    mem[0xFF01][0] = ST.rec;
-                    mem[address][0] = val & 0x7F;
-                    mem[0xFF0F][0] |= 8;
-                } else
-#endif
-                {
-                    if (ST.cType) {
-                        IOMap[0xFF01 & 0xFF] = 0xFF;
-                        IOMap[a_address & 0xFF] = a_value & 0x7F;
-                        IOMap[0xFF0F & 0xFF] |= 8;
-                    }
+                if (ST.cType) {
+                    IOMap[0xFF01 & 0xFF] = 0xFF;
+                    IOMap[a_address & 0xFF] = a_value & 0x7F;
+                    IOMap[0xFF0F & 0xFF] |= 8;
                 }
             }
             break;
@@ -435,7 +425,7 @@ void MemoryMap::HBlankHDMA() {
     }
 }
 
-void MemoryMap::rtcCounter(void) {
+void MemoryMap::rtcCounter() {
     if (((rtc2.dh >> 6) & 1) != 0) {
         return;
     }
@@ -460,7 +450,7 @@ void MemoryMap::rtcCounter(void) {
         else {
             rtc2.dh |= 0x80;
             rtc2.dh &= 0xFE;
-            rtc.dl = 0;
+            rtc2.dl = 0;
         }
     }
 }
