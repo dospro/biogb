@@ -249,7 +249,7 @@ std::span<const u32> cDisplay::get_video_buffer() const {
 }
 
 void cDisplay::hBlankDraw() {
-    if (lcdc.lcdcActive) {
+    if (lcdc.lcdcActive && !sgbFreezeWindow) {
         if (mIsColor) {
             mMasterPriority = lcdc.bgWndActive;
             drawBackGround();

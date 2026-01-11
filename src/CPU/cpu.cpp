@@ -96,7 +96,7 @@ void cCpu::loadState(int number) {}
 
 [[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(std::string_view file_name) {
     af(0x11B0);
-    bc(0x0013);
+    bc(0x0014);
     de(0x00D8);
     hl(0x014D);
     pc = 0x0100;

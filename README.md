@@ -12,23 +12,23 @@ BioGB is a Game Boy/Game Boy Color emulator written in C++. It's main goals are:
 * Game Boy Color emulation
 * Full sound emulation
 * Save RAM to file.
-* RTC emulation for games using timers (still buggy)
+* RTC emulation for games using timers
 * Input through hardcoded keyboard keys.
 
 ### Supported but broken or temporally removed
 
-* **Save states**: This was supported previously but the main redesign 
+* **Save states**: This was supported previously, but the main redesign 
 broke this feature. I'm also looking for a way to implement this with
 smaller save files.
 * **Gameshark / Gamegenie**: There was some rudimentary support of this 
-devices, but it was buggy and also broke after redesign.
-* **Serial IO**: It was supported using SDL_Net and it actually
-worked, but was pretty inaccurate and buggy so I removed support until 
+device, but it was buggy and also broke after redesign.
+* **Serial IO**: It was supported using SDL_Net, and it actually
+worked, but was pretty inaccurate and buggy, so I removed support until 
 more research is done for a more accurate implementation.
 
 ### Future support
 
-* Super Game Boy frame emulation
+* More configurable options.
 * A nice GUI
 * Be able to use a boot rom.
 
@@ -39,9 +39,10 @@ compile a binary for Dreamcast using KOS.
 
 ## Compatibility
 
-As a matter of fact game compatibility has been rather high even before the 
-general cleanup. There may be some roms that can present some glitches or even
-crash. 
+As a matter of fact, game compatibility has been rather high even before the 
+general cleanup. As of now, I haven't found any game that doesn't work with 
+biogb. Yes, some test roms don't pass, but most of them are related to cycle
+ accuracy, which mostly won't affect commercial games.
 
 ## Building
 
@@ -86,22 +87,30 @@ There may be different ways to compile biogb for windows:
 biogb can be built for other platforms even if the platform is not supported by SDL2.
 Here are a couple of things to take in mind when trying to build biogb for unsupported platforms.
 
-* You need a C++ compiler that supports at least C++11. biogb uses C++14, but you can still use a compiler 
-which only supports C++11. In that case you would need to manually implement a couple of things: template 
-function `std::make_unique` and stl container `std::array<T, size>`.
-I do plan to add those fills in the future, but for now you would have to manually implement them.
+* You need a C++ compiler that supports c++23.
 
-* Although biogb uses SDL2 for display, audio and input, the dependency was abstracted into components 
-that you can find on the folder  `src/imp`. So if you want to build biogb using a different library than
-SDL2 you can do the following:
-    * Look at the SDL implementation (for example `src/imp/cSDLDisplay.h`)
-    * Create a new class with your preferred display abstraction that inherits from `cDisplay`.
-    * Implement the `updateScreen` method.
-    * On `MemoryMap.cpp` use your new class instead of SDL2.
-    * That's it.
+* The emulation code is mostly independent of SDL2. You can use any other library on top of biogb.
+Look at the `main.cpp` file to see how to use biogb.
 
 
 ## History
+
+26/12/2025
+After years of silence, I finally worked on a bunch of updates. The most obvious
+one is the update to C++23 standard. This helped me clean and refactor more parts
+of the emulator. And with that came a bunch of bug fixes and improvements. Let's
+list some of these achievements:
+
+* BioGB now uses less memory!. It seems I have some bigger arrays than I needed.
+* I found out that the frame-limiter code was super inaccurate, so I've rewritten it. 
+Voilà, the experience is now way smoother. Even sound got better.
+* I also found a little bug in MBC1 which prevented games like Lion King from working.
+* I also included a lot of performance optimizations.
+* There were some other minor bugs in some opcodes that I've fixed as well.
+* Oh, another alluring one is the new color correction algorithm. It's way more accurate now.
+* Also, the sound mixing algorithm was improved. It is a bit louder and more accurate now.
+* I also fixed the RTC emulation, which was completely broken.
+* And last but not least, SGB border emulation was added!
 
 BioGB started long ago with the only goal to learn coding and how hardware 
 works from the inside. In the beginning I used a weird mix of C and C++ and 
@@ -116,7 +125,7 @@ done include:
 
 With this ongoing effort, I've been able to find and fix bugs, isolate 
 different modules, and improve emulation. Here is where the two main goals
-come from. I want biogb's code to be as self explainable as possible, so 
+come from. I want biogb's code to be as self-explainable as possible, so 
 it's easy to read and maintain.
 
 
@@ -140,17 +149,17 @@ programming language I knew at the moment.
 
 3. Why use SDL?
 
-Because it's a very portable, well engineered library for abstracting
+Because it's a very portable, well-engineered library for abstracting
 graphics, sound, input and the main window.
 
 There was some time when you could conditionally compile biogb to use Allegro
 but that was removed recently. To be honest, Allegro worked really good. 
 It even outperformed SDL1.2, but I just wanted to maintain one library not
-two. So I found SDL easier to work with, so I sicked to it.
+two. I found SDL easier to work with, so I stuck to it.
 
 4. How accurate is biogb emulation?
 
-TL;DR: pretty inaccurate. Long answer: I believe Game Boy was well designed 
+TL;DR: pretty inaccurate. Long answer: I believe Game Boy was well-designed 
 so games wouldn't need to rely on obscure, glitchy behaviors (like on the 
 NES, for example). The result is that most commercial games work fine 
 without emulating those obscure behaviors. Nevertheless, biogb will keep 

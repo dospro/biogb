@@ -22,6 +22,9 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
     if (const auto result = init_sub_systems(); !result) [[unlikely]] {
         return std::unexpected(result.error());
     }
+    sgb.add_packet_listener([this](const u8 command, const std::vector<SGB::Packet> &packets) {
+        handle_sgb_command(command, packets);
+    });
     return {};
 }
 
@@ -76,7 +79,7 @@ std::expected<void, std::string> MemoryMap::init_sub_systems() noexcept {
     return {};
 }
 
-u8 MemoryMap::readByte(u16 address) {
+u8 MemoryMap::readByte(const u16 address) {
     if (address < 0x8000) [[likely]] return readRom(address);
     else if (address < 0xA000)
         return mDisplay->readFromDisplay(address);
@@ -108,8 +111,13 @@ u8 MemoryMap::readByte(u16 address) {
     return 0xFF;
 }
 
-int MemoryMap::readIO(int a_address) {
+int MemoryMap::readIO(const int a_address) {
     switch (a_address) {
+        case 0xFF00:
+            if (sgb.mlt_is_active()) {
+                return sgb.mlt_get_current_player();
+            }
+            return IOMap[0];
         case 0xFF04:
         case 0xFF05:
         case 0xFF06:
@@ -253,7 +261,9 @@ void MemoryMap::sendMBC3Command(const u16 a_address, const u8 a_value) {
                 rtc.rtcRegSelect = a_value;
                 rtc.areRtcRegsSelected = true;
                 break;
-            default: LOG(a_value);
+            default:
+                std::println("Send MBC3 command: {:x}", a_value);
+                break;
         }
     } else if (a_address >= 0x6000 && a_address < 0x8000) {
         const u8 prev_latch = rtc.latch;
@@ -304,22 +314,33 @@ void MemoryMap::writeRTCRegister(u8 a_value) {
             rtc2.dh = a_value;
             rtc.dh = a_value;
             break;
-        default: LOG(rtc.rtcRegSelect);
+        default:
+            std::println("Sending rtc command to address", rtc.rtcRegSelect);
     }
 }
 
-void MemoryMap::writeIO(u16 a_address, u8 a_value) {
+void MemoryMap::writeIO(const u16 a_address, const u8 a_value) {
     if (a_address >= 0xFF10 && a_address < 0xFF40) {
         mSound->writeToSound(a_address, a_value);
         return;
     }
     switch (a_address) {
-        case 0xFF00:                    // P1-Conotrols
-            if ((a_value & 0x32) == 0)  // SGB Reset
-            {
-                ;
-            } else
+        case 0xFF00: // P1-Controls
+            sgb.mlt_change_joyp(false);
+            if (sgb.is_sgb_transfer_mode()) {
+                if ((a_value & 0x30) == 0x10) {
+                    sgb.send_bit(1);
+                } else if ((a_value & 0x30) == 0x20) {
+                    sgb.send_bit(0);
+                }
+            } else if ((a_value & 0x30) == 0) {
+                // SGB Reset
+                sgb.start_transfer_mode();
+            } else if ((a_value & 0x30) == 0x30) {
+                sgb.mlt_change_joyp(true);
+            } else {
                 mInput->writeRegister(a_value);
+            }
             break;
         case 0xFF01:  // SB-Serial Transfer data
             ST.trans = a_value;
@@ -568,5 +589,27 @@ void MemoryMap::writeIFRegister(u8 value) {
     mTimer->InterruptBit = (value & eInterrupts::TIMER) != 0;
     if ((value & eInterrupts::SERIAL) || (value & eInterrupts::JOYPAD)) {
         std::println("Other interrupts request");
+    }
+}
+
+void MemoryMap::handle_sgb_command(const u8 command, const std::vector<SGB::Packet> &packets) {
+    switch (command) {
+        case PAL_TRN:
+            for (size_t i = 0; i< 0x1000; ++i) {
+                const auto data = readByte(0x8000 + i * 2) | readByte(0x8000 + i * 2 + 1) << 8;
+                sgb.write_sgb_palette(i, data);
+            }
+            break;
+        case MASK_EN: {
+            const auto mask = packets[0][1];
+            if (mask == 0) {
+                mDisplay->toggle_freeze_screen(true);
+            } else if (mask == 1 || mask == 2 || mask == 3) {
+                mDisplay->toggle_freeze_screen(false);
+            }
+        }
+        break;
+        default:
+            break;
     }
 }

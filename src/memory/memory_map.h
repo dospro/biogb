@@ -12,6 +12,7 @@
 #include "../timer.h"
 #include "../macros.h"
 #include "../sound/sound.h"
+#include "../sgb.h"
 
 enum eInterrupts { VBLANK = 1, LCDC = 2, TIMER = 4, SERIAL = 8, JOYPAD = 16 };
 
@@ -82,6 +83,7 @@ class MemoryMap {
     MBCTypes mbc_type{};
     bool with_timer{};
     u8 IERegister{};
+    SGB sgb{};
     void init_ram(int ram_banks);
     void init_wram(bool is_color);
     [[nodiscard]] std::expected<void, std::string> init_sub_systems() noexcept;
@@ -97,6 +99,7 @@ class MemoryMap {
     void writeRTCRegister(u8 a_value);
     void writeIO(u16 a_address, u8 a_value);
     int readIO(int a_address);
+    void handle_sgb_command(u8 command, const std::vector<SGB::Packet> &packets);
 };
 
 #endif  // BIOGB_MEMORY_MAP_H

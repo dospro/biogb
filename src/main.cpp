@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
     Uint64 frame_start_time = SDL_GetTicks64();
     Uint64 frame_count = 0;
     std::string title;
-    u32 fpsSpeed = 1;
+    double fpsSpeed = 1.0;
     bool is_running = true;
 
     SDL_Event event;
@@ -146,11 +146,17 @@ int main(int argc, char *argv[]) {
                         case SDLK_s:
                             std::println("Saving state");
                             break;
-                        case SDLK_MINUS:
-                            fpsSpeed++;
+                        case SDLK_d:
+                            fpsSpeed -= 0.5;
+                            fpsSpeed = std::clamp(fpsSpeed, 0.5, 3.0);
+                            frame_start_time = SDL_GetTicks64();
+                            frame_count = 0;
                             break;
-                        case SDLK_PLUS:
-                            fpsSpeed--;
+                        case SDLK_a:
+                            fpsSpeed += 0.5;
+                            fpsSpeed = std::clamp(fpsSpeed, 0.5, 3.0);
+                            frame_start_time = SDL_GetTicks64();
+                            frame_count = 0;
                         default:
                             break;
                     }
@@ -165,7 +171,7 @@ int main(int argc, char *argv[]) {
 
 
         if (key_state[SDL_SCANCODE_ESCAPE]) {
-            break;
+            is_running = false;
         }
         if (key_state[SDL_SCANCODE_Z]) {
             gb.update_input(GBKey::A);
@@ -193,7 +199,7 @@ int main(int argc, char *argv[]) {
         }
         if (!key_state[SDL_SCANCODE_SPACE]) {
             frame_count++;
-            const Uint64 target_time = frame_start_time + frame_count * 1000 / 60;
+            const Uint64 target_time = frame_start_time + frame_count / fpsSpeed * 1000 / 60;
             if (const auto current_time = SDL_GetTicks64(); target_time > current_time) {
                 SDL_Delay(target_time - current_time);
             }

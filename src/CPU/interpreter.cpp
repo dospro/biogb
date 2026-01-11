@@ -325,7 +325,7 @@ void cCpu::executeOpCode(int a_opCode) {
             break;
 
         default:  // TODO: Raise exception
-            WARNING(true, "Unkown opcode");
+            std::println("Unknown opcode: {:x}", a_opCode);
     }
 }
 

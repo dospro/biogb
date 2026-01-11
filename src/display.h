@@ -44,6 +44,8 @@ class cDisplay {
     void update(int a_cycles);
     [[nodiscard]] std::span<const u32> get_video_buffer() const;
 
+    void toggle_freeze_screen(const bool active) { sgbFreezeWindow = !active; };
+
     bool mVBlankInterruptRequest{};
     bool mLCDInterruptRequest{};
 
@@ -109,6 +111,7 @@ class cDisplay {
     bool mIsColor;
     bool isLineFinished{};
     bool mMasterPriority{false}, mOAMPriority{};
+    bool sgbFreezeWindow{false};
     void drawBackGround();
     void drawEmptyBG() const;
     void drawWindow();
