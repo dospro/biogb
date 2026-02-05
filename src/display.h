@@ -32,7 +32,7 @@ struct STAT {
 
 
 class cDisplay {
-   public:
+public:
     explicit cDisplay(bool a_isColor);
     ~cDisplay() = default;
     [[nodiscard]] u8 readFromDisplay(u16 a_address) const;
@@ -42,20 +42,25 @@ class cDisplay {
 
     void hBlankDraw();
     void update(int a_cycles);
-    [[nodiscard]] std::span<const u32> get_video_buffer() const;
+
+    [[nodiscard]] std::span<const u32> get_video_buffer() const { return video_buffer_data; }
+    [[nodiscard]] std::span<const u8> get_sgb_bit_patterns() const { return sgb_bit_patterns_data; }
 
     void toggle_freeze_screen(const bool active) { sgbFreezeWindow = !active; };
 
     bool mVBlankInterruptRequest{};
     bool mLCDInterruptRequest{};
 
-   protected:
+private:
     static constexpr int mScreenWidth = 160;
     static constexpr int mScreenHeight = 144;
     std::array<u32, 160 * 144> video_buffer_data{};
     std::mdspan<u32, std::extents<size_t, 144, 160> > videoBuffer{video_buffer_data.data()};
 
-   private:
+    std::array<u8, 160 * 144> sgb_bit_patterns_data{};
+    std::mdspan<u8, std::extents<size_t, 144, 160> > sgb_bit_patterns{sgb_bit_patterns_data.data()};
+
+
     static constexpr u32 BG_WHITE = 0xE0F8D0;
     static constexpr u32 BG_LIGHT_GRAY = 0x7EC070;
     static constexpr u32 GB_DARK_GRAY = 0x346856;
@@ -122,7 +127,7 @@ class cDisplay {
     void setSpriteColorTable(int a_paletteNumber);
     void setBGColorTable(int tileNumber);
     bool isTileVisible(int a_xPosition) const noexcept;
-    void drawTileLine(int firstByte, int secondByte, int xPosition, bool hFlip) const;
+    void drawTileLine(u8 high_byte, u8 low_byte, int xPosition, bool hFlip) const;
 
     void setBGPColors(u8 value);
 };

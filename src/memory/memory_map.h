@@ -59,6 +59,10 @@ class MemoryMap {
     int readIFRegister();
     void writeIFRegister(u8 value);
 
+    [[nodiscard]] std::span<u32> get_sgb_buffer() { return sgb.get_sgb_video_buffer(); };
+    void schedule_sgb_vram_transfer(std::function<void()> transfer);
+    void execute_sgb_vram_transfer();
+
     std::unique_ptr<cDisplay> mDisplay{};
     std::unique_ptr<cSound> mSound{};
     std::unique_ptr<cInput> mInput{};
@@ -84,6 +88,7 @@ class MemoryMap {
     bool with_timer{};
     u8 IERegister{};
     SGB sgb{};
+    std::optional<std::function<void()>> pending_sgb_vram_transfer{};
     void init_ram(int ram_banks);
     void init_wram(bool is_color);
     [[nodiscard]] std::expected<void, std::string> init_sub_systems() noexcept;
@@ -100,6 +105,7 @@ class MemoryMap {
     void writeIO(u16 a_address, u8 a_value);
     int readIO(int a_address);
     void handle_sgb_command(u8 command, const std::vector<SGB::Packet> &packets);
+    void vram_sgb_transfer();
 };
 
 #endif  // BIOGB_MEMORY_MAP_H

@@ -42,7 +42,9 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    constexpr int screen_width{160}, screen_height{144};
+    // TODO: Configure screen size
+    // constexpr int screen_width{160}, screen_height{144}; // GB size
+    constexpr int screen_width{256}, screen_height{224};// SGB size
 
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         std::println(stderr, "ERROR: Could not start SDL: {}", SDL_GetError());

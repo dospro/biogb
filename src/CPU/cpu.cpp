@@ -156,6 +156,26 @@ void cCpu::loadState(int number) {}
     return {};
 }
 
+std::span<const u32> cCpu::get_video_buffer() const {
+    auto sgb_buffer = mMemory->get_sgb_buffer();
+    auto gb_buffer = mMemory->mDisplay->get_video_buffer();
+
+    // Create 2 views
+    std::mdspan gb_view{gb_buffer.data(), std::extents<size_t, 144, 160>{}};
+    std::mdspan sgb_view{sgb_buffer.data(), std::extents<size_t, 224, 256>{}};
+
+    constexpr size_t y_offset = (224 - 144) / 2;
+    constexpr size_t x_offset = (256 - 160) / 2;
+
+    for (size_t y = 0; y < 144; ++y) {
+        for (size_t x = 0; x < 160; ++x) {
+            sgb_view[y + y_offset, x + x_offset] = gb_view[y, x];
+        }
+    }
+    return sgb_buffer;
+
+}
+
 int cCpu::checkInterrupts() {
     auto interrupt = mMemory->getEnabledInterrupts();
     if (interruptsEnabled && interrupt > 0) {
@@ -211,20 +231,22 @@ void cCpu::runFrame() {
         }
         runScanLine();
     }
+    // At this point V-Blank just finished
+    mMemory->execute_sgb_vram_transfer();
 }
 
 void cCpu::runScanLine() {
     do {
-        u8 opCode = fetchOpCode();
+        const u8 opcode = fetchOpCode();
         auto cycles = 0;
         updateIMEFlag();
-        if (opCode == 0xCB) {
-            u8 cbOpCode = fetchOpCode();
-            executeCBOpCode(cbOpCode);
-            cycles = mCBOpcodeCyclesTable[cbOpCode];
+        if (opcode == 0xCB) {
+            const u8 cb_opcode = fetchOpCode();
+            executeCBOpCode(cb_opcode);
+            cycles = mCBOpcodeCyclesTable[cb_opcode];
         } else {
-            executeOpCode(opCode);
-            cycles = mOpcodeCyclesTable[opCode];
+            executeOpCode(opcode);
+            cycles = mOpcodeCyclesTable[opcode];
         }
         cycles += checkInterrupts();
         mMemory->updateIO(cycles);

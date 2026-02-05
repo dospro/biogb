@@ -244,10 +244,6 @@ void cDisplay::update(int a_cycles) {
     }
 }
 
-std::span<const u32> cDisplay::get_video_buffer() const {
-    return video_buffer_data;
-}
-
 void cDisplay::hBlankDraw() {
     if (lcdc.lcdcActive && !sgbFreezeWindow) {
         if (mIsColor) {
@@ -275,15 +271,16 @@ void cDisplay::hBlankDraw() {
 void cDisplay::drawEmptyBG() const {
     for (int i = 0; i < 160; ++i) {
         videoBuffer[LYRegister, i] = 0xFFFFFF;
+        sgb_bit_patterns[LYRegister, i] = 0x0;
     }
 }
 
 void cDisplay::drawBackGround() {
-    const int xScroll{-(SCXRegister & 7)};
-    const int yScroll{(LYRegister + SCYRegister) & 0xFF};
+    const int xScroll = -(SCXRegister & 7);
+    const int yScroll = (LYRegister + SCYRegister) & 0xFF;
     int currentTileInLine = SCXRegister / 8;
 
-    for (int i = xScroll; i < 160; i += 8) {
+    for (int x_scrolled_position = xScroll; x_scrolled_position < 160; x_scrolled_position += 8) {
         currentTileInLine %= 32;
 
         const int tileNumber = lcdc.BGMapAddress + ((yScroll / 8) * 32 + currentTileInLine);
@@ -296,7 +293,7 @@ void cDisplay::drawBackGround() {
             hFlip = ((mVRAM[1][tileNumber] >> 5) & 1) != 0;
             vFlip = ((mVRAM[1][tileNumber] >> 6) & 1) != 0;
 
-            mTilePrioritiesTable[(i - xScroll) / 8] = (mVRAM[1][tileNumber] >> 7) != 0;
+            mTilePrioritiesTable[(x_scrolled_position - xScroll) / 8] = (mVRAM[1][tileNumber] >> 7) != 0;
 
             bank = (mVRAM[1][tileNumber] >> 3) & 1;
             setBGColorTable(tileNumber);
@@ -309,21 +306,22 @@ void cDisplay::drawBackGround() {
 
         int offset{lcdc.tileDataAddress + (tileOffset * 16)};
         offset += (vFlip ? (7 - (yScroll & 7)) * 2 : (yScroll & 7) * 2);
-        const int firstByte{mVRAM[bank][offset + 1]};
-        const int secondByte{mVRAM[bank][offset]};
-        drawTileLine(firstByte, secondByte, i, hFlip);
+        const int high_byte = mVRAM[bank][offset + 1];
+        const int low_byte = mVRAM[bank][offset];
+        drawTileLine(high_byte, low_byte, x_scrolled_position, hFlip);
         ++currentTileInLine;
     }
 }
 
-void cDisplay::drawTileLine(int firstByte, int secondByte, const int xPosition, const bool hFlip) const {
+void cDisplay::drawTileLine(u8 high_byte, u8 low_byte, const int xPosition, const bool hFlip) const {
     for (int j = 0; j < 8; j++) {
-        const int xOffset{hFlip ? xPosition + j : xPosition + 7 - j};
-        if (isTileVisible(xOffset)) {
-            videoBuffer[LYRegister, xOffset] = BGPTable[firstByte & 1u][secondByte & 1u];
+        const int x_offset = hFlip ? xPosition + j : xPosition + 7 - j;
+        if (isTileVisible(x_offset)) {
+            sgb_bit_patterns[LYRegister,  x_offset] = ((high_byte & 1) << 1) | (low_byte & 1);
+            videoBuffer[LYRegister, x_offset] = BGPTable[high_byte & 1][low_byte & 1];
         }
-        firstByte >>= 1;
-        secondByte >>= 1;
+        high_byte >>= 1;
+        low_byte >>= 1;
     }
 }
 
@@ -341,29 +339,29 @@ void cDisplay::setBGColorTable(const int tileNumber) {
 }
 
 void cDisplay::drawWindow() {
-    int wx{WXRegister - 7};
-    int wy{WYRegister};
-    int y{(LYRegister - wy) & 0xFF};
+    const int wx = WXRegister - 7;
+    const int wy = WYRegister;
+    const int y = (LYRegister - wy) & 0xFF;
 
     if (LYRegister >= wy && wx < 160 && wy >= 0 && wy < 144) {
-        int tileInLine = {-(wx / 8)};
+        int tileInLine = -(wx / 8);
         for (int i = wx & 7; i < 160; i += 8) {
             if (tileInLine >= 32)
                 tileInLine -= 32;
-            int tileNumber{lcdc.windowTileMap + tileInLine + ((y / 8) * 32)};
-            int tileOffset{mVRAM[0][tileNumber]};
-            int bank{0};
+            const int tileNumber =lcdc.windowTileMap + tileInLine + y / 8 * 32;
+            int tileOffset = mVRAM[0][tileNumber];
+            int bank = 0;
             bool horizontalFlip{};
             bool verticalFlip{};
             if (mIsColor) {
-                int tileAttribute = mVRAM[1][tileNumber];
+                const int tileAttribute = mVRAM[1][tileNumber];
                 horizontalFlip = {((tileAttribute >> 5) & 1) != 0};
                 verticalFlip = {((tileAttribute >> 6) & 1) != 0};
                 bank = (tileAttribute >> 3) & 1;
 
                 mTilePrioritiesTable[i / 8] = (tileAttribute >> 7) != 0;
 
-                int palette = (tileAttribute & 7) * 8;
+                const int palette = (tileAttribute & 7) * 8;
                 WPTable[0][0] = gbcColors[((mBGPaletteMemory[palette + 1]) << 8) | (mBGPaletteMemory[palette])];
                 WPTable[0][1] = gbcColors[((mBGPaletteMemory[palette + 3]) << 8) | (mBGPaletteMemory[palette + 2])];
                 WPTable[1][0] = gbcColors[((mBGPaletteMemory[palette + 5]) << 8) | (mBGPaletteMemory[palette + 4])];
@@ -373,13 +371,15 @@ void cDisplay::drawWindow() {
                 tileOffset ^= 0x80;
             int finalOffset{lcdc.tileDataAddress + (tileOffset * 16)};
             finalOffset += verticalFlip ? (7 - (y & 7)) * 2 : (y & 7) * 2;
-            int firstByte = mVRAM[bank][finalOffset + 1];
-            int secondByte = mVRAM[bank][finalOffset];
+            u8 firstByte = mVRAM[bank][finalOffset + 1];
+            u8 secondByte = mVRAM[bank][finalOffset];
 
             for (int j = 7; j >= 0; j--) {
-                int p{horizontalFlip ? i + (7 - j) : i + j};
-                if (p < 160 && p >= 0 && p >= wx)
+                int p = horizontalFlip ? i + (7 - j) : i + j;
+                if (p < 160 && p >= 0 && p >= wx) {
+                    sgb_bit_patterns[LYRegister, p] = ((firstByte & 1)) << 1 | (secondByte & 1);
                     videoBuffer[LYRegister, p] = WPTable[firstByte & 1][secondByte & 1];
+                }
                 firstByte >>= 1;
                 secondByte >>= 1;
             }
@@ -393,9 +393,9 @@ void cDisplay::drawWindow() {
  */
 void cDisplay::drawSprites() {
     for (int i = TOTAL_OAM_BLOCKS - 1; i >= 0; --i) {
-        int yPosition{mOAM[i * 4] - 16};
+        const int yPosition{mOAM[i * 4] - 16};
         if (LYRegister >= yPosition && LYRegister <= yPosition + lcdc.spriteSize) {
-            int spriteFlags{mOAM[i * 4 + 3]};
+            const int spriteFlags = mOAM[i * 4 + 3];
             mOAMPriority = (spriteFlags & 0x80) != 0;
             int spritePaletteNumber{(spriteFlags >> 4) & 1};
             int spriteBank{0};
@@ -409,7 +409,7 @@ void cDisplay::drawSprites() {
                 spritePaletteNumber = 0;
             }
 
-            bool yFlip{(spriteFlags & 0x40) != 0};
+            const bool yFlip = (spriteFlags & 0x40) != 0;
             int yDistance = LYRegister - yPosition;
             yDistance = yFlip ? lcdc.spriteSize - yDistance : yDistance;
             int tileNumber{mOAM[(i * 4) + 2]};
@@ -423,11 +423,11 @@ void cDisplay::drawSprites() {
             etc.
              */
 
-            int offset{tileNumber * 16 + yDistance * 2};
-            u8 firstByte{mVRAM[spriteBank][offset + 1]};
-            u8 secondByte{mVRAM[spriteBank][offset]};
-            int spriteX{mOAM[(i * 4) + 1] - 8};
-            bool xFlip{(spriteFlags & 0x20) != 0};
+            const int offset{tileNumber * 16 + yDistance * 2};
+            const u8 firstByte{mVRAM[spriteBank][offset + 1]};
+            const u8 secondByte{mVRAM[spriteBank][offset]};
+            const int spriteX{mOAM[(i * 4) + 1] - 8};
+            const bool xFlip{(spriteFlags & 0x20) != 0};
             drawSpriteLine(xFlip, spriteX, spritePaletteNumber, firstByte, secondByte);
         }
     }

@@ -31,10 +31,10 @@ class cCpu {
     ~cCpu() = default;
     [[nodiscard]] std::expected<void, std::string> init_cpu(std::string_view file_name);
 
-    [[nodiscard]] std::span<const u32> get_video_buffer() const {return mMemory->mDisplay->get_video_buffer();}
+    [[nodiscard]] std::span<const u32> get_video_buffer() const;
     [[nodiscard]] cSound *get_sound_system() const {return mMemory->mSound.get();}
-    void update_input(const GBKey input_key) const;
-    void reset_input() {mMemory->mInput->reset_input();}
+    void update_input(GBKey input_key) const;
+    void reset_input() const {mMemory->mInput->reset_input();}
 
     void saveState(int number);
     void loadState(int number);

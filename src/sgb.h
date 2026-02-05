@@ -21,6 +21,7 @@ public:
             return;
         }
         if (bit_index >= 128) {
+            std::println("SGB Warning: Bit index out of bounds: {}", bit_index);
             return;
         }
         const size_t byte_index = bit_index >> 3;
@@ -112,12 +113,19 @@ public:
     [[nodiscard]] u8 mlt_get_current_player() const;
 
     void mlt_change_joyp(bool value);
-    void write_sgb_palette(size_t index, u16 data);
+    void write_sgb_system_palette(size_t index, u16 data);
+    void write_sgb_tile_map();
+    void write_sgb_palette();
+    void write_sgb_tile_data();
+    [[nodiscard]] std::span<u32> get_sgb_video_buffer();
+
+    void write(const size_t index, const u8 data) { vram_transfer_buffer[index % 0x1000] = data; }
 
 private:
-
+    std::array<u32, 256 * 224> buffer{};
     void emit_command() const;
     std::vector<PacketListener> listeners{};
+
     bool sgb_transfer_mode = false;
     u8 length = 0;
     u8 command = 0;
@@ -125,11 +133,16 @@ private:
     std::vector<Packet> packets{};
     MultiPlayer mlt_req{};
 
+    std::array<u8, 0x1000> vram_transfer_buffer{};
+
     std::array<u16, 8 * 16> palettes_data{};
     std::mdspan<u16, std::extents<size_t, 8, 16> > palettes{palettes_data.data()};
 
     std::array<u16, 512 * 16> system_palettes_data{};
     std::mdspan<u16, std::extents<size_t, 512, 16> > system_palettes{system_palettes_data.data()};
+
+    std::array<u8, 0x740> tile_map{};
+    std::array<u8, 0x2000> tile_data{};
 };
 
 

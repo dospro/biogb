@@ -85,9 +85,18 @@ void SGB::send_bit(const uint8_t bit) {
                         .current_player = 0,
                     };
                     break;
+                case CHR_TRN:
+                    std::println("CHR_TRN command");
+                    emit_command();
+                    break;
+                case PCT_TRN:
+                    std::println("PCT_TRN command");
+                    emit_command();
+                    break;
                 case MASK_EN:
                     std::println("MASK_EN command");
                     emit_command();
+                    break;
                 default:
                     std::println("Unhandled SGB command: {:x}", command);
                     break;
@@ -120,12 +129,117 @@ void SGB::mlt_change_joyp(bool value) {
     mlt_req.changing_joyp = value;
 }
 
-void SGB::write_sgb_palette(const size_t index, const u16 data) {
+void SGB::write_sgb_system_palette(const size_t index, const u16 data) {
     system_palettes_data[index] = data;
 }
 
+void SGB::write_sgb_tile_map() {
+    for (size_t i = 0; i < 0x740; ++i) {
+        tile_map[i] = vram_transfer_buffer[i];
+    }
+}
+
+void SGB::write_sgb_palette() {
+    // 3 palettes
+    // 16 colors each
+    // 2 bytes per color
+    // Total 0x60 bytes
+    for (size_t i = 0; i < 0x60; i += 2) {
+        const u16 data = vram_transfer_buffer[0x800 + i] | (vram_transfer_buffer[0x800 + i + 1] << 8);
+        const auto color_index = i / 2;
+        const auto palette_number = (color_index >> 4) + 4;
+        const auto palette_index = color_index & 0xF;
+        palettes[palette_number, palette_index] = data;
+    }
+}
+
+void SGB::write_sgb_tile_data() {
+    const auto tile_transfer_info = packets[0][1];
+    if ((tile_transfer_info & 1) == 0) {
+        for (size_t i = 0; i < 0x1000; ++i) {
+            tile_data[i] = vram_transfer_buffer[i];
+        }
+    } else {
+        for (size_t i = 0; i < 0x1000; ++i) {
+            tile_data[0x1000 + i] = vram_transfer_buffer[i];
+        }
+    }
+}
+
 void SGB::emit_command() const {
-    for (const auto& func : listeners) {
+    for (const auto &func: listeners) {
         func(command, packets);
     }
+}
+
+std::span<u32> SGB::get_sgb_video_buffer() {
+    /*
+     * The plan
+     *
+     * First, go entry by entry in the map to get the data
+     * Then get pattern
+     * Get the palette and colors.
+     *
+     * Write it to the buffer;
+     */
+
+    std::mdspan buffer_view{buffer.data(), std::extents<size_t, 224, 256>{}};
+
+    for (size_t y = 0; y < 28; ++y) {
+        for (size_t x = 0; x < 32; ++x) {
+            const auto tile_map_index = (y * 32 + x) * 2;
+            const auto tile_map_entry = tile_map[tile_map_index] | (tile_map[tile_map_index + 1] << 8);
+
+            const auto tile_index = tile_map_entry & 0xFF;
+            const auto palette_index = (tile_map_entry >> 10) & 0x7;
+
+            /*
+             * Each tile is 32 bytes: 8x8 pixels of 16 colors each
+             * So each row has 8 pixels.
+             * Each pixel needs 4 bits (to get 16 colors),
+             * so each row uses 4 bytes
+             * These 4 bytes are divided in 2 blocks:
+             * First come the first 2 bytes for all rows
+             * Then come the second 2 bytes for all rows
+             * Example:
+             * byte 0 has bit0 of row 0
+             * byte 1 has bit1 of row 0
+             * byte 2 has bit0 of row 1
+             * byte 3 has bit1 of row 1
+             * and so on...
+             * byte 16 has bit2 of row 0
+             * byte 17 has bit3 of row 0
+             * and so on
+             *
+             */
+            for (size_t row = 0; row < 8; ++row) {
+                u8 byte0 = tile_data[tile_index * 32 + row * 2];
+                u8 byte1 = tile_data[tile_index * 32 + row * 2 + 1];
+                u8 byte2 = tile_data[tile_index * 32 + row * 2 + 16];
+                u8 byte3 = tile_data[tile_index * 32 + row * 2 + 17];
+
+                for (size_t small_x = 0; small_x < 8; ++small_x) {
+                    const auto color_index = ((byte0 >> (7 - small_x)) & 1) |
+                                             (((byte1 >> (7 - small_x)) & 1) << 1) |
+                                             (((byte2 >> (7 - small_x)) & 1) << 2) |
+                                             (((byte3 >> (7 - small_x)) & 1) << 3);
+                    // std::println("Color index: {}", color_index);
+
+                    const auto color = palettes[palette_index, color_index];
+
+                    const u8 red = color & 0x1F;
+                    const u8 green = (color >> 5) & 0x1F;
+                    const u8 blue = (color >> 10) & 0x1F;
+                    // std::println("Red: {:x}, Green: {:x}, Blue: {:x}", red, green, blue);
+
+                    const u8 red8 = (red << 3) | (red >> 2);
+                    const u8 green8 = (green << 3) | (green >> 2);
+                    const u8 blue8 = (blue << 3) | (blue >> 2);
+                    buffer_view[y * 8 + row, x * 8 + small_x] = (red8 << 16) | (green8 << 8) | blue8;
+                }
+            }
+        }
+    }
+
+    return buffer;
 }

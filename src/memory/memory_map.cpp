@@ -185,12 +185,12 @@ void MemoryMap::send_command(u16 address, u8 value) {
     }
 }
 
-void MemoryMap::writeByte(u16 a_address, u8 a_value) {
+void MemoryMap::writeByte(const u16 a_address, const u8 a_value) {
     if (a_address < 0x8000) {
         send_command(a_address, a_value);
-    } else if (a_address < 0xA000)
+    } else if (a_address < 0xA000) {
         mDisplay->writeToDisplay(a_address, a_value);
-    else if (a_address < 0xC000) {
+    } else if (a_address < 0xC000) {
         if (rtc.areRtcRegsSelected) {
             writeRTCRegister(a_value);
         } else if (!mRam.empty()) {
@@ -592,24 +592,108 @@ void MemoryMap::writeIFRegister(u8 value) {
     }
 }
 
+
+void MemoryMap::vram_sgb_transfer() {
+    // first we need a reference to the video buffer
+    std::println("Starting SGB VRAM transfer");
+    const std::span<const u8> buffer_data = mDisplay->get_sgb_bit_patterns();
+    const std::mdspan<const u8, std::extents<size_t, 144, 160> > buffer{buffer_data.data()};
+
+    /*
+     * How VRAM transfer actually works:
+     *
+     * 1. VRAM transfer methods transfers 4KB of data (0x1000 bytes)
+     * 2. Considering that each GB tile is 8x8 pixels, and each pixel is built from 2 bits,
+     *    the transfer method needs to read 8 pixels to build 2 full bytes.
+     * 3. This results in 256 tiles being transferred in the 4KB block.
+     *    (256 tiles * 8x8 pixels = 16,384 pixels)
+     *    (16,384 pixels * 2bpp = 32,768 bits)
+     *    (32,768 bits / 8 = 4KB)
+     *
+     * Considering this, we need to go tile by tile and generate the byte patterns that
+     * originally generated those tiles. The GB can display 340 tiles, so we only use 256
+     * of those.
+     */
+
+    for (size_t tile = 0; tile < 256; ++tile) {
+        /*
+         * The buffer has the following format:
+         * It represents a grid of 144x160 pixels
+         * The first 160 bytes represent the top row of pixels
+         *
+         * Each tile is 16 bytes, so we will generate those 16 bytes
+         * per iteration
+         *
+         * We have a view of the buffer which we can index as a 144x160 grid
+         * So if each row is 160 pixels, that means 20 tiles per row.
+         *
+         */
+
+        const auto tile_row_pos = (tile / 20) * 8;
+        const auto tile_col_pos = (tile % 20) * 8;
+
+        /*
+         * A tile is composed of 8 pairs of bytes. Each pair of bytes represents
+         * a row of 8 pixels. The lower bit of each byte comes from bit plane 0,
+         * and the upper bit comes from bit plane 1.
+         *
+         * So we need to read a row of 8 pixels to generate 2 bytes
+         */
+        for (size_t tile_y = 0; tile_y < 8; ++tile_y) {
+            u8 low_byte = 0;
+            u8 high_byte = 0;
+            for (size_t tile_x = 0; tile_x < 8; ++tile_x) {
+                const auto pixel_2bpp = buffer[tile_row_pos + tile_y, tile_col_pos + tile_x];
+                low_byte |= (pixel_2bpp & 1) << (7 - tile_x);
+                high_byte |= ((pixel_2bpp >> 1) & 1) << (7 - tile_x);
+            }
+            sgb.write(tile * 16 + tile_y * 2, low_byte);
+            sgb.write(tile * 16 + tile_y * 2 + 1, high_byte);
+        }
+    }
+}
+
 void MemoryMap::handle_sgb_command(const u8 command, const std::vector<SGB::Packet> &packets) {
     switch (command) {
         case PAL_TRN:
-            for (size_t i = 0; i< 0x1000; ++i) {
-                const auto data = readByte(0x8000 + i * 2) | readByte(0x8000 + i * 2 + 1) << 8;
-                sgb.write_sgb_palette(i, data);
-            }
             break;
+        case CHR_TRN: {
+            // schedule_sgb_vram_transfer([this]() {
+                vram_sgb_transfer();
+                sgb.write_sgb_tile_data();
+            // });
+        }
+        break;
+        case PCT_TRN: {
+            // schedule_sgb_vram_transfer([this] {
+                vram_sgb_transfer();
+                sgb.write_sgb_tile_map();
+                sgb.write_sgb_palette();
+            // });
+        }
+        break;
         case MASK_EN: {
             const auto mask = packets[0][1];
             if (mask == 0) {
                 mDisplay->toggle_freeze_screen(true);
             } else if (mask == 1 || mask == 2 || mask == 3) {
-                mDisplay->toggle_freeze_screen(false);
+                mDisplay->toggle_freeze_screen(true);
             }
         }
         break;
         default:
             break;
+    }
+}
+
+void MemoryMap::schedule_sgb_vram_transfer(std::function<void()> transfer) {
+    std::println("Scheduling SGB VRAM transfer");
+    pending_sgb_vram_transfer = std::move(transfer);
+}
+
+void MemoryMap::execute_sgb_vram_transfer() {
+    if (pending_sgb_vram_transfer) {
+        (*pending_sgb_vram_transfer)();
+        pending_sgb_vram_transfer.reset();
     }
 }
