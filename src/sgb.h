@@ -117,13 +117,16 @@ public:
     void write_sgb_tile_map();
     void write_sgb_palette();
     void write_sgb_tile_data();
+    void write_sgb_system_palette();
     [[nodiscard]] std::span<u32> get_sgb_video_buffer();
 
     void write(const size_t index, const u8 data) { vram_transfer_buffer[index % 0x1000] = data; }
 
 private:
-    std::array<u32, 256 * 224> buffer{};
     void emit_command() const;
+    void handle_command();
+
+    std::array<u32, 256 * 224> buffer{};
     std::vector<PacketListener> listeners{};
 
     bool sgb_transfer_mode = false;

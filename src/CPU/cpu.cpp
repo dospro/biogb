@@ -95,7 +95,7 @@ void cCpu::saveState(int number) {}
 void cCpu::loadState(int number) {}
 
 [[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(std::string_view file_name) {
-    af(0x11B0);
+    af(0xFFB0);
     bc(0x0014);
     de(0x00D8);
     hl(0x014D);

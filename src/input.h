@@ -20,9 +20,9 @@ public:
     ~cInput() = default;
 
     void reset_input();
-    void update_input(GBKey key);
+    void update_input(GBKey gb_key);
 
-    int readRegister() const;
+    [[nodiscard]] int readRegister() const;
 
     void writeRegister(int a_value);
 

@@ -96,7 +96,7 @@ u8 MemoryMap::readByte(const u16 address) {
     else if (address < 0xFF00)
         ;
     else if (address < 0xFF01)
-        return mInput->readRegister();
+        return readIO(address);
     else if (address < 0xFF10)
         return readIO(address);
     else if (address < 0xFF40)
@@ -115,9 +115,11 @@ int MemoryMap::readIO(const int a_address) {
     switch (a_address) {
         case 0xFF00:
             if (sgb.mlt_is_active()) {
-                return sgb.mlt_get_current_player();
+                // TODO: We need to increment current player when P15 H-L
+                // return sgb.mlt_get_current_player();
+                return 0xE;
             }
-            return IOMap[0];
+            return mInput->readRegister();
         case 0xFF04:
         case 0xFF05:
         case 0xFF06:
@@ -656,6 +658,8 @@ void MemoryMap::vram_sgb_transfer() {
 void MemoryMap::handle_sgb_command(const u8 command, const std::vector<SGB::Packet> &packets) {
     switch (command) {
         case PAL_TRN:
+            vram_sgb_transfer();
+            sgb.write_sgb_system_palette();
             break;
         case CHR_TRN: {
             // schedule_sgb_vram_transfer([this]() {

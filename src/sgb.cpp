@@ -18,93 +18,130 @@ void SGB::send_bit(const uint8_t bit) {
         packer.reset();
 
         if (packets.size() == length) {
-            switch (command) {
-                case PAL01:
-                    std::println("PAL01");
-                    palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
-                    palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
-                    palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
-                    palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
-
-                    palettes[1, 0] = palettes[0, 0];
-                    palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
-                    palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
-                    palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
-                    break;
-                case PAL23:
-                    std::println("PAL23");
-                    palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
-                    palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
-                    palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
-                    palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
-
-                    palettes[3, 0] = palettes[0, 0];
-                    palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
-                    palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
-                    palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
-                    break;
-                case PAL03:
-                    std::println("PAL03");
-                    palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
-                    palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
-                    palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
-                    palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
-
-                    palettes[3, 0] = palettes[0, 0];
-                    palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
-                    palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
-                    palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
-                    break;
-                case PAL12:
-                    std::println("PAL12");
-                    palettes[1, 0] = packets[0][1] | (packets[0][2] << 8);
-                    palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
-                    palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
-                    palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
-
-                    palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
-                    palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
-                    palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
-                    palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
-                    break;
-                case PAL_SET:
-                    std::println("PAL_SET");
-
-                    break;
-                case PAL_TRN:
-                    std::println("PAL_TRN");
-                    emit_command();
-                    break;
-
-                case MLT_REQ:
-                    std::println("MLT_REQ command");
-                    // emit_command();
-                    mlt_req = MultiPlayer{
-                        .changing_joyp = false,
-                        .players = packets[0][0],
-                        .current_player = 0,
-                    };
-                    break;
-                case CHR_TRN:
-                    std::println("CHR_TRN command");
-                    emit_command();
-                    break;
-                case PCT_TRN:
-                    std::println("PCT_TRN command");
-                    emit_command();
-                    break;
-                case MASK_EN:
-                    std::println("MASK_EN command");
-                    emit_command();
-                    break;
-                default:
-                    std::println("Unhandled SGB command: {:x}", command);
-                    break;
-            }
+            handle_command();
             packets.clear();
             length = 0;
             command = 0;
         }
+    }
+}
+
+void SGB::handle_command() {
+    switch (command) {
+        case PAL01:
+            std::println("PAL01");
+            palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
+            palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
+            palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
+            palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
+
+            palettes[1, 0] = palettes[0, 0];
+            palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
+            palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
+            palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
+            break;
+        case PAL23:
+            std::println("PAL23");
+            palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
+            palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
+            palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
+            palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
+
+            palettes[3, 0] = palettes[0, 0];
+            palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
+            palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
+            palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
+            break;
+        case PAL03:
+            std::println("PAL03");
+            palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
+            palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
+            palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
+            palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
+
+            palettes[3, 0] = palettes[0, 0];
+            palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
+            palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
+            palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
+            break;
+        case PAL12:
+            std::println("PAL12");
+            palettes[1, 0] = packets[0][1] | (packets[0][2] << 8);
+            palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
+            palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
+            palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
+
+            palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
+            palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
+            palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
+            palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
+            break;
+        case PAL_SET:
+            std::println("PAL_SET");
+            for (size_t palette_number = 0; palette_number < 4; ++palette_number) {
+                const auto palette_id = packets[0][palette_number * 2 + 1] | (packets[0][palette_number * 2 + 2] << 8);
+                for (size_t i = 0; i < 4; ++i) {
+                    palettes[palette_number, i] = system_palettes[palette_id, i];
+                }
+            }
+            break;
+        case PAL_TRN:
+            std::println("PAL_TRN");
+            emit_command();
+            break;
+        case DATA_SND:
+            std::println("DATA_SND command");
+            std::println("Writing into SNES address {:x}", packets[0][1] | (packets[0][2] << 8));
+            break;
+        case DATA_TRN:
+            std::println("DATA_TRN command");
+            std::println("VRAM transfer into SNES address {:x}", packets[0][1] | (packets[0][2] << 8));
+            break;
+        case MLT_REQ: {
+            std::println("MLT_REQ command");
+            mlt_req.changing_joyp = false;
+            switch (packets[0][1] & 3) {
+                case 0:
+                    mlt_req.current_player = 1;
+                    mlt_req.players = 1;
+                    std::println("MLT_REQ: Player 1");
+                    break;
+                case 1:
+                    mlt_req.current_player = (mlt_req.current_player - 1) & 1;
+                    mlt_req.players = 2;
+                    std::println("MLT_REQ: Player 2");
+                    break;
+                case 3:
+                    mlt_req.current_player = (mlt_req.current_player - 1) & 3;
+                    mlt_req.players = 4;
+                    std::println("MLT_REQ: Player 4");
+                    break;
+                default:
+                    mlt_req.current_player = (mlt_req.current_player - 1) & 1;
+                    mlt_req.players = 1;
+                    std::println("MLT_REQ: Player default");
+                    break;
+            }
+        }
+        break;
+        case CHR_TRN:
+            std::println("CHR_TRN command");
+            emit_command();
+            break;
+        case PCT_TRN:
+            std::println("PCT_TRN command");
+            emit_command();
+            break;
+        case ATTR_TRN:
+            std::println("ATTR_TRN command (Unhandled");
+            break;
+        case MASK_EN:
+            std::println("MASK_EN command");
+            emit_command();
+            break;
+        default:
+            std::println("Unhandled SGB command: {:x}", command);
+            break;
     }
 }
 
@@ -115,7 +152,6 @@ void SGB::send_bit(const uint8_t bit) {
 bool SGB::mlt_is_active() const { return mlt_req.changing_joyp; }
 
 u8 SGB::mlt_get_current_player() const {
-    std::println("Reading MLT");
     switch (mlt_req.current_player) {
         case 1: return 0xF;
         case 2: return 0xE;
@@ -125,7 +161,7 @@ u8 SGB::mlt_get_current_player() const {
     }
 }
 
-void SGB::mlt_change_joyp(bool value) {
+void SGB::mlt_change_joyp(const bool value) {
     mlt_req.changing_joyp = value;
 }
 
@@ -162,6 +198,22 @@ void SGB::write_sgb_tile_data() {
     } else {
         for (size_t i = 0; i < 0x1000; ++i) {
             tile_data[0x1000 + i] = vram_transfer_buffer[i];
+        }
+    }
+}
+
+void SGB::write_sgb_system_palette() {
+    /*
+     * There are 512 system palettes
+     * Each palette has 4 colors
+     * Each color is 2 bytes
+     * So, each palette is 8 bytes
+     */
+    for (size_t palette = 0; palette < 512; ++palette) {
+        for (size_t index = 0; index < 8; ++index) {
+            const auto buffer_index = 2 * (palette * 8 + index);
+            const u16 data = vram_transfer_buffer[buffer_index] | (vram_transfer_buffer[buffer_index + 1] << 8);
+            system_palettes_data[buffer_index / 2] = data;
         }
     }
 }
