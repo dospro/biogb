@@ -328,21 +328,8 @@ void MemoryMap::writeIO(const u16 a_address, const u8 a_value) {
     }
     switch (a_address) {
         case 0xFF00: // P1-Controls
-            sgb.mlt_change_joyp(false);
-            if (sgb.is_sgb_transfer_mode()) {
-                if ((a_value & 0x30) == 0x10) {
-                    sgb.send_bit(1);
-                } else if ((a_value & 0x30) == 0x20) {
-                    sgb.send_bit(0);
-                }
-            } else if ((a_value & 0x30) == 0) {
-                // SGB Reset
-                sgb.start_transfer_mode();
-            } else if ((a_value & 0x30) == 0x30) {
-                sgb.mlt_change_joyp(true);
-            } else {
-                mInput->writeRegister(a_value);
-            }
+            sgb.write(a_value);
+            mInput->writeRegister(a_value);
             break;
         case 0xFF01:  // SB-Serial Transfer data
             ST.trans = a_value;
@@ -649,8 +636,8 @@ void MemoryMap::vram_sgb_transfer() {
                 low_byte |= (pixel_2bpp & 1) << (7 - tile_x);
                 high_byte |= ((pixel_2bpp >> 1) & 1) << (7 - tile_x);
             }
-            sgb.write(tile * 16 + tile_y * 2, low_byte);
-            sgb.write(tile * 16 + tile_y * 2 + 1, high_byte);
+            sgb.write_buffer(tile * 16 + tile_y * 2, low_byte);
+            sgb.write_buffer(tile * 16 + tile_y * 2 + 1, high_byte);
         }
     }
 }

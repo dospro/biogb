@@ -5,25 +5,54 @@ void SGB::start_transfer_mode() {
     sgb_transfer_mode = true;
 }
 
-void SGB::send_bit(const uint8_t bit) {
-    packer.add_bit(bit);
-    if (packer.is_full()) {
-        sgb_transfer_mode = false;
-        if (length == 0) {
-            const auto value = packer.get_byte(0);
-            length = value & 7;
-            command = value >> 3;
-        }
-        packets.emplace_back(packer.get_packet());
-        packer.reset();
+void SGB::write(const u8 a_value) {
+    const u8 value = a_value & 0x30;
+    const u8 previous = latch_value;
+    latch_value = value;
 
-        if (packets.size() == length) {
-            handle_command();
-            packets.clear();
-            length = 0;
-            command = 0;
-        }
+    if (value != 0x30) return;
+
+    if (previous == 0x00) {
+        sgb_transfer_mode = true;
+        packer.reset();
+        return;
     }
+
+    if (previous != 0x10 && previous != 0x20) return;
+    if (!sgb_transfer_mode) return;
+
+    packer.add_bit(previous == 0x10 ? 1 : 0);
+    if (const auto packet = packer.take_packet()) {
+        commit_packet(*packet);
+    }
+}
+
+void SGB::commit_packet(const Packet &packet) {
+    sgb_transfer_mode = false;
+
+    if (length == 0) {
+        // First packet of a group carries the header: command in the upper 5 bits, packet count
+        // for the whole group in the lower 3.
+        length = packet[0] & 7;
+        command = packet[0] >> 3;
+    }
+
+    packets.emplace_back(packet);
+
+    if (length == 0) {
+        // The header declared a group of zero packets, which is malformed. Drop it so the next
+        // packet is read as a fresh header instead of accumulating forever.
+        std::println("SGB Warning: header declares a zero-length group, dropping packet");
+        packets.clear();
+        return;
+    }
+
+    if (packets.size() < length) return;
+
+    handle_command();
+    packets.clear();
+    length = 0;
+    command = 0;
 }
 
 void SGB::handle_command() {
