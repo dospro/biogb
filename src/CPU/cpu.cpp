@@ -157,23 +157,7 @@ void cCpu::loadState(int number) {}
 }
 
 std::span<const u32> cCpu::get_video_buffer() const {
-    auto sgb_buffer = mMemory->get_sgb_buffer();
-    auto gb_buffer = mMemory->mDisplay->get_video_buffer();
-
-    // Create 2 views
-    std::mdspan gb_view{gb_buffer.data(), std::extents<size_t, 144, 160>{}};
-    std::mdspan sgb_view{sgb_buffer.data(), std::extents<size_t, 224, 256>{}};
-
-    constexpr size_t y_offset = (224 - 144) / 2;
-    constexpr size_t x_offset = (256 - 160) / 2;
-
-    for (size_t y = 0; y < 144; ++y) {
-        for (size_t x = 0; x < 160; ++x) {
-            sgb_view[y + y_offset, x + x_offset] = gb_view[y, x];
-        }
-    }
-    return sgb_buffer;
-
+    return mMemory->get_sgb_buffer(mMemory->mDisplay->get_video_buffer());
 }
 
 int cCpu::checkInterrupts() {

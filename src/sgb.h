@@ -1,11 +1,12 @@
 #ifndef BIOGB_SGB_H
 #define BIOGB_SGB_H
-#include <cstdint>
-#include <functional>
 #include <mdspan>
 #include <optional>
-#include <ostream>
+#include <array>
+#include <span>
+#include <print>
 #include <vector>
+#include <algorithm>
 
 #include "macros.h"
 
@@ -26,7 +27,7 @@ public:
      * Bits past that point are dropped with a warning, which can only happen if a caller
      * forgets to take_packet().
      */
-    void add_bit(const uint8_t bit) {
+    void add_bit(const u8 bit) {
         if (bit_index >= 128) {
             if (is_packet_full) {
                 std::println("SGB Warning: Bit index out of bounds: {}", bit_index);
@@ -96,24 +97,69 @@ enum CommandType: u8 {
     PAL_PRI
 };
 
-struct MultiPlayer {
-    bool changing_joyp = false;
-    u8 players = 0;
-    u8 current_player = 0;
+/**
+ * @brief What a completed *_TRN command is waiting to do with the next captured screen.
+ *
+ * A TRN command does not carry its payload in the packets. It announces that the payload is
+ * sitting on the screen, so the work has to wait for a frame boundary -- this records which
+ * work that is in the meantime.
+ */
+enum class PendingTransfer : u8 {
+    None,
+    TileData,    // CHR_TRN
+    TileMap,     // PCT_TRN -- carries the border map *and* its palettes
+    SystemPalette, // PAL_TRN
+};
+
+/**
+ * @brief What the SNES shows in place of the live Game Boy window (MASK_EN).
+ *
+ * Display side only. The Game Boy keeps rendering and the SGB keeps sampling that signal
+ * masking the picture while a *_TRN payload is on screen is the command's main purpose, so
+ * the capture path cannot be affected by it.
+ */
+enum class ScreenMask : u8 {
+    Cancel,         // 0 - live picture
+    Freeze,         // 1 - keep showing the stored picture
+    BlankBlack,     // 2
+    BlankColor0,    // 3 - solid SGB color 0
+};
+
+class MultiplayerState {
+public:
+    /**
+     * Rule 1: every P15 0->1 edge on JOYP advances the active player. No exceptions.
+     */
+    void advance_player() { current = (current + 1) & (player_count - 1); }
+
+    /**
+     * Rule 2: A new MLT_REQ moves the current player number
+     */
+    void set_player_count(const u8 count) {
+        player_count = count;
+        current &= (count - 1);
+    }
+
+    [[nodiscard]] u8 active_player() const { return current; }
+
+    /**
+     * What P1 register read back so ROM can detect the number of players.
+     */
+    [[nodiscard]] u8 id_nibble() const { return 0xF - current; }
+    [[nodiscard]] bool is_multiplayer() const { return player_count > 1; }
+
+private:
+    u8 player_count = 1;
+    u8 current = 0;
 };
 
 class SGB {
 public:
     using Packet = std::array<u8, 16>;
-    using PacketListener = std::function<void(u8 command, std::vector<Packet> packet)>;
 
     SGB() = default;
 
     ~SGB() = default;
-
-    void add_packet_listener(const PacketListener& listener) { listeners.push_back(listener);};
-
-    void start_transfer_mode();
 
     /**
      * @brief Feeds a JOYP (0xFF00) write into the SGB packet receiver.
@@ -133,21 +179,25 @@ public:
      */
     void write(u8 a_value);
 
-    [[nodiscard]] bool is_sgb_transfer_mode() const;
+    /**
+    * @brief Advances any pending *_TRN transfer. Call once per frame, at the frame boundary.
+    *
+    * A no-op unless a TRN command is waiting. @p screen is the display's 160x144 buffer of
+    * decoded 2bpp pixel values for the frame that just finished.
+    */
+    void run_pending_transfer(std::span<const u8> screen);
 
-    [[nodiscard]] bool mlt_is_active() const;
+    /**
+    * @brief Builds the picture the TV actually shows: the SGB border with the Game Boy
+    *        window composited into the middle, under the current MASK_EN state.
+    *
+    * Call once per frame, after the frame has finished rendering. @p gb_frame is the
+    * display's 160x144 buffer of RGB888 pixels for that frame.
+    */
+    [[nodiscard]] std::span<const u32> compose_frame(std::span<const u32> gb_frame);
 
-    [[nodiscard]] u8 mlt_get_current_player() const;
-
-    void mlt_change_joyp(bool value);
-    void write_sgb_system_palette(size_t index, u16 data);
-    void write_sgb_tile_map();
-    void write_sgb_palette();
-    void write_sgb_tile_data();
-    void write_sgb_system_palette();
-    [[nodiscard]] std::span<u32> get_sgb_video_buffer();
-
-    void write_buffer(const size_t index, const u8 data) { vram_transfer_buffer[index % 0x1000] = data; }
+    [[nodiscard]] bool mlt_is_multiplayer() const { return multiplayer_req.is_multiplayer(); }
+    [[nodiscard]] u8 mlt_id_nibble() const { return multiplayer_req.id_nibble(); }
 
 private:
     /**
@@ -163,20 +213,53 @@ private:
      * @param packet The 16 bytes just assembled by the BitPacker.
      */
     void commit_packet(const Packet &packet);
-    void emit_command() const;
+
     void handle_command();
+
+    /**
+     * @brief Reassembles the 4KB transfer payload from the DMG's rendered screen.
+     *
+     * The SGB has no bus access to DMG VRAM -- it only samples the video output. A compliant
+     * ROM arranges the screen so that reading it in raster order reproduces the bytes it wants
+     * to send. @p screen is the display's 160x144 buffer of decoded 2bpp
+     * pixel values, which is exactly 256 tiles' worth of data at 16 bytes per tile.
+     */
+    void capture_screen(std::span<const u8> screen);
+
+    void schedule_transfer(PendingTransfer transfer);
+
+    void write_sgb_tile_map();
+    void write_sgb_palette();
+    void write_sgb_tile_data();
+    void write_sgb_system_palette();
+
+    void render_border();
+
+    [[nodiscard]] static constexpr u32 to_rgb888(const u16 color);
+
+    MultiplayerState multiplayer_req{};
+    ScreenMask screen_mask{ScreenMask::Cancel};
 
     u8 latch_value = 0xFF; // Used to save a value before the 0x30 write.
 
-    std::array<u32, 256 * 224> buffer{};
-    std::vector<PacketListener> listeners{};
+    std::array<u32, 256 * 224> composed_frame{};
+
+    // The SNES's own copy of the last picture it displayed. MASK_EN's Freeze mode holds this
+    // instead of the live one; every other mode keeps it current.
+    std::array<u32, 160 * 144> stored_frame{};
 
     bool sgb_transfer_mode = false;
     u8 length = 0;
     u8 command = 0;
     BitPacker packer{};
     std::vector<Packet> packets{};
-    MultiPlayer mlt_req{};
+
+    // The one argument byte a *_TRN command carries (CHR_TRN's bank-select bit today).
+    // Copied out when the command arrives, because `packets` is cleared as soon as
+    // handle_command() returns -- long before the deferred transfer actually runs.
+    u8 transfer_arg = 0;
+    PendingTransfer pending = PendingTransfer::None;
+    u8 frames_until_capture = 0;
 
     std::array<u8, 0x1000> vram_transfer_buffer{};
 

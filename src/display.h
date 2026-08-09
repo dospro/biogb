@@ -46,8 +46,6 @@ public:
     [[nodiscard]] std::span<const u32> get_video_buffer() const { return video_buffer_data; }
     [[nodiscard]] std::span<const u8> get_sgb_bit_patterns() const { return sgb_bit_patterns_data; }
 
-    void toggle_freeze_screen(const bool active) { sgbFreezeWindow = !active; };
-
     bool mVBlankInterruptRequest{};
     bool mLCDInterruptRequest{};
 
@@ -116,7 +114,6 @@ private:
     bool mIsColor;
     bool isLineFinished{};
     bool mMasterPriority{false}, mOAMPriority{};
-    bool sgbFreezeWindow{false};
     void drawBackGround();
     void drawEmptyBG() const;
     void drawWindow();

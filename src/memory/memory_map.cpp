@@ -22,9 +22,6 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
     if (const auto result = init_sub_systems(); !result) [[unlikely]] {
         return std::unexpected(result.error());
     }
-    sgb.add_packet_listener([this](const u8 command, const std::vector<SGB::Packet> &packets) {
-        handle_sgb_command(command, packets);
-    });
     return {};
 }
 
@@ -113,13 +110,27 @@ u8 MemoryMap::readByte(const u16 address) {
 
 int MemoryMap::readIO(const int a_address) {
     switch (a_address) {
-        case 0xFF00:
-            if (sgb.mlt_is_active()) {
-                // TODO: We need to increment current player when P15 H-L
-                // return sgb.mlt_get_current_player();
-                return 0xE;
+        case 0xFF00: {
+            const int value = mInput->readRegister();
+            /*
+             * P15 (bit 5) and P14 (bit 4) are the two button-group selects and are active low,
+             * so 0x30 is the one state where the ROM has deselected both groups. That matters
+             * because the low nibble is shared: while a group is selected it carries that
+             * group's button state and must be left alone. Only with both deselected is it
+             * free for the SGB to drive with the active player's ID.
+             *
+             * That is also precisely why this doubles as the SGB detection signal -- on
+             * unenhanced hardware nothing drives those lines, so they float high and the ROM
+             * reads 0xF here forever no matter how many times it polls.
+             *
+             * & 0xF0 replaces only the low nibble: bits 5-4 keep whatever the ROM last wrote
+             * to them, and bits 7-6 are unused and read high.
+             */
+            if ((value & 0x30) == 0x30 && sgb.mlt_is_multiplayer()) {
+                return (value & 0xF0) | sgb.mlt_id_nibble();
             }
-            return mInput->readRegister();
+            return value;
+        }
         case 0xFF04:
         case 0xFF05:
         case 0xFF06:
@@ -581,110 +592,6 @@ void MemoryMap::writeIFRegister(u8 value) {
     }
 }
 
-
-void MemoryMap::vram_sgb_transfer() {
-    // first we need a reference to the video buffer
-    std::println("Starting SGB VRAM transfer");
-    const std::span<const u8> buffer_data = mDisplay->get_sgb_bit_patterns();
-    const std::mdspan<const u8, std::extents<size_t, 144, 160> > buffer{buffer_data.data()};
-
-    /*
-     * How VRAM transfer actually works:
-     *
-     * 1. VRAM transfer methods transfers 4KB of data (0x1000 bytes)
-     * 2. Considering that each GB tile is 8x8 pixels, and each pixel is built from 2 bits,
-     *    the transfer method needs to read 8 pixels to build 2 full bytes.
-     * 3. This results in 256 tiles being transferred in the 4KB block.
-     *    (256 tiles * 8x8 pixels = 16,384 pixels)
-     *    (16,384 pixels * 2bpp = 32,768 bits)
-     *    (32,768 bits / 8 = 4KB)
-     *
-     * Considering this, we need to go tile by tile and generate the byte patterns that
-     * originally generated those tiles. The GB can display 340 tiles, so we only use 256
-     * of those.
-     */
-
-    for (size_t tile = 0; tile < 256; ++tile) {
-        /*
-         * The buffer has the following format:
-         * It represents a grid of 144x160 pixels
-         * The first 160 bytes represent the top row of pixels
-         *
-         * Each tile is 16 bytes, so we will generate those 16 bytes
-         * per iteration
-         *
-         * We have a view of the buffer which we can index as a 144x160 grid
-         * So if each row is 160 pixels, that means 20 tiles per row.
-         *
-         */
-
-        const auto tile_row_pos = (tile / 20) * 8;
-        const auto tile_col_pos = (tile % 20) * 8;
-
-        /*
-         * A tile is composed of 8 pairs of bytes. Each pair of bytes represents
-         * a row of 8 pixels. The lower bit of each byte comes from bit plane 0,
-         * and the upper bit comes from bit plane 1.
-         *
-         * So we need to read a row of 8 pixels to generate 2 bytes
-         */
-        for (size_t tile_y = 0; tile_y < 8; ++tile_y) {
-            u8 low_byte = 0;
-            u8 high_byte = 0;
-            for (size_t tile_x = 0; tile_x < 8; ++tile_x) {
-                const auto pixel_2bpp = buffer[tile_row_pos + tile_y, tile_col_pos + tile_x];
-                low_byte |= (pixel_2bpp & 1) << (7 - tile_x);
-                high_byte |= ((pixel_2bpp >> 1) & 1) << (7 - tile_x);
-            }
-            sgb.write_buffer(tile * 16 + tile_y * 2, low_byte);
-            sgb.write_buffer(tile * 16 + tile_y * 2 + 1, high_byte);
-        }
-    }
-}
-
-void MemoryMap::handle_sgb_command(const u8 command, const std::vector<SGB::Packet> &packets) {
-    switch (command) {
-        case PAL_TRN:
-            vram_sgb_transfer();
-            sgb.write_sgb_system_palette();
-            break;
-        case CHR_TRN: {
-            // schedule_sgb_vram_transfer([this]() {
-                vram_sgb_transfer();
-                sgb.write_sgb_tile_data();
-            // });
-        }
-        break;
-        case PCT_TRN: {
-            // schedule_sgb_vram_transfer([this] {
-                vram_sgb_transfer();
-                sgb.write_sgb_tile_map();
-                sgb.write_sgb_palette();
-            // });
-        }
-        break;
-        case MASK_EN: {
-            const auto mask = packets[0][1];
-            if (mask == 0) {
-                mDisplay->toggle_freeze_screen(true);
-            } else if (mask == 1 || mask == 2 || mask == 3) {
-                mDisplay->toggle_freeze_screen(true);
-            }
-        }
-        break;
-        default:
-            break;
-    }
-}
-
-void MemoryMap::schedule_sgb_vram_transfer(std::function<void()> transfer) {
-    std::println("Scheduling SGB VRAM transfer");
-    pending_sgb_vram_transfer = std::move(transfer);
-}
-
 void MemoryMap::execute_sgb_vram_transfer() {
-    if (pending_sgb_vram_transfer) {
-        (*pending_sgb_vram_transfer)();
-        pending_sgb_vram_transfer.reset();
-    }
+    sgb.run_pending_transfer(mDisplay->get_sgb_bit_patterns());
 }

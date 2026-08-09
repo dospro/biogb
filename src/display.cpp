@@ -245,7 +245,7 @@ void cDisplay::update(int a_cycles) {
 }
 
 void cDisplay::hBlankDraw() {
-    if (lcdc.lcdcActive && !sgbFreezeWindow) {
+    if (lcdc.lcdcActive) {
         if (mIsColor) {
             mMasterPriority = lcdc.bgWndActive;
             drawBackGround();
