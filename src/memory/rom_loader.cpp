@@ -75,8 +75,8 @@ RomLoader::RomLoader(const std::string_view file_name) {
     return rom;
 }
 
-[[nodiscard]] bool RomLoader::is_color() const {
-    return color;
+[[nodiscard]] CartridgeSupport RomLoader::get_support() const {
+    return support;
 }
 
 [[nodiscard]] bool RomLoader::has_timer() const {
@@ -92,14 +92,23 @@ RomLoader::RomLoader(const std::string_view file_name) {
 }
 
 void RomLoader::read_header() {
-    std::array<char, 0x150> header{};
-    file.read(header.data(), header.size());
-    name = std::string(&header[0x134], 15);
+    std::array<u8, 0x150> header{};
+    file.read(reinterpret_cast<char *>(header.data()), header.size());
+    name = std::string(header.begin() + 0x134, header.begin() + 0x134 + 15);
     name.erase(std::ranges::find(name, '\0'), name.end());
 
     const u8 gbc_byte = header[0x143];
-    color = (gbc_byte == 0x80 || gbc_byte == 0xC0);
-    std::println("Color: {}", color);
+    if (gbc_byte == 0xC0) {
+        support.color = ColorSupport::Required;
+    } else if (gbc_byte == 0x80) {
+        support.color = ColorSupport::Enhanced;
+    } else {
+        support.color = ColorSupport::None;
+    }
+
+    support.sgb = header[0x146] == 0x03 && header[0x14B] == 0x33;
+    std::println("Hardware: {}", to_string(support.color));
+    std::println("Super Game Boy: {}", support.sgb);
 
     const u8 mbc_id = header[0x147];
 

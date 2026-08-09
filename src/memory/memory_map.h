@@ -46,6 +46,8 @@ class MemoryMap {
     MemoryMap() = default;
     ~MemoryMap() = default;
     std::expected<void, std::string> load_rom(std::string_view file_name);
+    [[nodiscard]] ConsoleModel console_model() const { return model; }
+    [[nodiscard]] bool is_sgb() const { return model == ConsoleModel::SGB; }
     void rtcCounter();
     u8 readByte(u16);
     void writeByte(u16, u8);
@@ -79,6 +81,7 @@ class MemoryMap {
     std::string mRomFilename{};
     HDMA hdma{};
     bool mIsColor{};
+    ConsoleModel model{};
     bool mRomMode{};
     u8 MBC5HighAddress{}, MBC5LowAddress{};
     int mCurrentSpeed{};

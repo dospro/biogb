@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <optional>
 #include <string>
 #include <fstream>
 #include "../macros.h"
@@ -29,11 +30,74 @@ enum class MBCTypes {
     Generic
 };
 
+enum class ColorSupport : u8 {
+    None, // DMG
+    Enhanced, // 0x80 CGB or DGM
+    Required, // 0xC0 CGB only
+};
+
+[[nodiscard]] constexpr std::string_view to_string(const ColorSupport support) {
+    switch (support) {
+        case ColorSupport::None: return "DMG";
+        case ColorSupport::Enhanced: return "Game Boy Color supported";
+        case ColorSupport::Required: return "Game Boy Color only ROM";
+    }
+    return "Unknown";
+}
+
+struct CartridgeSupport {
+    ColorSupport color{ColorSupport::None};
+    bool sgb{false};
+};
+
+/**
+ * @brief The machine the emulator presents itself as.
+ *
+ * Decided once, before the CPU starts, from what the cart supports and what the user asked
+ * for. Everything downstream reads this and nothing else: boot register values, whether color
+ * hardware exists, whether the SGB packet receiver is live, and the output resolution.
+ */
+enum class ConsoleModel : u8 {
+    DMG,
+    SGB,
+    CGB,
+};
+
+[[nodiscard]] constexpr std::string_view to_string(const ConsoleModel model) {
+    switch (model) {
+        case ConsoleModel::DMG: return "Original Monochrome Game Boy";
+        case ConsoleModel::SGB: return "Super Game Boy";
+        case ConsoleModel::CGB: return "Game Boy Color";
+    }
+    return "Unknown";
+}
+
+/**
+ * @brief Picks the machine to emulate.
+ *
+ * @p preference is the user overriding us from the command line, so it is absolute: no
+ * fallback, no warning. Passing nothing means "pick for me", and we prefer an SGB whenever the
+ * cart supports one -- which is what the real hardware does, so a CGB-enhanced cart that also
+ * carries SGB support runs monochrome with a border rather than in color.
+ */
+[[nodiscard]] constexpr ConsoleModel selected_console_model(
+    const CartridgeSupport support,
+    const std::optional<ConsoleModel> preference = std::nullopt
+) {
+    if (preference) return *preference;
+
+    // A rom that requires GBC cannot run on a SGB at all.
+    if (support.color == ColorSupport::Required) return ConsoleModel::CGB;
+    if (support.sgb) return ConsoleModel::SGB;
+    if (support.color == ColorSupport::Enhanced) return ConsoleModel::CGB;
+    return ConsoleModel::DMG;
+}
+
 class RomLoader {
 public:
     explicit RomLoader(std::string_view file_name);
     [[nodiscard]] std::vector<RomBank> get_rom();
-    [[nodiscard]] bool is_color() const;
+    [[nodiscard]] CartridgeSupport get_support() const;
     [[nodiscard]] bool has_timer() const;
     [[nodiscard]] int get_ram_banks() const;
     [[nodiscard]] MBCTypes get_mbc_type() const;
@@ -48,8 +112,8 @@ private:
     std::vector<RomBank> rom{};
     std::ifstream file{};
     std::string name{};
-    bool color{};
     bool with_timer{};
+    CartridgeSupport support{};
     MBCTypes mbc{};
     int rom_banks{};
     int ram_banks{};

@@ -10,7 +10,8 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
     try {
         RomLoader loader{file_name};
         mRom = loader.get_rom();
-        mIsColor = loader.is_color();
+        model = selected_console_model(loader.get_support());
+        mIsColor = model == ConsoleModel::CGB;
         mbc_type = loader.get_mbc_type();
         with_timer = loader.has_timer();
         init_ram(loader.get_ram_banks());
@@ -126,7 +127,7 @@ int MemoryMap::readIO(const int a_address) {
              * & 0xF0 replaces only the low nibble: bits 5-4 keep whatever the ROM last wrote
              * to them, and bits 7-6 are unused and read high.
              */
-            if ((value & 0x30) == 0x30 && sgb.mlt_is_multiplayer()) {
+            if (is_sgb() && (value & 0x30) == 0x30 && sgb.mlt_is_multiplayer()) {
                 return (value & 0xF0) | sgb.mlt_id_nibble();
             }
             return value;
@@ -339,7 +340,7 @@ void MemoryMap::writeIO(const u16 a_address, const u8 a_value) {
     }
     switch (a_address) {
         case 0xFF00: // P1-Controls
-            sgb.write(a_value);
+            if (is_sgb()) sgb.write(a_value);
             mInput->writeRegister(a_value);
             break;
         case 0xFF01:  // SB-Serial Transfer data
@@ -593,5 +594,6 @@ void MemoryMap::writeIFRegister(u8 value) {
 }
 
 void MemoryMap::execute_sgb_vram_transfer() {
+    if (!is_sgb()) return;
     sgb.run_pending_transfer(mDisplay->get_sgb_bit_patterns());
 }

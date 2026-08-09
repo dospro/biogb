@@ -95,13 +95,6 @@ void cCpu::saveState(int number) {}
 void cCpu::loadState(int number) {}
 
 [[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(std::string_view file_name) {
-    af(0xFFB0);
-    bc(0x0014);
-    de(0x00D8);
-    hl(0x014D);
-    pc = 0x0100;
-    sp = 0xFFFE;
-
     std::println("Allocating resources");
     try {
         mMemory = std::make_unique<MemoryMap>();
@@ -116,6 +109,24 @@ void cCpu::loadState(int number) {}
     }
     std::println("Rom loaded successfully");
     std::println("Initializing CPU");
+    switch (mMemory->console_model()) {
+        case ConsoleModel::DMG:
+            af(0x01B0);
+            bc(0x0013);
+            break;
+        case ConsoleModel::SGB:
+            af(0xFFB0);
+            bc(0x0014);
+            break;
+        case ConsoleModel::CGB:
+            af(0x11B0);
+            bc(0x0000);
+            break;
+    }
+    de(0x00D8);
+    hl(0x0013);
+    pc = 0x0100;
+    sp = 0xFFFE;
 
     initRTCTimer();
 
