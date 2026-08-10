@@ -63,7 +63,7 @@ constexpr std::array<BanksInfo, 5> VALID_RAM_SIZES = {
 
 RomLoader::RomLoader(const std::string_view file_name) {
     file.open(file_name, std::ios::binary);
-    if (file.bad()) {
+    if (!file.is_open()) {
         throw std::runtime_error("Error opening the file");
     }
     read_header();

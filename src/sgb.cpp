@@ -57,54 +57,10 @@ void SGB::commit_packet(const Packet &packet) {
 
 void SGB::handle_command() {
     switch (command) {
-        case PAL01:
-            std::println("PAL01");
-            palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
-            palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
-            palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
-            palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
-
-            palettes[1, 0] = palettes[0, 0];
-            palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
-            palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
-            palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
-            break;
-        case PAL23:
-            std::println("PAL23");
-            palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
-            palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
-            palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
-            palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
-
-            palettes[3, 0] = palettes[0, 0];
-            palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
-            palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
-            palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
-            break;
-        case PAL03:
-            std::println("PAL03");
-            palettes[0, 0] = packets[0][1] | (packets[0][2] << 8);
-            palettes[0, 1] = packets[0][3] | (packets[0][4] << 8);
-            palettes[0, 2] = packets[0][5] | (packets[0][6] << 8);
-            palettes[0, 3] = packets[0][7] | (packets[0][8] << 8);
-
-            palettes[3, 0] = palettes[0, 0];
-            palettes[3, 1] = packets[0][9] | (packets[0][10] << 8);
-            palettes[3, 2] = packets[0][11] | (packets[0][12] << 8);
-            palettes[3, 3] = packets[0][13] | (packets[0][14] << 8);
-            break;
-        case PAL12:
-            std::println("PAL12");
-            palettes[1, 0] = packets[0][1] | (packets[0][2] << 8);
-            palettes[1, 1] = packets[0][9] | (packets[0][10] << 8);
-            palettes[1, 2] = packets[0][11] | (packets[0][12] << 8);
-            palettes[1, 3] = packets[0][13] | (packets[0][14] << 8);
-
-            palettes[2, 0] = packets[0][1] | (packets[0][2] << 8);
-            palettes[2, 1] = packets[0][3] | (packets[0][4] << 8);
-            palettes[2, 2] = packets[0][5] | (packets[0][6] << 8);
-            palettes[2, 3] = packets[0][7] | (packets[0][8] << 8);
-            break;
+        case PAL01: std::println("PAL01"); apply_pal_command(0, 1); break;
+        case PAL23: std::println("PAL23"); apply_pal_command(2, 3); break;
+        case PAL03: std::println("PAL03"); apply_pal_command(0, 3); break;
+        case PAL12: std::println("PAL12"); apply_pal_command(1, 2); break;
         case PAL_SET:
             std::println("PAL_SET");
             for (size_t palette_number = 0; palette_number < 4; ++palette_number) {
@@ -113,7 +69,7 @@ void SGB::handle_command() {
                     palettes[palette_number, i] = system_palettes[palette_id, i];
                 }
             }
-            if ((packets[0][9] & 0x80) != 0) {
+            if ((packets[0][9] & 0x40) != 0) {
                 screen_mask = ScreenMask::Cancel;
             }
             break;
@@ -254,10 +210,6 @@ void SGB::schedule_transfer(const PendingTransfer transfer) {
     frames_until_capture = 1;
 }
 
-// void SGB::write_sgb_system_palette(const size_t index, const u16 data) {
-//     system_palettes_data[index] = data;
-// }
-
 void SGB::write_sgb_tile_map() {
     for (size_t i = 0; i < 0x740; ++i) {
         tile_map[i] = vram_transfer_buffer[i];
@@ -295,11 +247,28 @@ void SGB::write_sgb_system_palette() {
      * So, each palette is 8 bytes
      */
     for (size_t palette = 0; palette < 512; ++palette) {
-        for (size_t index = 0; index < 8; ++index) {
+        for (size_t index = 0; index < 4; ++index) {
             const auto buffer_index = 2 * (palette * 8 + index);
             const u16 data = vram_transfer_buffer[buffer_index] | (vram_transfer_buffer[buffer_index + 1] << 8);
             system_palettes_data[buffer_index / 2] = data;
         }
+    }
+}
+
+
+u16 SGB::packet_color(size_t byte_offset) const {
+    return packets[0][byte_offset] | (packets[0][byte_offset + 1] << 8);
+}
+
+void SGB::apply_pal_command(size_t first, size_t second) {
+    const u16 color0 = packet_color(1);
+    for (size_t palette = 0; palette < 4; ++palette) {
+        palettes[palette, 0] = color0;
+    }
+
+    for (size_t color = 1; color < 4; ++color) {
+        palettes[first, color] = packet_color(1 + color * 2); // bytes 3, 5, 7
+        palettes[second, color] = packet_color(7 + color * 2); // bytes 9, 11, 13
     }
 }
 
@@ -323,6 +292,8 @@ void SGB::render_border() {
 
             const auto tile_index = tile_map_entry & 0xFF;
             const auto palette_index = (tile_map_entry >> 10) & 0x7;
+            const bool x_flip = ((tile_map_entry >> 14) & 1) == 1;
+            const bool y_flip = ((tile_map_entry >> 15) & 1) == 1;
 
             /*
              * Each tile is 32 bytes: 8x8 pixels of 16 colors each
@@ -349,12 +320,16 @@ void SGB::render_border() {
                 const u8 byte2 = tile_data[tile_index * 32 + row * 2 + 16];
                 const u8 byte3 = tile_data[tile_index * 32 + row * 2 + 17];
 
+                const size_t dest_row = y_flip ? 7 - row : row;
+
                 for (size_t small_x = 0; small_x < 8; ++small_x) {
                     const auto color_index = ((byte0 >> (7 - small_x)) & 1) |
                                              (((byte1 >> (7 - small_x)) & 1) << 1) |
                                              (((byte2 >> (7 - small_x)) & 1) << 2) |
                                              (((byte3 >> (7 - small_x)) & 1) << 3);
-                    buffer_view[y * 8 + row, x * 8 + small_x] = to_rgb888(palettes[palette_index, color_index]);
+                    if (color_index == 0) continue;
+                    const size_t dest_col = x_flip ? 7 - small_x : small_x;
+                    buffer_view[y * 8 + dest_row, x * 8 + dest_col] = to_rgb888(palettes[palette_index, color_index]);
                 }
             }
         }
@@ -362,8 +337,6 @@ void SGB::render_border() {
 }
 
 std::span<const u32> SGB::compose_frame(std::span<const u32> gb_frame) {
-    render_border();
-
     /*
     * The SNES continuously buffers the picture it is showing; Freeze does not capture
     * anything, it simply stops refreshing that buffer. Keeping the copy current in every
@@ -387,6 +360,13 @@ std::span<const u32> SGB::compose_frame(std::span<const u32> gb_frame) {
     const bool blanked = screen_mask == ScreenMask::BlankBlack || screen_mask == ScreenMask::BlankColor0;
     const u32 blank_color = screen_mask == ScreenMask::BlankBlack ? 0x000000u : to_rgb888(palettes[0, 0]);
 
+    /*
+    * The backdrop: what shows wherever no layer draws. Color 0 is shared across all eight
+    * palettes, so palette 0's entry is the canonical copy. Laying it down first means the two
+    * layers above only have to fill in what they actually cover.
+    */
+    std::ranges::fill(composed_frame, to_rgb888(palettes[0, 0]));
+
     const std::mdspan<const u32, std::extents<size_t, 144, 160> > stored_view{stored_frame.data()};
     std::mdspan composed_view{composed_frame.data(), std::extents<size_t, 224, 256>{}};
 
@@ -398,6 +378,8 @@ std::span<const u32> SGB::compose_frame(std::span<const u32> gb_frame) {
             composed_view[y + y_offset, x + x_offset] = blanked ? blank_color : stored_view[y, x];
         }
     }
+
+    render_border();
     return composed_frame;
 }
 

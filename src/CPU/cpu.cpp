@@ -109,13 +109,19 @@ void cCpu::loadState(int number) {}
     }
     std::println("Rom loaded successfully");
     std::println("Initializing CPU");
+    /*
+     * The boot ROM leaves a fingerprint that games read to identify their machine: C picks the
+     * family ($13 DMG, $14 SGB, $00 CGB) and A the revision within it ($01 DMG / $FF MGB,
+     * $01 SGB / $FF SGB2). B is $00 everywhere. F, DE and HL differ per model too, but nothing
+     * reads them before writing them, so they stay at the DMG values below.
+     */
     switch (mMemory->console_model()) {
         case ConsoleModel::DMG:
             af(0x01B0);
             bc(0x0013);
             break;
         case ConsoleModel::SGB:
-            af(0xFFB0);
+            af(0xFFB0); // presenting as an SGB2; an original SGB boots with A=$01
             bc(0x0014);
             break;
         case ConsoleModel::CGB:
@@ -124,7 +130,7 @@ void cCpu::loadState(int number) {}
             break;
     }
     de(0x00D8);
-    hl(0x0013);
+    hl(0x014D);
     pc = 0x0100;
     sp = 0xFFFE;
 

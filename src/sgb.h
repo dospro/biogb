@@ -232,6 +232,18 @@ private:
     void write_sgb_palette();
     void write_sgb_tile_data();
     void write_sgb_system_palette();
+    /**
+    * @brief Reads one little-endian RGB555 color out of the current packet at @p byte_offset.
+    */
+    [[nodiscard]] u16 packet_color(size_t byte_offset) const;
+    /**
+    * @brief Applies a PAL01/PAL23/PAL03/PAL12 packet to the two palettes it names.
+    *
+    * All four commands share one 16-byte layout, differing only in which pair of palettes they
+    * target: bytes 1-2 hold color 0, bytes 3-8 are colors 1-3 of @p first, and bytes 9-14 are
+    * colors 1-3 of @p second.
+    */
+    void apply_pal_command(size_t first, size_t second);
 
     void render_border();
 
