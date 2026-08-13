@@ -593,6 +593,13 @@ void MemoryMap::writeIFRegister(u8 value) {
     }
 }
 
+std::span<const u32> MemoryMap::get_sgb_buffer(const std::span<const u32> gb_frame) {
+    // if (!is_sgb()) {
+    //     return gb_frame;
+    // }
+    return sgb.compose_frame(gb_frame);
+}
+
 void MemoryMap::execute_sgb_vram_transfer() {
     if (!is_sgb()) return;
     sgb.run_pending_transfer(mDisplay->get_sgb_bit_patterns());

@@ -64,7 +64,8 @@ void SGB::handle_command() {
         case PAL_SET:
             std::println("PAL_SET");
             for (size_t palette_number = 0; palette_number < 4; ++palette_number) {
-                const auto palette_id = packets[0][palette_number * 2 + 1] | (packets[0][palette_number * 2 + 2] << 8);
+                const auto palette_id = (packets[0][palette_number * 2 + 1] |
+                                         (packets[0][palette_number * 2 + 2] << 8)) & 0x1FF;
                 for (size_t i = 0; i < 4; ++i) {
                     palettes[palette_number, i] = system_palettes[palette_id, i];
                 }
@@ -248,19 +249,19 @@ void SGB::write_sgb_system_palette() {
      */
     for (size_t palette = 0; palette < 512; ++palette) {
         for (size_t index = 0; index < 4; ++index) {
-            const auto buffer_index = 2 * (palette * 8 + index);
+            const auto buffer_index = palette * 8 + index * 2;
             const u16 data = vram_transfer_buffer[buffer_index] | (vram_transfer_buffer[buffer_index + 1] << 8);
-            system_palettes_data[buffer_index / 2] = data;
+            system_palettes[palette, index] = data;
         }
     }
 }
 
 
-u16 SGB::packet_color(size_t byte_offset) const {
+u16 SGB::packet_color(const size_t byte_offset) const {
     return packets[0][byte_offset] | (packets[0][byte_offset + 1] << 8);
 }
 
-void SGB::apply_pal_command(size_t first, size_t second) {
+void SGB::apply_pal_command(const size_t first, const size_t second) {
     const u16 color0 = packet_color(1);
     for (size_t palette = 0; palette < 4; ++palette) {
         palettes[palette, 0] = color0;

@@ -61,7 +61,7 @@ class MemoryMap {
     int readIFRegister();
     void writeIFRegister(u8 value);
 
-    [[nodiscard]] std::span<const u32> get_sgb_buffer(const std::span<const u32> gb_frame) { return sgb.compose_frame(gb_frame); }
+    [[nodiscard]] std::span<const u32> get_sgb_buffer(std::span<const u32> gb_frame);
     void execute_sgb_vram_transfer();
 
     std::unique_ptr<cDisplay> mDisplay{};

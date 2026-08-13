@@ -278,8 +278,12 @@ private:
     std::array<u16, 8 * 16> palettes_data{};
     std::mdspan<u16, std::extents<size_t, 8, 16> > palettes{palettes_data.data()};
 
-    std::array<u16, 512 * 16> system_palettes_data{};
-    std::mdspan<u16, std::extents<size_t, 512, 16> > system_palettes{system_palettes_data.data()};
+    /*
+     * Beside for the actually visible palettes, up to 512 palettes of 4 colors
+     * each may be defined in SNES RAM.
+     */
+    std::array<u16, 512 * 4> system_palettes_data{};
+    std::mdspan<u16, std::extents<size_t, 512, 4> > system_palettes{system_palettes_data.data()};
 
     std::array<u8, 0x740> tile_map{};
     std::array<u8, 0x2000> tile_data{};
