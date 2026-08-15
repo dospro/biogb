@@ -82,11 +82,13 @@ class MemoryMap {
     HDMA hdma{};
     bool mIsColor{};
     ConsoleModel model{};
-    bool mRomMode{};
+    bool mRomMode{true};
     u8 MBC5HighAddress{}, MBC5LowAddress{};
     int mCurrentSpeed{};
     bool mPrepareSpeedChange{};
     MBCTypes mbc_type{};
+    u8 mbc_bank1_register = 1;
+    u8 mbc_bank2_register = 0;
     bool with_timer{};
     u8 IERegister{};
     SGB sgb{};

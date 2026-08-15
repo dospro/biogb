@@ -166,8 +166,7 @@ int MemoryMap::readIO(const int a_address) {
 
 u8 MemoryMap::readRom(u16 a_address) const noexcept {
     if (a_address < 0x4000) return mRom[0][a_address];
-    else
-        return mRom[romBank][a_address - 0x4000];
+    else return mRom[romBank][a_address - 0x4000];
 }
 
 u8 MemoryMap::readRam(const u16 address) const {
@@ -222,7 +221,7 @@ void MemoryMap::writeByte(const u16 a_address, const u8 a_value) {
         ;
     else if (a_address < 0xFF80)
         writeIO(a_address, a_value);
-    else if (a_address < 0xFFFE)
+    else if (a_address < 0xFFFF)
         mHRam[a_address - 0xFF80] = a_value;
     else
         writeIO(a_address, a_value);
@@ -230,29 +229,22 @@ void MemoryMap::writeByte(const u16 a_address, const u8 a_value) {
 
 void MemoryMap::sendMBC1Command(const u16 a_address, const u8 a_value) {
     if (a_address >= 0x2000 && a_address < 0x4000) {
-        if (mRomMode) {
-            romBank = a_value & 0x1F;
-            if (romBank == 0) romBank++;
-        } else {
-            romBank = (romBank & 0x60) | (a_value & 0x1F);
-            if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60) romBank++;
-        }
+        mbc_bank1_register = a_value & 0x1F;
+        if (mbc_bank1_register == 0) mbc_bank1_register = 1;
     } else if (a_address >= 0x4000 && a_address < 0x6000) {
-        if (mRomMode) {
-            romBank = (romBank & 0x1F) | ((a_value & 3) << 5);
-            if (romBank == 0 || romBank == 0x20 || romBank == 0x40 || romBank == 0x60) romBank++;
-        } else {
-            ramBank = a_value & 3;
-        }
-    } else if (a_address >= 0x6000 && a_address < 0x8000)
+        mbc_bank2_register = a_value & 0x3;
+    } else if (a_address >= 0x6000 && a_address < 0x8000) {
         mRomMode = (a_value & 1) == 0;
+    }
+
+    romBank = static_cast<u16>(((mbc_bank2_register << 5) | mbc_bank1_register) % mRom.size());
+    ramBank = (mRomMode || mRam.empty()) ? 0 : mbc_bank2_register % mRam.size();
 }
 
-void MemoryMap::sendMBC2Command(u16 a_address, u8 a_value) {
+void MemoryMap::sendMBC2Command(const u16 a_address, const u8 a_value) {
     if (a_address >= 0x2000 && a_address < 0x4000) {
-        // rom bank change
         romBank = a_value & 0xF;
-        if (romBank == 0) romBank++;
+        if (romBank == 0) romBank = 1;
     }
 }
 
