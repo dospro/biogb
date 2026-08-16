@@ -1,6 +1,7 @@
 #include "memory_map.h"
 
 #include <expected>
+#include <filesystem>
 #include <fstream>
 #include <print>
 
@@ -9,12 +10,11 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
     mRomFilename = std::string(file_name);
     try {
         RomLoader loader{file_name};
-        mRom = loader.get_rom();
+        is_battery_backed = loader.has_battery();
+        has_rtc = loader.has_timer();
+        cartridge = loader.get_cartridge_interface();
         model = selected_console_model(loader.get_support());
         mIsColor = model == ConsoleModel::CGB;
-        mbc_type = loader.get_mbc_type();
-        with_timer = loader.has_timer();
-        init_ram(loader.get_ram_banks());
     } catch (std::exception &e) {
         return std::unexpected(e.what());
     }
@@ -24,12 +24,6 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
         return std::unexpected(result.error());
     }
     return {};
-}
-
-void MemoryMap::init_ram(const int ram_banks) {
-    for (int i = 0; i < ram_banks; ++i) {
-        mRam.emplace_back(std::array<u8, 0x2000>{});
-    }
 }
 
 void MemoryMap::init_wram(const bool is_color) {
@@ -101,7 +95,7 @@ u8 MemoryMap::readByte(const u16 address) {
         return mSound->readFromSound(address);
     else if (address < 0xFF80)
         return readIO(address);
-    else if (address < 0xFFFE)
+    else if (address < 0xFFFF)
         return mHRam[address - 0xFF80];
     else
         return readIO(address);
@@ -164,51 +158,21 @@ int MemoryMap::readIO(const int a_address) {
     }
 }
 
-u8 MemoryMap::readRom(u16 a_address) const noexcept {
-    if (a_address < 0x4000) return mRom[0][a_address];
-    else return mRom[romBank][a_address - 0x4000];
+u8 MemoryMap::readRom(const u16 a_address) const noexcept {
+    return std::visit([a_address](const auto &mbc) { return mbc.read_rom(a_address); }, cartridge);
 }
 
 u8 MemoryMap::readRam(const u16 address) const {
-    if (rtc.areRtcRegsSelected) {
-        switch (rtc.rtcRegSelect) {
-            case 0x8: return rtc.sec;
-            case 0x9: return rtc.min;
-            case 0xA: return rtc.hr;
-            case 0xB: return rtc.dl;
-            case 0xC: return rtc.dh;
-            default: return mRam[ramBank][address - 0xA000];
-        }
-    }
-    if (mRam.empty()) {
-        return 0xFF;
-    }
-    return mRam[ramBank][address - 0xA000];
-}
-
-void MemoryMap::send_command(u16 address, u8 value) {
-    if (mbc_type == MBCTypes::MBC1) {
-        sendMBC1Command(address, value);
-    } else if (mbc_type == MBCTypes::MBC2) {
-        sendMBC2Command(address, value);
-    } else if (mbc_type == MBCTypes::MBC3) {
-        sendMBC3Command(address, value);
-    } else if (mbc_type == MBCTypes::MBC5) {
-        sendMBC5Command(address, value);
-    }
+    return std::visit([address](const auto &mbc) { return mbc.read_ram(address); }, cartridge);
 }
 
 void MemoryMap::writeByte(const u16 a_address, const u8 a_value) {
     if (a_address < 0x8000) {
-        send_command(a_address, a_value);
+        std::visit([a_address, a_value](auto &mbc) { mbc.write(a_address, a_value); }, cartridge);
     } else if (a_address < 0xA000) {
         mDisplay->writeToDisplay(a_address, a_value);
     } else if (a_address < 0xC000) {
-        if (rtc.areRtcRegsSelected) {
-            writeRTCRegister(a_value);
-        } else if (!mRam.empty()) {
-            mRam[ramBank][a_address - 0xA000] = a_value;
-        }
+        std::visit([a_address, a_value](auto &mbc) { mbc.write_ram(a_address, a_value); }, cartridge);
     } else if (a_address < 0xD000)
         mWRam[0][a_address - 0xC000] = a_value;
     else if (a_address < 0xE000)
@@ -227,103 +191,6 @@ void MemoryMap::writeByte(const u16 a_address, const u8 a_value) {
         writeIO(a_address, a_value);
 }
 
-void MemoryMap::sendMBC1Command(const u16 a_address, const u8 a_value) {
-    if (a_address >= 0x2000 && a_address < 0x4000) {
-        mbc_bank1_register = a_value & 0x1F;
-        if (mbc_bank1_register == 0) mbc_bank1_register = 1;
-    } else if (a_address >= 0x4000 && a_address < 0x6000) {
-        mbc_bank2_register = a_value & 0x3;
-    } else if (a_address >= 0x6000 && a_address < 0x8000) {
-        mRomMode = (a_value & 1) == 0;
-    }
-
-    romBank = static_cast<u16>(((mbc_bank2_register << 5) | mbc_bank1_register) % mRom.size());
-    ramBank = (mRomMode || mRam.empty()) ? 0 : mbc_bank2_register % mRam.size();
-}
-
-void MemoryMap::sendMBC2Command(const u16 a_address, const u8 a_value) {
-    if (a_address >= 0x2000 && a_address < 0x4000) {
-        romBank = a_value & 0xF;
-        if (romBank == 0) romBank = 1;
-    }
-}
-
-void MemoryMap::sendMBC3Command(const u16 a_address, const u8 a_value) {
-    if (a_address >= 0x2000 && a_address < 0x4000) romBank = a_value & 0x7F;
-    else if (a_address >= 0x4000 && a_address < 0x6000) {
-        switch (a_value) {
-            case 0x00:
-            case 0x01:
-            case 0x02:
-            case 0x03:
-                ramBank = a_value;
-                rtc.areRtcRegsSelected = false;
-                break;
-            case 0x08:
-            case 0x09:
-            case 0x0A:
-            case 0x0B:
-            case 0x0C:
-                rtc.rtcRegSelect = a_value;
-                rtc.areRtcRegsSelected = true;
-                break;
-            default:
-                std::println("Send MBC3 command: {:x}", a_value);
-                break;
-        }
-    } else if (a_address >= 0x6000 && a_address < 0x8000) {
-        const u8 prev_latch = rtc.latch;
-        rtc.latch = a_value;
-
-        if (prev_latch == 0 && a_value == 1) {
-            rtc.dh = rtc2.dh;
-            rtc.dl = rtc2.dl;
-            rtc.hr = rtc2.hr;
-            rtc.min = rtc2.min;
-            rtc.sec = rtc2.sec;
-        }
-    }
-}
-
-void MemoryMap::sendMBC5Command(u16 a_address, u8 a_value) {
-    if (a_address >= 0x2000 && a_address < 0x3000)  // 8 lower bits rom bank change
-    {
-        MBC5LowAddress = a_value;
-        romBank = ((MBC5HighAddress << 8) | MBC5LowAddress) & 0x1FF;
-    } else if (a_address >= 0x3000 && a_address < 0x4000)  // 9 bit of rom bank change
-    {
-        MBC5HighAddress = a_value & 1;
-        romBank = ((MBC5HighAddress << 8) | MBC5LowAddress) & 0x1FF;
-    } else if (a_address >= 0x4000 && a_address < 0x6000)  // ram bank change
-        ramBank = a_value & 0xF;
-}
-
-void MemoryMap::writeRTCRegister(u8 a_value) {
-    switch (rtc.rtcRegSelect) {
-        case 0x8:
-            rtc2.sec = a_value;
-            rtc.sec = a_value;
-            break;
-        case 0x9:
-            rtc2.min = a_value;
-            rtc.min = a_value;
-            break;
-        case 0xA:
-            rtc2.hr = a_value;
-            rtc.hr = a_value;
-            break;
-        case 0xB:
-            rtc2.dl = a_value;
-            rtc.dl = a_value;
-            break;
-        case 0xC:
-            rtc2.dh = a_value;
-            rtc.dh = a_value;
-            break;
-        default:
-            std::println("Sending rtc command to address", rtc.rtcRegSelect);
-    }
-}
 
 void MemoryMap::writeIO(const u16 a_address, const u8 a_value) {
     if (a_address >= 0xFF10 && a_address < 0xFF40) {
@@ -439,37 +306,10 @@ void MemoryMap::HBlankHDMA() {
     }
 }
 
-void MemoryMap::rtcCounter() {
-    if (((rtc2.dh >> 6) & 1) != 0) {
-        return;
-    }
-    rtc2.sec++;
-    if (rtc2.sec < 60) {
-        return;
-    }
-    rtc2.sec = 0;
-    rtc2.min++;
-    if (rtc2.min < 60) {
-        return;
-    }
-    rtc2.min = 0;
-    rtc2.hr++;
-    if (rtc2.hr < 24) {
-        return;
-    }
-    rtc2.hr = 0;
-    if (rtc2.dl < 0xFF) rtc2.dl++;
-    else {
-        if ((rtc2.dh & 1) == 0) rtc2.dh |= 1;
-        else {
-            rtc2.dh |= 0x80;
-            rtc2.dh &= 0xFE;
-            rtc2.dl = 0;
-        }
-    }
-}
-
 void MemoryMap::save_sram() {
+    if (!is_battery_backed) {
+        return;
+    }
     const std::filesystem::path rom_path(mRomFilename);
     const std::filesystem::path save_dir{"savs/"};
     const auto base_name = rom_path.stem();
@@ -486,27 +326,30 @@ void MemoryMap::save_sram() {
 
     const auto sav_filename = save_dir / (base_name.string() + ".sav");
     if (auto save_file = std::ofstream{sav_filename, std::ios::binary}) {
-        for (const auto &ram_bank: mRam)
-            save_file.write(reinterpret_cast<const char *>(ram_bank.data()), ram_bank.size());
+        std::visit([&save_file](const auto &mbc) { mbc.save(save_file); }, cartridge);
     } else {
         std::println(stderr, "WARNING: Failed to create sav file");
         return;
     }
 
-    if (with_timer) {
-        const auto rtc_path = save_dir / (base_name.string() + ".rtc");
-        if (auto rtc_file = std::ofstream{rtc_path, std::ios::binary}) {
-            rtc_file.write(reinterpret_cast<const char *>(&rtc), sizeof(RTC_Regs));
-            rtc_file.write(reinterpret_cast<const char *>(&rtc2), sizeof(RTC_Regs));
-        } else {
-            std::println(stderr, "WARNING: Failed to create RTC file");
-            return;
+    if (has_rtc) {
+        if (const auto *mbc3 = std::get_if<MBC3>(&cartridge)) {
+            const auto rtc_path = save_dir / (base_name.string() + ".rtc");
+            if (auto rtc_file = std::ofstream{rtc_path, std::ios::binary}) {
+                mbc3->save_rtc(rtc_file);
+            } else {
+                std::println(stderr, "WARNING: Failed to create RTC file");
+                return;
+            }
         }
     }
     std::println("Successfully saved: {}", base_name.string());
 }
 
 void MemoryMap::load_sram() {
+    if (!is_battery_backed) {
+        return;
+    }
     const std::filesystem::path rom_path(mRomFilename);
     const std::filesystem::path save_dir{"savs/"};
     const auto base_name = rom_path.stem();
@@ -516,21 +359,20 @@ void MemoryMap::load_sram() {
     const auto sav_filename = save_dir / (base_name.string() + ".sav");
 
     if (auto save_file = std::ifstream{sav_filename, std::ios::binary}) {
-        for (auto &ram_bank: mRam)
-            save_file.read(reinterpret_cast<char *>(ram_bank.data()), ram_bank.size());
+        std::visit([&save_file](auto &mbc) { mbc.load(save_file); }, cartridge);
     } else {
-        std::println(stderr, "WARNING: Failed to read sav file");
+        std::println(stderr, "No existing save found for: {}", base_name.string());
         return;
     }
 
-    if (with_timer) {
-        const auto rtc_path = save_dir / (base_name.string() + ".rtc");
-        if (auto rtc_file = std::ifstream{rtc_path, std::ios::binary}) {
-            rtc_file.read(reinterpret_cast<char *>(&rtc), sizeof(RTC_Regs));
-            rtc_file.read(reinterpret_cast<char *>(&rtc2), sizeof(RTC_Regs));
-        } else {
-            std::println(stderr, "WARNING: Failed to load RTC file");
-            return;
+    if (has_rtc) {
+        if (auto *mbc3 = std::get_if<MBC3>(&cartridge)) {
+            const auto rtc_path = save_dir / (base_name.string() + ".rtc");
+            if (auto rtc_file = std::ifstream{rtc_path, std::ios::binary}) {
+                mbc3->load_rtc(rtc_file);
+            } else {
+                std::println(stderr, "WARNING: Failed to load RTC file");
+            }
         }
     }
 }
@@ -539,6 +381,9 @@ void MemoryMap::updateIO(const int a_cycles) {
     mDisplay->update(a_cycles >> mCurrentSpeed);
     mSound->updateCycles(a_cycles >> mCurrentSpeed);
     mTimer->update(a_cycles);
+    if (auto *mbc3 = std::get_if<MBC3>(&cartridge)) {
+        mbc3->update_rtc(a_cycles);
+    }
 }
 
 int MemoryMap::changeSpeed() {

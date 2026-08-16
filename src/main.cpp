@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
             switch (event.type) {
                 case SDL_QUIT:
                     is_running = false;
-                    // gb.save_sram();
+                    gb.save_sram();
                     break;
                 case SDL_KEYUP:
                     switch (event.key.keysym.sym) {

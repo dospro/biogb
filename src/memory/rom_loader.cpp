@@ -1,7 +1,7 @@
 #include "rom_loader.h"
 
 #include <algorithm>
-#include <iostream>
+#include <print>
 
 constexpr std::array<RomType, 29> CartridgeTypes = {
     {
@@ -16,8 +16,8 @@ constexpr std::array<RomType, 29> CartridgeTypes = {
         {0xB,  "Rom + MMMO1(Not working)"},
         {0xC,  "Rom + MMMO1 + SRam(Not working)"},
         {0xD,  "Rom + MMMO1 + SRam + Battery(Not working)"},
-        {0xF,  "Rom + MBC3 + Timer + Battery(Timer not working)"},
-        {0x10, "Rom + MBC3 + Timer + Ram + Battery(Timer not working)"},
+        {0xF,  "Rom + MBC3 + Timer + Battery"},
+        {0x10, "Rom + MBC3 + Timer + Ram + Battery"},
         {0x11, "Rom + MBC3"},
         {0x12, "Rom + MBC3 + Ram"},
         {0x13, "Rom + MBC3 + Ram + Battery"},
@@ -52,13 +52,14 @@ constexpr std::array<BanksInfo, 12> VALID_ROM_SIZES = {
         {0x54, 16384 * 96, 96},
 }};
 
-constexpr std::array<BanksInfo, 5> VALID_RAM_SIZES = {
+constexpr std::array<BanksInfo, 6> VALID_RAM_SIZES = {
     {
         {0, 0,      0},
-        {1, 2048,   1},
+        {1, 2048,   1}, // Unused
         {2, 8192,   1},
         {3, 32768,  4},
         {4, 131072, 16},
+        {5, 65536, 8},
 }};
 
 RomLoader::RomLoader(const std::string_view file_name) {
@@ -71,10 +72,6 @@ RomLoader::RomLoader(const std::string_view file_name) {
     file.close();
 }
 
-[[nodiscard]] std::vector<RomBank> RomLoader::get_rom() {
-    return rom;
-}
-
 [[nodiscard]] CartridgeSupport RomLoader::get_support() const {
     return support;
 }
@@ -83,17 +80,28 @@ RomLoader::RomLoader(const std::string_view file_name) {
     return with_timer;
 }
 
-[[nodiscard]] int RomLoader::get_ram_banks() const {
-    return ram_banks;
+[[nodiscard]] bool RomLoader::has_battery() const {
+    return with_battery;
 }
 
-[[nodiscard]] MBCTypes RomLoader::get_mbc_type() const {
-    return mbc;
+Cartridge RomLoader::get_cartridge_interface() {
+    switch (mbc) {
+        case MBCTypes::RomOnly: return RomOnly(std::move(rom), ram_banks);
+        case MBCTypes::MBC1: return MBC1(std::move(rom), ram_banks);
+        case MBCTypes::MBC2: return MBC2(std::move(rom));
+        case MBCTypes::MBC3: return MBC3(std::move(rom), ram_banks);
+        case MBCTypes::MBC5: return MBC5(std::move(rom), ram_banks);
+        default:
+            throw std::runtime_error("Unsupported cartridge type");
+    }
 }
 
 void RomLoader::read_header() {
     std::array<u8, 0x150> header{};
     file.read(reinterpret_cast<char *>(header.data()), header.size());
+    if ( file.gcount() < 0x150) {
+        throw std::runtime_error("File has no valid header");
+    }
     name = std::string(header.begin() + 0x134, header.begin() + 0x134 + 15);
     name.erase(std::ranges::find(name, '\0'), name.end());
 
@@ -114,6 +122,7 @@ void RomLoader::read_header() {
 
     mbc = calculate_mbc_type(mbc_id);
     with_timer = has_mbc_timer(mbc_id);
+    with_battery = has_mbc_battery(mbc_id);
 
     rom_banks = calculate_rom_banks(header[0x148]);
     ram_banks = calculate_ram_banks(header[0x149]);
@@ -161,9 +170,9 @@ constexpr MBCTypes RomLoader::calculate_mbc_type(const u8 mbc_id) noexcept {
 
 int RomLoader::calculate_rom_banks(const u8 rom_size_id) {
     const auto it = std::ranges::find(VALID_ROM_SIZES, rom_size_id, &BanksInfo::id);
-    std::println("ROM Size: {}", it->size);
-    std::println("ROM Banks: {}", it->banks);
     if (it != VALID_ROM_SIZES.end()) [[likely]] {
+        std::println("ROM Size: {}", it->size);
+        std::println("ROM Banks: {}", it->banks);
         file.seekg(0, std::ios::beg);
         return it->banks;
     }
@@ -188,6 +197,22 @@ int RomLoader::calculate_ram_banks(const u8 ram_size_id) {
 
 constexpr bool RomLoader::has_mbc_timer(const u8 mbc_id) noexcept {
     return (mbc_id == 0x0F || mbc_id == 0x10);
+}
+
+constexpr bool RomLoader::has_mbc_battery(const u8 mbc_id) noexcept {
+    switch (mbc_id) {
+        case 0x03: // MBC1 + RAM + BATTERY
+        case 0x06: // MBC2 + BATTERY
+        case 0x09: // ROM + RAM + BATTERY
+        case 0x0F: // MBC3 + TIMER + BATTERY
+        case 0x10: // MBC3 + TIMER + RAM + BATTERY
+        case 0x13: // MBC3 + RAM + BATTERY
+        case 0x1B: // MBC5 + RAM + BATTERY
+        case 0x1E: // MBC5 + RUMBLE + RAM + BATTERY
+            return true;
+        default:
+            return false;
+    }
 }
 
 void RomLoader::load_rom(const int banks) {

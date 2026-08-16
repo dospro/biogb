@@ -22,16 +22,7 @@ struct HDMA {
     int length;
     bool mode, active;
 };
-struct RTC_Regs {
-    u8 rtcRegSelect;
-    bool areRtcRegsSelected;
-    u8 latch;
-    u8 sec;
-    u8 min;
-    u8 hr;
-    u8 dl;
-    u8 dh;
-};
+
 struct SerialTransfer {
     bool start;
     bool cType;
@@ -48,7 +39,6 @@ class MemoryMap {
     std::expected<void, std::string> load_rom(std::string_view file_name);
     [[nodiscard]] ConsoleModel console_model() const { return model; }
     [[nodiscard]] bool is_sgb() const { return model == ConsoleModel::SGB; }
-    void rtcCounter();
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA();
@@ -68,43 +58,31 @@ class MemoryMap {
     std::unique_ptr<cSound> mSound{};
     std::unique_ptr<cInput> mInput{};
     std::unique_ptr<cTimer> mTimer{};
-    RTC_Regs rtc{}, rtc2{};
+
     SerialTransfer ST{};
-    u16 romBank{1}, ramBank{}, wRamBank{1};
+    u16 wRamBank{1};
     std::array<u8, 0x100> IOMap{};
 
    private:
-    std::vector<std::array<u8, 0x4000>> mRom{};
-    std::vector<std::array<u8, 0x2000>> mRam{};
+    Cartridge cartridge;
+    bool is_battery_backed = false;
+    bool has_rtc = false;
     std::vector<std::array<u8, 0x1000>> mWRam{};
     std::array<u8, 0x80> mHRam{};
     std::string mRomFilename{};
     HDMA hdma{};
     bool mIsColor{};
     ConsoleModel model{};
-    bool mRomMode{true};
-    u8 MBC5HighAddress{}, MBC5LowAddress{};
     int mCurrentSpeed{};
     bool mPrepareSpeedChange{};
-    MBCTypes mbc_type{};
-    u8 mbc_bank1_register = 1;
-    u8 mbc_bank2_register = 0;
-    bool with_timer{};
     u8 IERegister{};
     SGB sgb{};
-    void init_ram(int ram_banks);
     void init_wram(bool is_color);
     [[nodiscard]] std::expected<void, std::string> init_sub_systems() noexcept;
     void DMATransfer(u8 address);
     void HDMATransfer(u16 source, u16 dest, u32 length);
-    u8 readRom(u16 a_address) const noexcept;
-    u8 readRam(u16 address) const;
-    virtual void send_command(u16 address, u8 value);
-    void sendMBC1Command(u16 a_address, u8 a_value);
-    void sendMBC2Command(u16 a_address, u8 a_value);
-    void sendMBC3Command(u16 a_address, u8 a_value);
-    void sendMBC5Command(u16 a_address, u8 a_value);
-    void writeRTCRegister(u8 a_value);
+    [[nodiscard]] u8 readRom(u16 a_address) const noexcept;
+    [[nodiscard]] u8 readRam(u16 address) const;
     void writeIO(u16 a_address, u8 a_value);
     int readIO(int a_address);
 };

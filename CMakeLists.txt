@@ -23,6 +23,10 @@ set(SOURCE_FILES
         src/sound/sound_channel_4.cpp
         src/timer.cpp
         src/memory/rom_loader.cpp
+        src/memory/mbc1.cpp
+        src/memory/mbc2.cpp
+        src/memory/mbc3.cpp
+        src/memory/mbc5.cpp
         src/sgb.cpp)
 add_executable(biogb ${SOURCE_FILES})
 target_link_libraries(biogb ${SDL2_LIBRARY})

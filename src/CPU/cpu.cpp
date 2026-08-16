@@ -1,6 +1,5 @@
 #include "cpu.h"
 
-#include <chrono>
 #include <print>
 
 namespace {
@@ -134,8 +133,6 @@ void cCpu::loadState(int number) {}
     pc = 0x0100;
     sp = 0xFFFE;
 
-    initRTCTimer();
-
     mMemory->writeByte(0xFF05, 0x00);
     mMemory->writeByte(0xFF06, 0x00);
     mMemory->writeByte(0xFF07, 0x00);
@@ -202,25 +199,6 @@ int cCpu::checkInterrupts() {
     return 0;
 }
 
-void cCpu::initRTCTimer() {
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-    auto *local_tm = std::localtime(&now_time_t);
-
-    auto now_since_epoch = now.time_since_epoch();
-    auto time_of_day = std::chrono::hh_mm_ss(now_since_epoch);
-
-    mMemory->rtc.sec = local_tm->tm_sec;
-    mMemory->rtc.min = local_tm->tm_min;
-    mMemory->rtc.hr = local_tm->tm_hour;
-    mMemory->rtc.dl = local_tm->tm_wday;
-
-    mMemory->rtc2.sec = local_tm->tm_sec;
-    mMemory->rtc2.min = local_tm->tm_min;
-    mMemory->rtc2.hr = local_tm->tm_hour;
-    mMemory->rtc2.dl = local_tm->tm_wday;
-}
-
 int cCpu::fetchOpCode() {
     return mMemory->readByte(pc++);
 }
@@ -252,7 +230,6 @@ void cCpu::runScanLine() {
         cycles += checkInterrupts();
         mMemory->updateIO(cycles);
 
-        rtcCount += cycles;
     } while (!mMemory->mDisplay->hasLineFinished());
 }
 

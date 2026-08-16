@@ -35,6 +35,7 @@ class cCpu {
     [[nodiscard]] cSound *get_sound_system() const {return mMemory->mSound.get();}
     void update_input(GBKey input_key) const;
     void reset_input() const {mMemory->mInput->reset_input();}
+    void save_sram() const {mMemory->save_sram();}
 
     void saveState(int number);
     void loadState(int number);
@@ -52,7 +53,6 @@ class cCpu {
     bool interruptsEnabled{};
     u32 intStatus{};
     int mCyclesSum{};
-    s32 rtcCount{};
     // Help routines
     u16 af();
     void af(u16);
@@ -121,7 +121,6 @@ class cCpu {
     void executeOpCode(int a_opCode);
     void executeCBOpCode(u8 a_cbOpCode);
     int checkInterrupts();
-    void initRTCTimer();
 };
 
 #endif
