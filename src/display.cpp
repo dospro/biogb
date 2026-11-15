@@ -76,16 +76,23 @@ void cDisplay::writeToDisplay(const u16 a_address, const u8 a_value) {
         mOAM[a_address - 0xFE00] = a_value;
     } else {
         switch (a_address) {
-            case 0xFF40:
-                lcdc.value = a_value;
-                lcdc.lcdcActive = ((a_value >> 7) & 1) != 0;
-                lcdc.windowTileMap = (((a_value >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-                lcdc.windowEnabled = ((a_value >> 5) & 1) != 0;
-                lcdc.tileDataAddress = (((a_value >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
-                lcdc.BGMapAddress = (((a_value >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
-                lcdc.spriteSize = (((a_value >> 2) & 1) == 1) ? 15 : 7;
-                lcdc.spriteEnabled = ((a_value >> 1) & 1) != 0;
-                lcdc.bgWndActive = (a_value & 1) != 0;
+            case 0xFF40: {
+                    const bool was_lcd_active = lcdc.lcdcActive;
+                    lcdc.value = a_value;
+                    lcdc.lcdcActive = ((a_value >> 7) & 1) != 0;
+                    lcdc.windowTileMap = (((a_value >> 6) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
+                    lcdc.windowEnabled = ((a_value >> 5) & 1) != 0;
+                    lcdc.tileDataAddress = (((a_value >> 4) & 1) == 1) ? TILE_PATTERN_TABLE_0 : TILE_PATTERN_TABLE_1;
+                    lcdc.BGMapAddress = (((a_value >> 3) & 1) == 1) ? TILE_MAP_TABLE_1 : TILE_MAP_TABLE_0;
+                    lcdc.spriteSize = (((a_value >> 2) & 1) == 1) ? 15 : 7;
+                    lcdc.spriteEnabled = ((a_value >> 1) & 1) != 0;
+                    lcdc.bgWndActive = (a_value & 1) != 0;
+                    if (was_lcd_active && !lcdc.lcdcActive) {
+                        LYRegister = 0;
+                        stat.mode = 0;
+                        LYCyclesCounter = 0;
+                    }
+                }
                 break;
             case 0xFF41:
                 stat.LYCInterrupt = (a_value & 0x40) != 0;
@@ -163,7 +170,7 @@ bool cDisplay::hasLineFinished() const noexcept {
 }
 
 
-void cDisplay::update(int a_cycles) {
+void cDisplay::update(const int a_cycles) {
     //NOTE: When CGB is at double speed, LCD, Sound and HDMA work as normal.
     //This means those take double clock cycles to finish (because those are
     // slower than the other parts).
@@ -189,6 +196,12 @@ void cDisplay::update(int a_cycles) {
 
     isLineFinished = false;
     if (!lcdc.lcdcActive) [[unlikely]] {
+        LYCyclesCounter += a_cycles;
+        if (LYCyclesCounter >= cyclesPerLines) {
+            LYCyclesCounter -= cyclesPerLines;
+            isLineFinished = true;
+            return;
+        }
         return;
     }
 

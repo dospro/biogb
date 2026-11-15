@@ -277,8 +277,8 @@ void cCpu::executeOpCode(int a_opCode) {
             if (mMemory->getEnabledInterrupts() == 0) pc--;
             break;
         case 0x10: mMemory->changeSpeed(); break;
-        case 0xF3: intStatus = 2; break;
-        case 0xFB: intStatus = 1; break;
+        case 0xF3: interruptsEnabled = false; break; // di
+        case 0xFB: if (!interruptsEnabled) interrupt_enable_delay = true; break; // ei
 
         case 0x07: rlca(); break;
         case 0x17: rla(); break;

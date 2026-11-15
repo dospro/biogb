@@ -1,6 +1,8 @@
 #include "rom_loader.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <format>
 #include <print>
 
 constexpr std::array<RomType, 29> CartridgeTypes = {
@@ -99,7 +101,7 @@ Cartridge RomLoader::get_cartridge_interface() {
 void RomLoader::read_header() {
     std::array<u8, 0x150> header{};
     file.read(reinterpret_cast<char *>(header.data()), header.size());
-    if ( file.gcount() < 0x150) {
+    if (file.gcount() < 0x150) {
         throw std::runtime_error("File has no valid header");
     }
     name = std::string(header.begin() + 0x134, header.begin() + 0x134 + 15);
@@ -218,4 +220,25 @@ constexpr bool RomLoader::has_mbc_battery(const u8 mbc_id) noexcept {
 void RomLoader::load_rom(const int banks) {
     rom.resize(banks);
     file.read(reinterpret_cast<char *>(rom.data()), 0x4000 * banks);
+}
+
+std::expected<std::vector<u8>, std::string> load_boot_rom(const std::string_view file_name) {
+    std::error_code err{};
+
+    const auto file_size = std::filesystem::file_size(file_name, err);
+    if (err) {
+        return std::unexpected(std::format("Cannot read boot ROM '{}': {}", file_name, err.message()));
+    }
+
+    std::ifstream file{std::string(file_name), std::ios::binary};
+    if (!file) {
+        return std::unexpected(std::format("Cannot open boot ROM '{}'", file_name));
+    }
+
+    std::vector<u8> data(file_size);
+    file.read(reinterpret_cast<char *>(data.data()), static_cast<std::streamsize>(file_size));
+    if (!file) {
+        return std::unexpected(std::format("Cannot read '{}'", file_name));
+    }
+    return data;
 }

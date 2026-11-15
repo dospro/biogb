@@ -93,20 +93,38 @@ void cCpu::saveState(int number) {}
 
 void cCpu::loadState(int number) {}
 
-[[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(std::string_view file_name) {
+[[nodiscard]] std::expected<void, std::string> cCpu::init_cpu(
+    const std::string_view file_name,
+    const std::optional<std::string_view> &boot_rom_file
+) {
     std::println("Allocating resources");
     try {
         mMemory = std::make_unique<MemoryMap>();
-    } catch (const std::bad_alloc&) {
+    } catch (const std::bad_alloc &) {
         return std::unexpected("Memory allocation failed for MemoryMap");
     }
 
     std::println("Loading Rom into memory");
     const std::string path(file_name);
-    if (!mMemory->load_rom(path)) {
+    if (!mMemory->load_rom(path, boot_rom_file)) {
         return std::unexpected(std::format("Failed to load ROM {}", file_name));
     }
     std::println("Rom loaded successfully");
+
+    if (mMemory->has_boot_rom()) {
+        std::println("Boot ROM active, starting at 0x0000");
+        // a/b/c/d/e/h/l/f stay zero-initialised: the boot ROM sets these itself.
+        pc = 0x0000;
+        sp = 0x0000;
+    } else {
+        set_post_boot_state();
+    }
+
+    std::println("Starting emulation! Have fun!");
+    return {};
+}
+
+void cCpu::set_post_boot_state() {
     std::println("Initializing CPU");
     /*
      * The boot ROM leaves a fingerprint that games read to identify their machine: C picks the
@@ -165,9 +183,6 @@ void cCpu::loadState(int number) {}
     mMemory->writeByte(0xFF4B, 0x00);
     mMemory->writeByte(0xFF4D, 0x00);
     mMemory->writeByte(0xFFFF, 0x00);
-
-    std::println("Starting emulation! Have fun!");
-    return {};
 }
 
 std::span<const u32> cCpu::get_video_buffer() const {
@@ -238,18 +253,8 @@ void cCpu::update_input(const GBKey input_key) const {
 }
 
 void cCpu::updateIMEFlag() {
-    if (intStatus == 3) {
-        // Turn on interrupts
+    if (interrupt_enable_delay) {
         interruptsEnabled = true;
-        intStatus = 0;
+        interrupt_enable_delay = false;
     }
-    if (intStatus == 4) {
-        // Turn off interrupts
-        interruptsEnabled = false;
-        intStatus = 0;
-    }
-    if (intStatus == 1)  // Turn on in the next opcode
-        intStatus = 3;
-    if (intStatus == 2)  // Turn off in the next opcode
-        intStatus = 4;
 }

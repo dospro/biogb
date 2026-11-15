@@ -1,3 +1,4 @@
+#include <optional>
 #include <print>
 #include <SDL.h>
 
@@ -32,12 +33,28 @@ struct SDLDeleter {
 int main(int argc, char *argv[]) {
     std::println("BioGB v5.0");
     if (argc < 2) {
-        std::println(stderr, "Usage: biogb <game.gb>");
+        std::println(stderr, "Usage: biogb <game.gb> [--bios <boot.bin>]");
         return EXIT_FAILURE;
     }
     const std::string rom_file_name{argv[1]};
+
+    std::optional<std::string> boot_rom_file;
+    for (int i = 2; i < argc; i++) {
+        std::string_view arg{argv[i]};
+        if (arg == "--bios") {
+            if (i + 1 >= argc) {
+                std::println(stderr, "--bios requires a path");
+                return EXIT_FAILURE;
+            }
+            boot_rom_file = argv[++i];
+        } else {
+            std::println(stderr, "Unknown option: {}", arg);
+            return EXIT_FAILURE;
+        }
+    }
+
     cCpu gb;
-    if (!gb.init_cpu(rom_file_name)) {
+    if (!gb.init_cpu(rom_file_name, boot_rom_file)) {
         std::println(stderr, "Initialization failed: {}", rom_file_name);
         return EXIT_FAILURE;
     }

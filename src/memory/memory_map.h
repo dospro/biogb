@@ -36,9 +36,14 @@ class MemoryMap {
    public:
     MemoryMap() = default;
     ~MemoryMap() = default;
-    std::expected<void, std::string> load_rom(std::string_view file_name);
+
+    std::expected<void, std::string> load_rom(
+        std::string_view file_name,
+        const std::optional<std::string_view> &boot_rom_file = std::nullopt
+    );
     [[nodiscard]] ConsoleModel console_model() const { return model; }
     [[nodiscard]] bool is_sgb() const { return model == ConsoleModel::SGB; }
+    [[nodiscard]] bool has_boot_rom() {return is_boot_rom_active;}
     u8 readByte(u16);
     void writeByte(u16, u8);
     void HBlankHDMA();
@@ -64,6 +69,8 @@ class MemoryMap {
     std::array<u8, 0x100> IOMap{};
 
    private:
+    std::vector<u8> boot_rom{};
+    bool is_boot_rom_active{false};
     Cartridge cartridge;
     bool is_battery_backed = false;
     bool has_rtc = false;

@@ -6,7 +6,10 @@
 #include <print>
 
 
-std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file_name) {
+std::expected<void, std::string> MemoryMap::load_rom(
+    const std::string_view file_name,
+    const std::optional<std::string_view> &boot_rom_file
+) {
     mRomFilename = std::string(file_name);
     try {
         RomLoader loader{file_name};
@@ -15,9 +18,19 @@ std::expected<void, std::string> MemoryMap::load_rom(const std::string_view file
         cartridge = loader.get_cartridge_interface();
         model = selected_console_model(loader.get_support());
         mIsColor = model == ConsoleModel::CGB;
+
+        if (boot_rom_file) {
+            auto result = load_boot_rom(*boot_rom_file);
+            if (!result) {
+                return std::unexpected(result.error());
+            }
+            boot_rom = std::move(*result);
+            is_boot_rom_active = true;
+        }
     } catch (std::exception &e) {
         return std::unexpected(e.what());
     }
+
     init_wram(mIsColor);
     load_sram();
     if (const auto result = init_sub_systems(); !result) [[unlikely]] {
@@ -159,6 +172,13 @@ int MemoryMap::readIO(const int a_address) {
 }
 
 u8 MemoryMap::readRom(const u16 a_address) const noexcept {
+    if (is_boot_rom_active) [[unlikely]] {
+        if (a_address < 0x100) return boot_rom[a_address];
+        // The CGB boot ROM is split in two: the cartridge header at 0x100-0x1FF shows
+        // through the middle, and the second half continues at 0x200.
+        if (mIsColor && a_address >= 0x200 && a_address < boot_rom.size())
+            return boot_rom[a_address];
+    }
     return std::visit([a_address](const auto &mbc) { return mbc.read_rom(a_address); }, cartridge);
 }
 
@@ -242,6 +262,10 @@ void MemoryMap::writeIO(const u16 a_address, const u8 a_value) {
             mDisplay->writeToDisplay(a_address, a_value);
             break;
         case 0xFF4D: mPrepareSpeedChange = (a_value & 1) == 1; break;
+        case 0xFF50:  // Boot ROM disable - one-shot, never re-enables
+            if (a_value != 0) is_boot_rom_active = false;
+            IOMap[a_address & 0xFF] = a_value;
+            break;
         case 0xFF51: hdma.src = (hdma.src & 0xF0) | (a_value << 8); break;             // HDMA Source High
         case 0xFF52: hdma.src = (hdma.src & 0xFF00) | (a_value & 0xF0); break;         // HDMA Source Low
         case 0xFF53: hdma.dest = (hdma.dest & 0xFF) | ((a_value & 0x1F) << 8); break;  // HDMA Dest High

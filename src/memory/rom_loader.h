@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <array>
+#include <expected>
 #include <optional>
 #include <string>
 #include <fstream>
@@ -100,6 +101,9 @@ enum class ConsoleModel : u8 {
     if (support.color == ColorSupport::Enhanced) return ConsoleModel::CGB;
     return ConsoleModel::DMG;
 }
+
+
+[[nodiscard]] std::expected<std::vector<u8>, std::string> load_boot_rom(std::string_view file_name);
 
 class RomLoader {
 public:

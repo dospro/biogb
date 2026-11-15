@@ -26,10 +26,14 @@ union FRegister {
 };
 
 class cCpu {
-   public:
+public:
     cCpu() noexcept;
     ~cCpu() = default;
-    [[nodiscard]] std::expected<void, std::string> init_cpu(std::string_view file_name);
+
+    [[nodiscard]] std::expected<void, std::string> init_cpu(
+        std::string_view file_name,
+        const std::optional<std::string_view> &boot_rom_file = std::nullopt
+    );
 
     [[nodiscard]] std::span<const u32> get_video_buffer() const;
     [[nodiscard]] cSound *get_sound_system() const {return mMemory->mSound.get();}
@@ -51,7 +55,7 @@ class cCpu {
     FRegister f{};
     u16 pc{}, sp{};
     bool interruptsEnabled{};
-    u32 intStatus{};
+    bool interrupt_enable_delay{};
     int mCyclesSum{};
     // Help routines
     u16 af();
@@ -121,6 +125,7 @@ class cCpu {
     void executeOpCode(int a_opCode);
     void executeCBOpCode(u8 a_cbOpCode);
     int checkInterrupts();
+    void set_post_boot_state();
 };
 
 #endif
