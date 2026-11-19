@@ -1,6 +1,8 @@
 #ifndef BIOGB_SOUND_CHANNEL_3_H
 #define BIOGB_SOUND_CHANNEL_3_H
 
+#include <array>
+
 #include "sound_channel.h"
 
 class cSoundChannel3 : public cSoundChannel

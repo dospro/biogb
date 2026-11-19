@@ -2,6 +2,7 @@
 
 #include <istream>
 #include <ostream>
+#include <utility>
 
 MBC5::MBC5(RomBanks rom, const u16 ram_banks) : rom(std::move(rom)), ram(ram_banks) {
 }

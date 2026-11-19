@@ -2,12 +2,12 @@
 #define BIOGB_GFX
 
 #include <array>
-#include <vector>
+#include <cstddef>
 #include <mdspan>
+#include <span>
+#include <vector>
 
 #include "macros.h"
-
-class MemoryMap;
 
 struct LCDC {
     u8 value;
@@ -53,10 +53,10 @@ private:
     static constexpr int mScreenWidth = 160;
     static constexpr int mScreenHeight = 144;
     std::array<u32, 160 * 144> video_buffer_data{};
-    std::mdspan<u32, std::extents<size_t, 144, 160> > videoBuffer{video_buffer_data.data()};
+    std::mdspan<u32, std::extents<std::size_t, 144, 160> > videoBuffer{video_buffer_data.data()};
 
     std::array<u8, 160 * 144> sgb_bit_patterns_data{};
-    std::mdspan<u8, std::extents<size_t, 144, 160> > sgb_bit_patterns{sgb_bit_patterns_data.data()};
+    std::mdspan<u8, std::extents<std::size_t, 144, 160> > sgb_bit_patterns{sgb_bit_patterns_data.data()};
 
 
     static constexpr u32 BG_WHITE = 0xE0F8D0;

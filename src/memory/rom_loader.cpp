@@ -1,9 +1,12 @@
 #include "rom_loader.h"
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <format>
 #include <print>
+#include <stdexcept>
+#include <utility>
 
 constexpr std::array<RomType, 29> CartridgeTypes = {
     {
@@ -65,7 +68,7 @@ constexpr std::array<BanksInfo, 6> VALID_RAM_SIZES = {
 }};
 
 RomLoader::RomLoader(const std::string_view file_name) {
-    file.open(file_name, std::ios::binary);
+    file.open(std::string(file_name), std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Error opening the file");
     }

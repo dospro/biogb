@@ -1,9 +1,11 @@
 #include "memory_map.h"
 
-#include <expected>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <print>
+#include <system_error>
+#include <variant>
 
 
 std::expected<void, std::string> MemoryMap::load_rom(

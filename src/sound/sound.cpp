@@ -2,42 +2,43 @@
 
 #include <algorithm>
 
-cSound::cSound(const int a_generalFrequency) : mChannel1{a_generalFrequency},
-                                               mChannel2{a_generalFrequency},
-                                               mChannel3{a_generalFrequency},
-                                               mChannel4{a_generalFrequency},
-                                               GENERAL_FREQUENCY{a_generalFrequency},
-                                               NUMBER_OF_CHANNELS{2},
-                                               soundActive{true} {
+cSound::cSound(const int a_generalFrequency) :
+    channel_1{a_generalFrequency},
+    channel_2{a_generalFrequency},
+    channel_3{a_generalFrequency},
+    channel_4{a_generalFrequency},
+    GENERAL_FREQUENCY{a_generalFrequency},
+    base_cycles_per_sample{cpu_clock_hz / a_generalFrequency} {
+    update_cycles_per_sample();
 }
 
 u8 cSound::readFromSound(const u16 a_address) const {
     if (a_address < 0xFF16)
-        return mChannel1.readRegister(a_address);
+        return channel_1.readRegister(a_address);
     else if (a_address < 0xFF1A)
-        return mChannel2.readRegister(a_address);
+        return channel_2.readRegister(a_address);
     else if (a_address < 0xFF20)
-        return mChannel3.readRegister(a_address);
+        return channel_3.readRegister(a_address);
     else if (a_address < 0xFF24)
-        return mChannel4.readRegister(a_address);
+        return channel_4.readRegister(a_address);
     else if (a_address < 0xFF30) {
         switch (a_address) {
-            case 0xFF24: //NR 50
+            case 0xFF24: // NR 50
                 return NR50;
-            case 0xFF25:
+            case 0xFF25: // NR 51
                 return NR51;
-            case 0xFF26: //NR 52
-                return static_cast<u8>(mChannel1.getOnOffBit()
-                                       | mChannel2.getOnOffBit()
-                                       | mChannel3.getOnOffBit()
-                                       | mChannel4.getOnOffBit()
+            case 0xFF26: // NR 52
+                return static_cast<u8>(channel_1.getOnOffBit()
+                                       | channel_2.getOnOffBit()
+                                       | channel_3.getOnOffBit()
+                                       | channel_4.getOnOffBit()
                                        | (soundActive << 7)
                                        | 0x70);
             default:
                 return 0xFF;
         }
     } else
-        return mChannel3.readRegister(a_address);
+        return channel_3.readRegister(a_address);
 }
 
 void cSound::writeToSound(const u16 address, const u8 value) {
@@ -47,35 +48,35 @@ void cSound::writeToSound(const u16 address, const u8 value) {
         case 0xFF12: //NR 12
         case 0xFF13: //NR 13
         case 0xFF14: //NR 14
-            mChannel1.writeRegister(address, value);
+            channel_1.writeRegister(address, value);
             break;
         case 0xFF16: //NR 21
         case 0xFF17: //NR 22
         case 0xFF18: //NR 23
         case 0xFF19: //NR 24
-            mChannel2.writeRegister(address, value);
+            channel_2.writeRegister(address, value);
             break;
         case 0xFF1A: //NR 30
         case 0xFF1B: //NR 31
         case 0xFF1C: //NR 32
         case 0xFF1D: //NR 33
         case 0xFF1E: //NR 34
-            mChannel3.writeRegister(address, value);
+            channel_3.writeRegister(address, value);
             break;
         case 0xFF20: //NR 41
         case 0xFF21: //NR 42
         case 0xFF22: //NR 43
         case 0xFF23: //NR 44
-            mChannel4.writeRegister(address, value);
+            channel_4.writeRegister(address, value);
             break;
         case 0xFF24: //NR 50
             NR50 = value;
             break;
         case 0xFF25:
-            mChannel1.setOutputTerminal((value & 1) != 0, (value & 0x10) != 0);
-            mChannel2.setOutputTerminal((value & 2) != 0, (value & 0x20) != 0);
-            mChannel3.setOutputTerminal((value & 4) != 0, (value & 0x40) != 0);
-            mChannel4.setOutputTerminal((value & 8) != 0, (value & 0x80) != 0);
+            channel_1.setOutputTerminal((value & 1) != 0, (value & 0x10) != 0);
+            channel_2.setOutputTerminal((value & 2) != 0, (value & 0x20) != 0);
+            channel_3.setOutputTerminal((value & 4) != 0, (value & 0x40) != 0);
+            channel_4.setOutputTerminal((value & 8) != 0, (value & 0x80) != 0);
             NR51 = value;
             break;
         case 0xFF26: //NR 52
@@ -83,54 +84,68 @@ void cSound::writeToSound(const u16 address, const u8 value) {
             break;
         default:
             if (address >= 0xFF30 && address < 0xFF40) {
-                mChannel3.writeRegister(address, value);
+                channel_3.writeRegister(address, value);
             }
             break;
     }
 }
 
-void cSound::fillBuffer(u8 *a_internalBuffer, int a_bufferSize) {
-    const int numSamples = a_bufferSize / NUMBER_OF_CHANNELS;
-    const int leftMasterVolume = (NR50 >> 4) & 7;
-    const int rightMasterVolume = NR50 & 0x7;
+void cSound::updateCycles(const s32 cycles) {
+    channel_1.update(cycles);
+    channel_2.update(cycles);
+    channel_3.update(cycles);
+    channel_4.update(cycles);
+    cycles_counter += static_cast<double>(cycles);
+    while (cycles_counter >= cycles_per_sample) {
+        const int left_master_volume = (NR50 >> 4) & 7;
+        const int right_master_volume = NR50 & 0x7;
 
-    for (int i = 0; i < numSamples; ++i) {
-        int sample1=0, sample2=0, sample3=0, sample4=0;
+        cycles_counter -= cycles_per_sample;
+
+        int sample1 = 0, sample2 = 0, sample3 = 0, sample4 = 0;
 
         if (soundActive) {
-            if (mChannel1.isOn()) sample1 = mChannel1.getSample() - 128;
-            if (mChannel2.isOn()) sample2 = mChannel2.getSample() - 128;
-            if (mChannel3.isOn()) sample3 = mChannel3.getSample() - 128;
-            if (mChannel4.isOn()) sample4 = mChannel4.getSample() - 128;
+            if (channel_1.isOn()) sample1 = channel_1.getSample() - 128;
+            if (channel_2.isOn()) sample2 = channel_2.getSample() - 128;
+            if (channel_3.isOn()) sample3 = channel_3.getSample() - 128;
+            if (channel_4.isOn()) sample4 = channel_4.getSample() - 128;
         }
-        int leftFinalSample = 0;
-        if (mChannel1.isLeftSound()) leftFinalSample += sample1;
-        if (mChannel2.isLeftSound()) leftFinalSample += sample2;
-        if (mChannel3.isLeftSound()) leftFinalSample += sample3;
-        if (mChannel4.isLeftSound()) leftFinalSample += sample4;
+        int left_final_sample = 0;
+        if (channel_1.isLeftSound()) left_final_sample += sample1;
+        if (channel_2.isLeftSound()) left_final_sample += sample2;
+        if (channel_3.isLeftSound()) left_final_sample += sample3;
+        if (channel_4.isLeftSound()) left_final_sample += sample4;
 
-        leftFinalSample >>= 2;
-        leftFinalSample = (leftFinalSample * leftMasterVolume) / 7;
-        leftFinalSample = std::clamp(leftFinalSample, -128, 127);
+        left_final_sample >>= 2;
+        left_final_sample = (left_final_sample * left_master_volume) / 7;
+        left_final_sample = std::clamp(left_final_sample, -128, 127);
 
-        int rightFinalSample = 0;
-        if (mChannel1.isRightSound()) rightFinalSample += sample1;
-        if (mChannel2.isRightSound()) rightFinalSample += sample2;
-        if (mChannel3.isRightSound()) rightFinalSample += sample3;
-        if (mChannel4.isRightSound()) rightFinalSample += sample4;
+        int right_final_sample = 0;
+        if (channel_1.isRightSound()) right_final_sample += sample1;
+        if (channel_2.isRightSound()) right_final_sample += sample2;
+        if (channel_3.isRightSound()) right_final_sample += sample3;
+        if (channel_4.isRightSound()) right_final_sample += sample4;
 
-        rightFinalSample >>= 2;
-        rightFinalSample = (rightFinalSample * rightMasterVolume) / 7;
-        rightFinalSample = std::clamp(rightFinalSample, -128, 127);
+        right_final_sample >>= 2;
+        right_final_sample = (right_final_sample * right_master_volume) / 7;
+        right_final_sample = std::clamp(right_final_sample, -128, 127);
 
-        a_internalBuffer[i * 2] = static_cast<u8>(leftFinalSample + 128);
-        a_internalBuffer[i * 2 + 1] = static_cast<u8>(rightFinalSample + 128);
+        buffer.push_back(static_cast<u8>(left_final_sample + 128));
+        buffer.push_back(static_cast<u8>(right_final_sample + 128));
     }
 }
 
-void cSound::updateCycles(s32 cycles) {
-    mChannel1.update(cycles);
-    mChannel2.update(cycles);
-    mChannel3.update(cycles);
-    mChannel4.update(cycles);
+void cSound::adjust_sample_rate(const std::size_t queued_samples) {
+    const auto error = (static_cast<double>(queued_samples) - queue_target_samples) / queue_target_samples;
+    adjust_factor = 1.0 + std::clamp(error * drc_gain, -drc_max_delta, drc_max_delta);
+    update_cycles_per_sample();
+}
+
+void cSound::set_speed(const double new_speed) {
+    speed = std::clamp(new_speed, min_speed, max_speed);
+    update_cycles_per_sample();
+}
+
+void cSound::update_cycles_per_sample() {
+    cycles_per_sample = base_cycles_per_sample * speed * adjust_factor;
 }

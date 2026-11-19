@@ -1,5 +1,9 @@
+#include <algorithm>
+#include <memory>
 #include <optional>
 #include <print>
+#include <string>
+
 #include <SDL.h>
 
 #include "CPU/cpu.h"
@@ -121,10 +125,6 @@ int main(int argc, char *argv[]) {
     request.format = AUDIO_U8;
     request.channels = static_cast<Uint8>(channels);
     request.samples = static_cast<Uint16>(buffer_size);
-    request.callback = [](void *data, u8 *buffer, const s32 size) noexcept {
-        static_cast<cSound *>(data)->fillBuffer(buffer, size);
-    };
-    request.userdata = sound;
 
     SDL_AudioSpec result;
     const SDL_AudioDeviceID device_id = SDL_OpenAudioDevice(nullptr, 0, &request, &result, 0);
@@ -135,21 +135,17 @@ int main(int argc, char *argv[]) {
     SDL_PauseAudioDevice(device_id, 0);
     constexpr int pitch = screen_width * sizeof(unsigned int);
 
-    Uint64 time_to_next_frame;
-#if SDL_VERSION_ATLEAST(2, 0, 18)
-    const auto now = SDL_GetTicks64();
-    time_to_next_frame = now + 16;
-#else
-    time_to_next_frame = SDL_GetTicks() + 16u;
-#endif
-
-
+    constexpr double frame_ms = 1000.0 * 70224.0 / 4194304.0; // 16.742 ms -> 59.73 fps
+    const double perf_ms = 1000.0 / static_cast<double>(SDL_GetPerformanceFrequency());
+    auto now_ms = [perf_ms] { return static_cast<double>(SDL_GetPerformanceCounter()) * perf_ms; };
+    double last_frame_time = now_ms();
+    double measured_speed = 1.0;
     int fps = 0;
     Uint64 fps_time = SDL_GetTicks64() + 1000;
-    Uint64 frame_start_time = SDL_GetTicks64();
+    double frame_start_time = now_ms();
     Uint64 frame_count = 0;
     std::string title;
-    double fpsSpeed = 1.0;
+    double fps_speed_factor = 1.0;
     bool is_running = true;
 
     SDL_Event event;
@@ -166,16 +162,17 @@ int main(int argc, char *argv[]) {
                             std::println("Saving state");
                             break;
                         case SDLK_d:
-                            fpsSpeed -= 0.5;
-                            fpsSpeed = std::clamp(fpsSpeed, 0.5, 3.0);
-                            frame_start_time = SDL_GetTicks64();
+                            fps_speed_factor -= 0.5;
+                            fps_speed_factor = std::clamp(fps_speed_factor, 0.5, 3.0);
+                            frame_start_time = now_ms();
                             frame_count = 0;
                             break;
                         case SDLK_a:
-                            fpsSpeed += 0.5;
-                            fpsSpeed = std::clamp(fpsSpeed, 0.5, 3.0);
-                            frame_start_time = SDL_GetTicks64();
+                            fps_speed_factor += 0.5;
+                            fps_speed_factor = std::clamp(fps_speed_factor, 0.5, 3.0);
+                            frame_start_time = now_ms();
                             frame_count = 0;
+                            break;
                         default:
                             break;
                     }
@@ -218,10 +215,13 @@ int main(int argc, char *argv[]) {
         }
         if (!key_state[SDL_SCANCODE_SPACE]) {
             frame_count++;
-            const Uint64 target_time = frame_start_time + frame_count / fpsSpeed * 1000 / 60;
-            if (const auto current_time = SDL_GetTicks64(); target_time > current_time) {
-                SDL_Delay(target_time - current_time);
+            const double target_time = frame_start_time + frame_count / fps_speed_factor * frame_ms;
+            if (const auto current_time = now_ms(); target_time > current_time) {
+                SDL_Delay(static_cast<Uint32>(target_time - current_time));
             }
+        } else {
+            frame_count = 0;
+            frame_start_time = now_ms();
         }
         fps++;
         if (fps_time <= SDL_GetTicks64()) {
@@ -230,7 +230,21 @@ int main(int argc, char *argv[]) {
             fps_time = SDL_GetTicks64() + 1000;
             fps = 0;
         }
+        const double now = now_ms();
+        const double real_ms = std::max(now - last_frame_time, 0.01);
+        last_frame_time = now;
+        measured_speed += 0.1 * (frame_ms / real_ms - measured_speed);
+        sound->set_speed(measured_speed);
         gb.runFrame();
+        auto queue_size = SDL_GetQueuedAudioSize(device_id) / 2;
+        sound->adjust_sample_rate(queue_size);
+        const auto samples = sound->get_samples();
+        if (!samples.empty()) {
+            if (SDL_QueueAudio(device_id, samples.data(), samples.size()) != 0) {
+                std::println(stderr, "Audio queue error: {}", SDL_GetError());
+            }
+        }
+        sound->clear_samples();
         auto video_buffer = gb.get_video_buffer();
         SDL_UpdateTexture(texture.get(), nullptr, video_buffer.data(), pitch);
         SDL_RenderCopy(renderer.get(), texture.get(), nullptr, &window_size);

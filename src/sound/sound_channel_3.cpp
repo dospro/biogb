@@ -1,7 +1,3 @@
-//
-// Created by dospro on 14/12/15.
-//
-
 #include "sound_channel_3.h"
 
 cSoundChannel3::cSoundChannel3(const int a_generalFrequency) : cSoundChannel(a_generalFrequency) {

@@ -1,7 +1,11 @@
 #include "mbc3.h"
 
 #include <chrono>
+#include <ctime>
+#include <istream>
+#include <ostream>
 #include <print>
+#include <utility>
 
 MBC3::MBC3(RomBanks rom, const u16 ram_banks) : rom(std::move(rom)), ram(ram_banks) {
     const auto now = std::chrono::system_clock::now();

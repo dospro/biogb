@@ -2,6 +2,7 @@
 
 #include <istream>
 #include <ostream>
+#include <utility>
 
 MBC2::MBC2(RomBanks rom) : rom(std::move(rom)) {}
 

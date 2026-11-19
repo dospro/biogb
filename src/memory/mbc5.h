@@ -3,6 +3,7 @@
 
 #include <iosfwd>
 
+#include "../macros.h"
 #include "rom_types.h"
 
 

@@ -1,12 +1,11 @@
 #ifndef BIOGB_SGB_H
 #define BIOGB_SGB_H
+#include <array>
+#include <cstddef>
 #include <mdspan>
 #include <optional>
-#include <array>
 #include <span>
-#include <print>
 #include <vector>
-#include <algorithm>
 
 #include "macros.h"
 
@@ -27,19 +26,7 @@ public:
      * Bits past that point are dropped with a warning, which can only happen if a caller
      * forgets to take_packet().
      */
-    void add_bit(const u8 bit) {
-        if (bit_index >= 128) {
-            if (is_packet_full) {
-                std::println("SGB Warning: Bit index out of bounds: {}", bit_index);
-            }
-            is_packet_full = true;
-            return;
-        }
-        const size_t byte_index = bit_index >> 3;
-        const size_t bit_position = bit_index & 7;
-        buffer[byte_index] |= bit << bit_position;
-        bit_index++;
-    }
+    void add_bit(u8 bit);
 
     /**
      * @brief Removes the finished packet, if one is ready.
@@ -64,7 +51,7 @@ public:
 
 private:
     std::array<u8, 16> buffer{};
-    size_t bit_index = 0;
+    std::size_t bit_index = 0;
     bool is_packet_full = false;
 };
 
@@ -235,7 +222,7 @@ private:
     /**
     * @brief Reads one little-endian RGB555 color out of the current packet at @p byte_offset.
     */
-    [[nodiscard]] u16 packet_color(size_t byte_offset) const;
+    [[nodiscard]] u16 packet_color(std::size_t byte_offset) const;
     /**
     * @brief Applies a PAL01/PAL23/PAL03/PAL12 packet to the two palettes it names.
     *
@@ -243,7 +230,7 @@ private:
     * target: bytes 1-2 hold color 0, bytes 3-8 are colors 1-3 of @p first, and bytes 9-14 are
     * colors 1-3 of @p second.
     */
-    void apply_pal_command(size_t first, size_t second);
+    void apply_pal_command(std::size_t first, std::size_t second);
 
     void render_border();
 
@@ -276,14 +263,14 @@ private:
     std::array<u8, 0x1000> vram_transfer_buffer{};
 
     std::array<u16, 8 * 16> palettes_data{};
-    std::mdspan<u16, std::extents<size_t, 8, 16> > palettes{palettes_data.data()};
+    std::mdspan<u16, std::extents<std::size_t, 8, 16> > palettes{palettes_data.data()};
 
     /*
      * Beside for the actually visible palettes, up to 512 palettes of 4 colors
      * each may be defined in SNES RAM.
      */
     std::array<u16, 512 * 4> system_palettes_data{};
-    std::mdspan<u16, std::extents<size_t, 512, 4> > system_palettes{system_palettes_data.data()};
+    std::mdspan<u16, std::extents<std::size_t, 512, 4> > system_palettes{system_palettes_data.data()};
 
     std::array<u8, 0x740> tile_map{};
     std::array<u8, 0x2000> tile_data{};

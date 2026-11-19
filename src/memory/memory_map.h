@@ -3,16 +3,19 @@
 
 #include <array>
 #include <expected>
+#include <memory>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "rom_loader.h"
 #include "../display.h"
 #include "../input.h"
-#include "../timer.h"
 #include "../macros.h"
-#include "../sound/sound.h"
 #include "../sgb.h"
+#include "../sound/sound.h"
+#include "../timer.h"
 
 enum eInterrupts { VBLANK = 1, LCDC = 2, TIMER = 4, SERIAL = 8, JOYPAD = 16 };
 
@@ -29,8 +32,6 @@ struct SerialTransfer {
     bool speed;
     u8 rec, trans;
 };
-
-class cTimer;
 
 class MemoryMap {
    public:

@@ -4,6 +4,7 @@
 // class definitions, not just the <iosfwd> forward declarations mbc1.h/mbc2.h get away with.
 #include <istream>
 #include <ostream>
+#include <utility>
 
 #include "rom_types.h"
 

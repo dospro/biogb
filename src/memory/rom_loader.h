@@ -4,10 +4,12 @@
 #include <vector>
 #include <array>
 #include <expected>
+#include <fstream>
 #include <optional>
 #include <string>
-#include <fstream>
+#include <string_view>
 #include <variant>
+#include <vector>
 
 #include "mbc1.h"
 #include "mbc2.h"

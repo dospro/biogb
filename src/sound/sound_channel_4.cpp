@@ -49,7 +49,7 @@ int cSoundChannel4::getSample() {
         mCounter++;
     } else {
         ++mPatternIndex;
-        if (mPatternIndex > mPatternWidth)
+        if (mPatternIndex >= mPatternWidth)
             mPatternIndex = 0;
         mCounter -= mPeriod;
     }

@@ -1,11 +1,16 @@
 #ifndef BIOGB_CPU
 #define BIOGB_CPU
 
+#include <array>
 #include <expected>
+#include <memory>
+#include <span>
+#include <string>
+#include <string_view>
 
-#include "../memory/memory_map.h"
 #include "../input.h"
 #include "../macros.h"
+#include "../memory/memory_map.h"
 #include "../sound/sound.h"
 
 union FRegister {

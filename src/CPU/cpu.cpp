@@ -1,5 +1,7 @@
 #include "cpu.h"
 
+#include <format>
+#include <new>
 #include <print>
 
 namespace {

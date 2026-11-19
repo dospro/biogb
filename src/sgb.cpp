@@ -1,5 +1,21 @@
 #include "sgb.h"
 
+#include <algorithm>
+#include <print>
+
+void BitPacker::add_bit(const u8 bit) {
+    if (bit_index >= 128) {
+        if (is_packet_full) {
+            std::println("SGB Warning: Bit index out of bounds: {}", bit_index);
+        }
+        is_packet_full = true;
+        return;
+    }
+    const std::size_t byte_index = bit_index >> 3;
+    const std::size_t bit_position = bit_index & 7;
+    buffer[byte_index] |= bit << bit_position;
+    bit_index++;
+}
 
 void SGB::write(const u8 a_value) {
     const u8 value = a_value & 0x30;
@@ -63,10 +79,10 @@ void SGB::handle_command() {
         case PAL12: std::println("PAL12"); apply_pal_command(1, 2); break;
         case PAL_SET:
             std::println("PAL_SET");
-            for (size_t palette_number = 0; palette_number < 4; ++palette_number) {
+            for (std::size_t palette_number = 0; palette_number < 4; ++palette_number) {
                 const auto palette_id = (packets[0][palette_number * 2 + 1] |
                                          (packets[0][palette_number * 2 + 2] << 8)) & 0x1FF;
-                for (size_t i = 0; i < 4; ++i) {
+                for (std::size_t i = 0; i < 4; ++i) {
                     palettes[palette_number, i] = system_palettes[palette_id, i];
                 }
             }
@@ -121,7 +137,7 @@ void SGB::handle_command() {
 }
 
 void SGB::capture_screen(const std::span<const u8> screen) {
-    const std::mdspan<const u8, std::extents<size_t, 144, 160> > pixels{screen.data()};
+    const std::mdspan<const u8, std::extents<std::size_t, 144, 160> > pixels{screen.data()};
 
     /*
      * The payload is 4096 bytes. A tile is 8x8 pixels at 2 bits per pixel, which is 128 bits,
@@ -133,7 +149,7 @@ void SGB::capture_screen(const std::span<const u8> screen) {
      * payload means visiting the 256 tiles in the order they were laid out and squeezing each
      * 8x8 block of pixels back into the 16 bytes it came from.
      */
-    for (size_t tile = 0; tile < 256; ++tile) {
+    for (std::size_t tile = 0; tile < 256; ++tile) {
         /*
          * `pixels` is a flat 144x160 grid with no notion of tiles, so first we turn a tile
          * number into the pixel coordinate of that tile's top-left corner.
@@ -161,10 +177,10 @@ void SGB::capture_screen(const std::span<const u8> screen) {
          * Inside a byte the leftmost pixel is the most significant bit, so pixel `tile_x` is
          * shifted by (7 - tile_x): pixel 0 lands in bit 7, pixel 7 in bit 0.
          */
-        for (size_t tile_y = 0; tile_y < 8; ++tile_y) {
+        for (std::size_t tile_y = 0; tile_y < 8; ++tile_y) {
             u8 low_byte = 0;
             u8 high_byte = 0;
-            for (size_t tile_x = 0; tile_x < 8; ++tile_x) {
+            for (std::size_t tile_x = 0; tile_x < 8; ++tile_x) {
                 const auto pixel_2bpp = pixels[tile_row_pos + tile_y, tile_col_pos + tile_x];
                 low_byte |= (pixel_2bpp & 1) << (7 - tile_x);
                 high_byte |= ((pixel_2bpp >> 1) & 1) << (7 - tile_x);
@@ -212,7 +228,7 @@ void SGB::schedule_transfer(const PendingTransfer transfer) {
 }
 
 void SGB::write_sgb_tile_map() {
-    for (size_t i = 0; i < 0x740; ++i) {
+    for (std::size_t i = 0; i < 0x740; ++i) {
         tile_map[i] = vram_transfer_buffer[i];
     }
 }
@@ -222,7 +238,7 @@ void SGB::write_sgb_palette() {
     // 16 colors each
     // 2 bytes per color
     // Total 0x60 bytes
-    for (size_t i = 0; i < 0x60; i += 2) {
+    for (std::size_t i = 0; i < 0x60; i += 2) {
         const u16 data = vram_transfer_buffer[0x800 + i] | (vram_transfer_buffer[0x800 + i + 1] << 8);
         const auto color_index = i / 2;
         const auto palette_number = (color_index >> 4) + 4;
@@ -236,7 +252,7 @@ void SGB::write_sgb_palette() {
  * 0 -> tiles 0-127, 1 -> tiles 128-255. Each half is one full 4KB payload.
  */
 void SGB::write_sgb_tile_data() {
-    const size_t destination = (transfer_arg & 1) ? 0x1000 : 0;
+    const std::size_t destination = (transfer_arg & 1) ? 0x1000 : 0;
     std::ranges::copy(vram_transfer_buffer, tile_data.begin() + destination);
 }
 
@@ -247,8 +263,8 @@ void SGB::write_sgb_system_palette() {
      * Each color is 2 bytes
      * So, each palette is 8 bytes
      */
-    for (size_t palette = 0; palette < 512; ++palette) {
-        for (size_t index = 0; index < 4; ++index) {
+    for (std::size_t palette = 0; palette < 512; ++palette) {
+        for (std::size_t index = 0; index < 4; ++index) {
             const auto buffer_index = palette * 8 + index * 2;
             const u16 data = vram_transfer_buffer[buffer_index] | (vram_transfer_buffer[buffer_index + 1] << 8);
             system_palettes[palette, index] = data;
@@ -257,17 +273,17 @@ void SGB::write_sgb_system_palette() {
 }
 
 
-u16 SGB::packet_color(const size_t byte_offset) const {
+u16 SGB::packet_color(const std::size_t byte_offset) const {
     return packets[0][byte_offset] | (packets[0][byte_offset + 1] << 8);
 }
 
-void SGB::apply_pal_command(const size_t first, const size_t second) {
+void SGB::apply_pal_command(const std::size_t first, const std::size_t second) {
     const u16 color0 = packet_color(1);
-    for (size_t palette = 0; palette < 4; ++palette) {
+    for (std::size_t palette = 0; palette < 4; ++palette) {
         palettes[palette, 0] = color0;
     }
 
-    for (size_t color = 1; color < 4; ++color) {
+    for (std::size_t color = 1; color < 4; ++color) {
         palettes[first, color] = packet_color(1 + color * 2); // bytes 3, 5, 7
         palettes[second, color] = packet_color(7 + color * 2); // bytes 9, 11, 13
     }
@@ -284,10 +300,10 @@ void SGB::render_border() {
      * Write it to the buffer;
      */
 
-    std::mdspan buffer_view{composed_frame.data(), std::extents<size_t, 224, 256>{}};
+    std::mdspan buffer_view{composed_frame.data(), std::extents<std::size_t, 224, 256>{}};
 
-    for (size_t y = 0; y < 28; ++y) {
-        for (size_t x = 0; x < 32; ++x) {
+    for (std::size_t y = 0; y < 28; ++y) {
+        for (std::size_t x = 0; x < 32; ++x) {
             const auto tile_map_index = (y * 32 + x) * 2;
             const auto tile_map_entry = tile_map[tile_map_index] | (tile_map[tile_map_index + 1] << 8);
 
@@ -315,21 +331,21 @@ void SGB::render_border() {
              * and so on
              *
              */
-            for (size_t row = 0; row < 8; ++row) {
+            for (std::size_t row = 0; row < 8; ++row) {
                 const u8 byte0 = tile_data[tile_index * 32 + row * 2];
                 const u8 byte1 = tile_data[tile_index * 32 + row * 2 + 1];
                 const u8 byte2 = tile_data[tile_index * 32 + row * 2 + 16];
                 const u8 byte3 = tile_data[tile_index * 32 + row * 2 + 17];
 
-                const size_t dest_row = y_flip ? 7 - row : row;
+                const std::size_t dest_row = y_flip ? 7 - row : row;
 
-                for (size_t small_x = 0; small_x < 8; ++small_x) {
+                for (std::size_t small_x = 0; small_x < 8; ++small_x) {
                     const auto color_index = ((byte0 >> (7 - small_x)) & 1) |
                                              (((byte1 >> (7 - small_x)) & 1) << 1) |
                                              (((byte2 >> (7 - small_x)) & 1) << 2) |
                                              (((byte3 >> (7 - small_x)) & 1) << 3);
                     if (color_index == 0) continue;
-                    const size_t dest_col = x_flip ? 7 - small_x : small_x;
+                    const std::size_t dest_col = x_flip ? 7 - small_x : small_x;
                     buffer_view[y * 8 + dest_row, x * 8 + dest_col] = to_rgb888(palettes[palette_index, color_index]);
                 }
             }
@@ -368,14 +384,14 @@ std::span<const u32> SGB::compose_frame(std::span<const u32> gb_frame) {
     */
     std::ranges::fill(composed_frame, to_rgb888(palettes[0, 0]));
 
-    const std::mdspan<const u32, std::extents<size_t, 144, 160> > stored_view{stored_frame.data()};
-    std::mdspan composed_view{composed_frame.data(), std::extents<size_t, 224, 256>{}};
+    const std::mdspan<const u32, std::extents<std::size_t, 144, 160> > stored_view{stored_frame.data()};
+    std::mdspan composed_view{composed_frame.data(), std::extents<std::size_t, 224, 256>{}};
 
-    constexpr size_t y_offset = (224 - 144) / 2;
-    constexpr size_t x_offset = (256 - 160) / 2;
+    constexpr std::size_t y_offset = (224 - 144) / 2;
+    constexpr std::size_t x_offset = (256 - 160) / 2;
 
-    for (size_t y = 0; y < 144; ++y) {
-        for (size_t x = 0; x < 160; ++x) {
+    for (std::size_t y = 0; y < 144; ++y) {
+        for (std::size_t x = 0; x < 160; ++x) {
             composed_view[y + y_offset, x + x_offset] = blanked ? blank_color : stored_view[y, x];
         }
     }
